@@ -752,7 +752,7 @@ import VehicleCertTable from "./VehicleCertTable.vue";
 
 import http from "../../api/http";
 import { finalizeOrderUpload, getOrder, updateOrder, updateOrderStatus, uploadOrderImageProxy } from "../../api/orders";
-import { getFinanceOrderDetail, returnFinanceOrder } from "../../api/finance";
+import { getFinanceOrderDetail } from "../../api/finance";
 import { useSessionStore } from "../../store/session";
 import { useOrderFieldConfig } from "../../composables/useOrderFieldConfig";
 import { formatDynamicValue } from "../../utils/fieldFormat";
@@ -806,11 +806,19 @@ function toggleFinanceEdit() {
 }
 function cancelFinanceEdit() {
   if (!canFinanceOps.value) return;
+  if (slotUploading.related) return;
+
+  // ✅ 退出编辑时清空 pending 队列，避免“取消编辑”后还继续上传/回填
+  relatedPendingFiles.value = [];
+  relatedRetryOnce.value = false;
+
   financeEditMode.value = false;
   ElMessage.success("已退出编辑");
 }
 async function saveFinanceEdit() {
   if (!canFinanceOps.value) return;
+  if (slotUploading.related) return;
+
   financeEditMode.value = false;
   ElMessage.success("已保存");
   await load({ preserveEditDraft: true });
@@ -1938,7 +1946,7 @@ async function _drainRelatedQueue() {
     // ✅ 如果处理期间又进队了新文件，继续处理下一批
     if (relatedPendingFiles.value.length) {
       // 不 await，避免阻塞 UI；但仍保证串行（因为 slotUploading.related 已释放）
-      _drainRelatedQueue();
+      void _drainRelatedQueue();
     }
   }
 }
@@ -2518,50 +2526,5 @@ watch(
   font-size: 12px;
   color: rgba(31, 42, 68, 0.56);
   font-weight: 650;
-}
-
-@media (max-width: 980px) {
-  .two-col {
-    grid-template-columns: 1fr;
-  }
-
-  .right {
-    border-left: none;
-    padding-left: 0;
-  }
-
-  .image-wall-wide {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .meta-card .kv-grid {
-    max-width: 100%;
-  }
-
-  .detail-header {
-    padding: 8px 0;
-  }
-
-  .kv-grid-4 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .kv-grid-5 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  /* ✅ 新增：移动端 6 列同样降为 2 列 */
-  .kv-grid-6 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .image-actions-wide {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .related-dragger {
-    width: 100%;
-    min-width: 0;
-  }
 }
 </style>

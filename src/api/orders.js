@@ -1,12 +1,19 @@
 // src/api/orders.js
 import http from "./http";
 
+/**
+ * ✅ 全系统时间统一 Asia/Shanghai（北京时间）
+ * - 与 finance.js 同策略：日期输出 YYYY-MM-DD，避免本地时区/UTC 跨日坑
+ */
+const TZ_BJ = "Asia/Shanghai";
+
 function toValidId(id) {
-  const n = Number(id);
+  // ✅ 更严格：必须是正整数（拒绝 1.2 这种被截断的脏输入）
+  const n = typeof id === "string" ? Number(id.trim()) : Number(id);
   if (!Number.isFinite(n)) throw new Error("orders api: invalid id");
-  const v = Math.trunc(n);
-  if (v <= 0) throw new Error("orders api: invalid id");
-  return v;
+  if (!Number.isInteger(n)) throw new Error("orders api: id must be an integer");
+  if (n <= 0) throw new Error("orders api: invalid id");
+  return n;
 }
 
 function cleanUndefined(obj) {
@@ -17,17 +24,71 @@ function cleanUndefined(obj) {
   return out;
 }
 
+function isValidDate(d) {
+  return d instanceof Date && Number.isFinite(d.getTime());
+}
+
+function formatYmdInTz(d, timeZone = TZ_BJ) {
+  const dt = isValidDate(d) ? d : new Date(d);
+  if (!isValidDate(dt)) return "";
+
+  // en-CA 默认就是 YYYY-MM-DD
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  return fmt.format(dt);
+}
+
+function normalizeYmd(v) {
+  if (v === null || v === undefined) return "";
+  if (isValidDate(v)) return formatYmdInTz(v, TZ_BJ);
+
+  if (typeof v === "string") {
+    const s = v.trim();
+    if (!s) return "";
+
+    // 兼容 YYYYMMDD
+    if (/^\d{8}$/.test(s)) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+
+    // 兼容 YYYY-MM-DD 或 YYYY-MM-DDTHH:mm:ss...
+    const m1 = s.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (m1) return m1[1];
+
+    // 兼容 YYYY/MM/DD
+    const m2 = s.match(/^(\d{4})\/(\d{2})\/(\d{2})/);
+    if (m2) return `${m2[1]}-${m2[2]}-${m2[3]}`;
+
+    return s;
+  }
+
+  // 兜底：number/other
+  const s2 = String(v).trim();
+  return s2 || "";
+}
+
+function normalizeRangeToYmdPair(v) {
+  if (!Array.isArray(v) || v.length !== 2) return null;
+  const a = normalizeYmd(v[0]);
+  const b = normalizeYmd(v[1]);
+  if (!a || !b) return null;
+  return [a, b];
+}
+
 /**
  * ✅ 清洗 query 参数：
  * - 去掉 null / undefined
  * - 字符串 trim 后为空则去掉
  * - 数组去掉空值后为空则去掉
- * - 其他类型原样保留（boolean/number/object）
+ * - number: NaN/Infinity 丢弃
+ * - Date: 自动转 YYYY-MM-DD（北京时间）
+ * - 其他类型原样保留（boolean/object）
  *
- * ✅ 额外护栏：
- * - 日期范围参数必须成对出现（start/end），否则两者都不传，避免后端 400
+ * ❗注意：daterange 不在这里做“拆 start/end”，由 normalizeListOrdersParams 统一处理
  */
-function normalizeListOrdersParams(params) {
+function cleanQueryParams(params) {
   const out = {};
   const src = params && typeof params === "object" ? params : {};
 
@@ -41,9 +102,26 @@ function normalizeListOrdersParams(params) {
       continue;
     }
 
+    if (typeof v === "number") {
+      if (!Number.isFinite(v)) continue;
+      out[k] = v;
+      continue;
+    }
+
+    if (isValidDate(v)) {
+      out[k] = formatYmdInTz(v, TZ_BJ);
+      continue;
+    }
+
     if (Array.isArray(v)) {
       const arr = v
-        .map((x) => (typeof x === "string" ? x.trim() : x))
+        .map((x) => {
+          if (x === null || x === undefined) return x;
+          if (typeof x === "string") return x.trim();
+          if (typeof x === "number") return Number.isFinite(x) ? x : null;
+          if (isValidDate(x)) return formatYmdInTz(x, TZ_BJ);
+          return x;
+        })
         .filter((x) => x !== null && x !== undefined && !(typeof x === "string" && x === ""));
       if (!arr.length) continue;
       out[k] = arr;
@@ -53,7 +131,46 @@ function normalizeListOrdersParams(params) {
     out[k] = v;
   }
 
-  // ✅ 成对参数护栏（避免只传 start 或只传 end 导致后端校验 400）
+  return out;
+}
+
+/**
+ * ✅ 订单列表 query 参数归一化：
+ * - created_date: [start,end] => created_date_start/created_date_end
+ * - first_register_date: [start,end] => first_register_date_start/first_register_date_end
+ * - 成对护栏：*_start 与 *_end 必须同时存在，否则两者都不发（避免后端 400）
+ */
+function normalizeListOrdersParams(params) {
+  const out = cleanQueryParams(params);
+
+  // 1) 从 daterange 字段拆分（仅当未显式传 start/end 时才使用）
+  if (Object.prototype.hasOwnProperty.call(out, "created_date")) {
+    const hasStart = Object.prototype.hasOwnProperty.call(out, "created_date_start");
+    const hasEnd = Object.prototype.hasOwnProperty.call(out, "created_date_end");
+
+    const pair = !hasStart && !hasEnd ? normalizeRangeToYmdPair(out.created_date) : null;
+    delete out.created_date;
+
+    if (pair) {
+      out.created_date_start = pair[0];
+      out.created_date_end = pair[1];
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(out, "first_register_date")) {
+    const hasStart = Object.prototype.hasOwnProperty.call(out, "first_register_date_start");
+    const hasEnd = Object.prototype.hasOwnProperty.call(out, "first_register_date_end");
+
+    const pair = !hasStart && !hasEnd ? normalizeRangeToYmdPair(out.first_register_date) : null;
+    delete out.first_register_date;
+
+    if (pair) {
+      out.first_register_date_start = pair[0];
+      out.first_register_date_end = pair[1];
+    }
+  }
+
+  // 2) 成对参数护栏（避免只传 start 或只传 end 导致后端校验 400）
   const pairs = [
     ["created_date_start", "created_date_end"],
     ["first_register_date_start", "first_register_date_end"],
@@ -104,7 +221,7 @@ export function createOrderDraft(data = {}) {
   const payload = cleanUndefined({
     module: data.module || "order",
     dynamic_data: data.dynamic_data || {},
-    // ✅ 后端 OrderDraftIn 没有 order_info：不要传，避免“以为生效但其实无效/被忽略”
+    // ✅ 后端 OrderDraftIn 没有 order_info：不要传
     customer_group_id: data.customer_group_id ?? undefined,
     channel_group_id: data.channel_group_id ?? undefined,
     salesperson_id: data.salesperson_id ?? undefined,
@@ -113,12 +230,7 @@ export function createOrderDraft(data = {}) {
 }
 
 /**
- * ✅ 统一清洗 images[]，避免不同页面塞入 preview_url / preprocess_note 等冗余字段
- * 导致后端严格校验（400/422）。
- *
- * 注意：
- * - 后端 FinalizeImageIn 的 md5 有默认值（允许空字符串），所以这里不强制要求 md5。
- * - 必填：slot_key / storage_key（否则后端会 400）
+ * ✅ 统一清洗 images[]
  */
 function sanitizeFinalizeImages(images) {
   if (!Array.isArray(images)) return [];
@@ -131,18 +243,21 @@ function sanitizeFinalizeImages(images) {
     const storage_key = img.storage_key != null ? String(img.storage_key).trim().replace(/^\/+/, "") : "";
     const md5 = img.md5 != null ? String(img.md5).trim() : "";
 
-    // 必填护栏
     if (!slot_key || !storage_key) continue;
 
     const item = {
       slot_key,
       storage_key,
-      md5, // 允许为空（后端默认值也允许）
+      md5,
     };
 
-    // 可选字段：有就带，没有就不传（保持 payload 干净）
     if (img.etag != null && String(img.etag).trim()) item.etag = String(img.etag).trim();
-    if (img.size != null && !Number.isNaN(Number(img.size))) item.size = Number(img.size);
+
+    if (img.size != null && !Number.isNaN(Number(img.size))) {
+      const n = Number(img.size);
+      item.size = Number.isFinite(n) ? Math.max(0, n) : 0;
+    }
+
     if (img.content_type != null && String(img.content_type).trim()) item.content_type = String(img.content_type).trim();
     if (img.original_name != null && String(img.original_name).trim()) item.original_name = String(img.original_name).trim();
     if (img.url != null && String(img.url).trim()) item.url = String(img.url).trim();
@@ -153,18 +268,19 @@ function sanitizeFinalizeImages(images) {
 }
 
 /**
- * ✅ 清洗 clear_slots（用于 multi-slot 清空：目前后端仅支持 related）
- * - 仅保留非空字符串
- * - trim
- * - 去重
+ * ✅ 清洗 clear_slots（目前仅 related）
  */
 function sanitizeClearSlots(clear_slots) {
   if (!Array.isArray(clear_slots)) return [];
+
+  const ALLOWED = new Set(["related"]);
+
   const seen = new Set();
   const out = [];
   for (const x of clear_slots) {
     const s = String(x ?? "").trim();
     if (!s) continue;
+    if (!ALLOWED.has(s)) continue;
     if (seen.has(s)) continue;
     seen.add(s);
     out.push(s);
@@ -172,28 +288,28 @@ function sanitizeClearSlots(clear_slots) {
   return out;
 }
 
-// finalize：提交图片清单，让后端落库 OrderImage/ImageFile 并创建/复用 OcrTask
+// finalize：提交图片清单
 export function finalizeOrderUpload(payload = {}) {
-  const cs = sanitizeClearSlots(payload?.clear_slots);
+  const src = payload && typeof payload === "object" ? payload : {};
+
+  const cs = sanitizeClearSlots(src.clear_slots);
+  const images = sanitizeFinalizeImages(src.images);
 
   const safePayload = cleanUndefined({
-    ...payload,
-    order_id: payload?.order_id ?? undefined,
-    images: sanitizeFinalizeImages(payload?.images),
-    // ✅ 对齐后端：OrderFinalizeIn 有 clear_slots，用它才能把 related 清到 0 张
+    order_id: src.order_id != null ? toValidId(src.order_id) : undefined,
+    images,
     clear_slots: cs.length ? cs : undefined,
+    dynamic_data: src.dynamic_data ?? undefined,
 
-    dynamic_data: payload?.dynamic_data ?? undefined,
-    // ✅ 后端 OrderFinalizeIn 没有 order_info：不要传
-    customer_group_id: payload?.customer_group_id ?? undefined,
-    channel_group_id: payload?.channel_group_id ?? undefined,
-    salesperson_id: payload?.salesperson_id ?? undefined,
+    customer_group_id: src.customer_group_id ?? undefined,
+    channel_group_id: src.channel_group_id ?? undefined,
+    salesperson_id: src.salesperson_id ?? undefined,
   });
 
   return http.post("/orders/finalize", safePayload);
 }
 
-// ✅ 稳定模式：浏览器上传到后端，由后端代传 BOS（解决 VPN/代理/CORS 拦截）
+// ✅ 稳定模式：浏览器上传到后端，由后端代传 BOS
 export function uploadOrderImageProxy({ slot_key, file }) {
   const fd = new FormData();
   fd.append("slot_key", String(slot_key || "").trim());
@@ -206,7 +322,7 @@ export function updateOrder(id, data = {}) {
   const oid = toValidId(id);
 
   const payload = cleanUndefined({
-    module: data.module ?? undefined, // 不强制覆盖，避免意外改 module
+    module: data.module ?? undefined,
     dynamic_data: data.dynamic_data !== undefined ? data.dynamic_data : undefined,
     status: data.status !== undefined ? data.status : undefined,
     audit_status: data.audit_status !== undefined ? data.audit_status : undefined,
@@ -224,13 +340,11 @@ export function updateOrder(id, data = {}) {
 }
 
 // 单独更新状态（列表页用）
-// ✅ 后端是 PATCH /orders/{id}/status
 export function updateOrderStatus(id, data = {}) {
   const oid = toValidId(id);
 
   const payload = cleanUndefined({
     is_finished: data.is_finished !== undefined ? data.is_finished : undefined,
-    // 你后端明确：finance 字段不能在订单模块 patch（is_rebate/is_paid 会 400）
   });
 
   return http.patch(`/orders/${oid}/status`, payload);
@@ -255,7 +369,7 @@ export function getTeams() {
 
 /**
  * ✅ 业务员下拉：后端 /orders/salespersons
- * - 支持 team_name（用于“业务员下拉跟随团队”）
+ * - 支持 team_name
  * - 支持 status（默认 1）
  */
 export function listSalespersons(params = {}) {

@@ -3,27 +3,6 @@ import { createRouter, createWebHistory } from "vue-router";
 import { useSessionStore } from "../store/session";
 import { ROLE } from "../constants";
 
-import Login from "../views/Login.vue";
-import Dashboard from "../views/Dashboard.vue";
-
-// 订单相关
-import OrderList from "../views/orders/OrderList.vue";
-import OrderCreate from "../views/orders/OrderCreate.vue";
-import OrderDetail from "../views/orders/OrderDetail.vue";
-import OrderFinished from "../views/orders/OrderFinished.vue";
-import OrderUnfinished from "../views/orders/OrderUnfinished.vue";
-import OrderImport from "../views/orders/OrderImport.vue";
-
-// 账号管理
-import UserList from "../views/users/UserList.vue";
-
-// 财务管理
-import FinanceList from "../views/finance/FinanceList.vue";
-
-// 客户 / 渠道管理
-import CustomerList from "../views/customers/CustomerList.vue";
-import ChannelList from "../views/channels/ChannelList.vue";
-
 function _normRole(r) {
   return String(r ?? "").trim().toLowerCase();
 }
@@ -70,7 +49,7 @@ function hasAccess(roleName, path) {
 
     if (p.startsWith("/orders")) return true;
 
-    // ✅ 关键：market 允许进入 finance（查看）
+    // ✅ market 允许进入 finance（查看）
     if (p.startsWith("/finance")) return true;
 
     if (p.startsWith("/customers")) return true;
@@ -82,6 +61,28 @@ function hasAccess(roleName, path) {
 
   return true;
 }
+
+// ✅ 全部改为懒加载：把页面组件从首包挪走
+const Login = () => import("../views/Login.vue");
+const Dashboard = () => import("../views/Dashboard.vue");
+
+// 订单相关
+const OrderList = () => import("../views/orders/OrderList.vue");
+const OrderCreate = () => import("../views/orders/OrderCreate.vue");
+const OrderDetail = () => import("../views/orders/OrderDetail.vue");
+const OrderFinished = () => import("../views/orders/OrderFinished.vue");
+const OrderUnfinished = () => import("../views/orders/OrderUnfinished.vue");
+const OrderImport = () => import("../views/orders/OrderImport.vue");
+
+// 账号管理
+const UserList = () => import("../views/users/UserList.vue");
+
+// 财务管理
+const FinanceList = () => import("../views/finance/FinanceList.vue");
+
+// 客户 / 渠道管理
+const CustomerList = () => import("../views/customers/CustomerList.vue");
+const ChannelList = () => import("../views/channels/ChannelList.vue");
 
 const routes = [
   { path: "/login", name: "login", component: Login },
@@ -104,7 +105,12 @@ const routes = [
 
       // ✅ 财务：meta 方便页面做只读
       { path: "finance", name: "finance", component: FinanceList, meta: { financeReadOnly: true } },
-      { path: "finance/orders/:id", name: "finance-order-detail", component: OrderDetail, meta: { financeReadOnly: true } },
+      {
+        path: "finance/orders/:id",
+        name: "finance-order-detail",
+        component: OrderDetail,
+        meta: { financeReadOnly: true },
+      },
 
       { path: "customers", name: "customers", component: CustomerList },
       { path: "channels", name: "channels", component: ChannelList },

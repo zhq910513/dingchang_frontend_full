@@ -58,9 +58,81 @@ http.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+/**
+ * ✅ Session 过期统一处理（401/419）：
+ * - 轻提示（不用 element-plus，避免 http 层反向依赖 UI 框架）
+ * - 清 sessionStorage 的 sessionToken
+ * - 强制跳转到 /login 并带 redirect（用 location.replace，避免依赖 router）
+ *
+ * ✅ 注意：
+ * - 防重入：同一时间只处理一次
+ * - 内部吞异常：保证不会产生未处理 Promise
+ */
+let _handlingAuthExpired = false;
+
+function _currentFullPath() {
+  const p = window.location.pathname || "/";
+  const s = window.location.search || "";
+  const h = window.location.hash || "";
+  return `${p}${s}${h}`;
+}
+
+function _redirectToLogin() {
+  const curPath = _currentFullPath();
+  if (curPath.startsWith("/login")) return;
+
+  const url = `/login?redirect=${encodeURIComponent(curPath)}`;
+  window.location.replace(url);
+}
+
+async function handleAuthExpiredOnce() {
+  if (_handlingAuthExpired) return;
+  _handlingAuthExpired = true;
+
+  try {
+    const curPath = _currentFullPath();
+    if (!curPath.startsWith("/login")) {
+      // ✅ 轻提示：不依赖 element-plus，避免把 UI 框架耦合进网络层
+      // 你也可以换成更温和的 toast（但那需要在上层统一做，不建议在 http 层做）
+      try {
+        window.alert("登录已过期，请重新登录。");
+      } catch {
+        // ignore
+      }
+    }
+
+    // ✅ 清 session（只清 token，不清全量 storage，避免误伤）
+    try {
+      sessionStorage.removeItem("sessionToken");
+    } catch {
+      // ignore
+    }
+
+    // ✅ 跳登录并带上 redirect
+    _redirectToLogin();
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error(e);
+  } finally {
+    // ✅ 稍微延迟释放，避免并发 401 连续触发多次弹框/跳转
+    window.setTimeout(() => {
+      _handlingAuthExpired = false;
+    }, 800);
+  }
+}
+
 http.interceptors.response.use(
   (res) => res,
-  (err) => Promise.reject(err)
+  (err) => {
+    const status = err?.response?.status;
+
+    // ✅ 401：未登录/过期；419：一些后端会用来表示 session 失效
+    if (status === 401 || status === 419) {
+      void handleAuthExpiredOnce();
+    }
+
+    return Promise.reject(err);
+  }
 );
 
 export default http;
