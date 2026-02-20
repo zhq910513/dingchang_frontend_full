@@ -1,9 +1,39 @@
 // src/api/http.js
 import axios from "axios";
 
+function buildQueryString(params) {
+  const usp = new URLSearchParams();
+
+  const append = (key, value) => {
+    if (value === null || value === undefined) return;
+
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (item === null || item === undefined) continue;
+        usp.append(key, String(item));
+      }
+      return;
+    }
+
+    usp.append(key, String(value));
+  };
+
+  if (params && typeof params === "object") {
+    for (const [k, v] of Object.entries(params)) {
+      append(k, v);
+    }
+  }
+
+  return usp.toString();
+}
+
 const http = axios.create({
   baseURL: "/api",
   timeout: 30000,
+  // ✅ 关键：数组按重复 key 序列化（如 team_names=A&team_names=B）
+  paramsSerializer: {
+    serialize: (params) => buildQueryString(params),
+  },
 });
 
 function getSessionToken() {
@@ -92,8 +122,6 @@ async function handleAuthExpiredOnce() {
   try {
     const curPath = _currentFullPath();
     if (!curPath.startsWith("/login")) {
-      // ✅ 轻提示：不依赖 element-plus，避免把 UI 框架耦合进网络层
-      // 你也可以换成更温和的 toast（但那需要在上层统一做，不建议在 http 层做）
       try {
         window.alert("登录已过期，请重新登录。");
       } catch {
@@ -101,14 +129,12 @@ async function handleAuthExpiredOnce() {
       }
     }
 
-    // ✅ 清 session（只清 token，不清全量 storage，避免误伤）
     try {
       sessionStorage.removeItem("sessionToken");
     } catch {
       // ignore
     }
 
-    // ✅ 跳登录并带上 redirect
     _redirectToLogin();
   } catch (e) {
     // eslint-disable-next-line no-console

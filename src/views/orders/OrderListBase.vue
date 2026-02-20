@@ -8,7 +8,7 @@
     <el-card shadow="never" class="toolbar-card" :body-style="{ padding: '10px 12px' }">
       <el-form :model="filters" class="filters-form" label-width="88px">
         <template v-if="isFinance">
-          <!-- ✅ finance：仅保留 日期/渠道/客户/市场/车主/保险到期日/初登日期/是否回款/是否返点 + 团队 -->
+          <!-- ✅ finance：仅保留 日期/渠道/客户/业务员/市场/车主/保险到期日/初登日期/是否回款/是否返点 + 团队 -->
           <el-row :gutter="12">
             <el-col :span="6">
               <el-form-item label="日期">
@@ -58,18 +58,56 @@
             </el-col>
 
             <el-col :span="6">
-              <el-form-item label="市场">
-                <el-input v-model="filters.market" clearable placeholder="市场（模糊）" @keyup.enter="search" />
+              <el-form-item label="业务员">
+                <el-select
+                  v-model="filters.salesperson_id"
+                  clearable
+                  filterable
+                  placeholder="选择业务员"
+                  style="width: 100%"
+                  :loading="salesLoading"
+                  :disabled="salesLoading"
+                >
+                  <el-option
+                    v-for="u in filteredSalespersons"
+                    :key="String(u.id)"
+                    :label="u.real_name || u.username"
+                    :value="u.id"
+                  />
+                </el-select>
               </el-form-item>
             </el-col>
           </el-row>
 
-          <!-- ✅ 团队筛选（财务）：只显示具体团队名；不提供“全部团队”选项 -->
           <el-row :gutter="12">
+            <el-col :span="6">
+              <el-form-item label="市场">
+                <el-input v-model="filters.market" clearable placeholder="市场（模糊）" @keyup.enter="search" />
+              </el-form-item>
+            </el-col>
+
+            <!-- ✅ 团队筛选（财务）：统一只用 team_names（多选/单选都写入 team_names） -->
             <el-col :span="6">
               <el-form-item label="团队">
                 <el-select
-                  v-model="filters.team_name"
+                  v-if="financeTeamMultiple"
+                  v-model="filters.team_names"
+                  multiple
+                  collapse-tags
+                  collapse-tags-tooltip
+                  clearable
+                  filterable
+                  placeholder="选择团队（可多选）"
+                  style="width: 100%"
+                  :loading="teamsLoading"
+                  :disabled="teamsLoading || !canChooseTeam"
+                >
+                  <el-option v-for="t in teamOptions" :key="t" :label="t" :value="t" />
+                </el-select>
+
+                <el-select
+                  v-else
+                  v-model="financeTeamSingle"
                   clearable
                   filterable
                   placeholder="选择团队"
@@ -82,7 +120,7 @@
               </el-form-item>
             </el-col>
 
-            <el-col :span="18"></el-col>
+            <el-col :span="12"></el-col>
           </el-row>
 
           <el-row :gutter="12">
@@ -156,8 +194,6 @@
                   >
                     下载
                   </el-button>
-
-                  <span v-if="selectedRows.length" class="selected-hint">已选 {{ selectedRows.length }}</span>
                 </template>
               </div>
             </el-col>
@@ -308,26 +344,13 @@
 
     <div class="table-scroll">
       <el-table
-        ref="tableRef"
         v-loading="loading"
         :data="tableData"
         border
         stripe
         class="main-table"
         :row-class-name="tableRowClassName"
-        @selection-change="onSelectionChange"
       >
-        <!-- ✅ 财务：可勾选（有权限才出现） -->
-        <el-table-column
-          v-if="isFinance && canFinanceDownload"
-          type="selection"
-          width="44"
-          fixed="left"
-          align="center"
-          header-align="center"
-          :selectable="selectableRow"
-        />
-
         <el-table-column label="日期" min-width="110" show-overflow-tooltip>
           <template #default="{ row }">
             {{ isSummaryRow(row) ? "汇总" : fmtYmdSafe(pickCreatedAt(row)) }}
@@ -418,7 +441,8 @@
           <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPoint(row, "channel_commercial_point") }}</template>
         </el-table-column>
 
-        <el-table-column label="渠道商业后补点位" min-width="140" show-overflow-tooltip>
+        <!-- ✅ 仅订单模式展示“商业后补点位”两列（财务数据源通常无该字段） -->
+        <el-table-column v-if="!isFinance" label="渠道商业后补点位" min-width="140" show-overflow-tooltip>
           <template #default="{ row }">
             {{ isSummaryRow(row) ? "" : pickPoint(row, "channel_commercial_supplement_point") }}
           </template>
@@ -444,7 +468,8 @@
           <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPoint(row, "customer_commercial_point") }}</template>
         </el-table-column>
 
-        <el-table-column label="客户商业后补点位" min-width="140" show-overflow-tooltip>
+        <!-- ✅ 仅订单模式展示“商业后补点位”两列（财务数据源通常无该字段） -->
+        <el-table-column v-if="!isFinance" label="客户商业后补点位" min-width="140" show-overflow-tooltip>
           <template #default="{ row }">
             {{ isSummaryRow(row) ? "" : pickPoint(row, "customer_commercial_supplement_point") }}
           </template>
@@ -484,6 +509,11 @@
 
         <el-table-column label="所属团队" min-width="120" show-overflow-tooltip>
           <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickTeamName(row) }}</template>
+        </el-table-column>
+
+        <!-- ✅ 订单备注（财务 & 订单：同一字段；汇总行为空） -->
+        <el-table-column label="订单备注" min-width="180" show-overflow-tooltip>
+          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickRemark(row) }}</template>
         </el-table-column>
 
         <el-table-column
@@ -630,7 +660,16 @@ import { MoreFilled } from "@element-plus/icons-vue";
 import http from "../../api/http";
 
 import { getChannelGroups, getCustomerGroups, listOrders, updateOrderStatus } from "../../api/orders";
-import { getFinanceOrdersSummary, listFinanceOrders, returnFinanceOrder, updateFinanceOrderStatus } from "../../api/finance";
+import {
+  exportFinanceOrders,
+  getFinanceOrdersSummary,
+  listFinanceChannelGroups,
+  listFinanceCustomerGroups,
+  listFinanceOrders,
+  listFinanceSalespersons,
+  returnFinanceOrder,
+  updateFinanceOrderStatus,
+} from "../../api/finance";
 import { useSessionStore } from "../../store/session";
 import { ROLE } from "../../constants";
 
@@ -678,6 +717,13 @@ const canFinanceDownload = computed(() => {
   return rn === ROLE.FINANCE || rn === ROLE.SUPER_ADMIN || rn === ROLE.MANAGER;
 });
 
+/** ✅ 财务团队是否多选：经理/超管 */
+const financeTeamMultiple = computed(() => {
+  if (!isFinance.value) return false;
+  const rn = roleName.value;
+  return rn === ROLE.MANAGER || rn === ROLE.SUPER_ADMIN;
+});
+
 const loading = ref(false);
 const downloading = ref(false);
 
@@ -692,13 +738,9 @@ const salespersons = ref([]);
 const groupsLoading = ref(false);
 const salesLoading = ref(false);
 
-/** ✅ 团队下拉：来自后端 /orders/teams（只返回具体团队名，不含“全部团队”） */
+/** ✅ 团队下拉：来自后端 /orders/teams（只返回具体团队名） */
 const teamOptions = ref([]);
 const teamsLoading = ref(false);
-
-/** ✅ 勾选行（财务下载用） */
-const tableRef = ref(null);
-const selectedRows = ref([]);
 
 /** ✅ 财务汇总（全量，非当前页） */
 const financeSummary = ref(null);
@@ -708,26 +750,8 @@ function isSummaryRow(row) {
   return Boolean(row?._is_summary);
 }
 
-function selectableRow(row) {
-  return !isSummaryRow(row);
-}
-
 function tableRowClassName({ row }) {
   return isSummaryRow(row) ? "row-summary" : "";
-}
-
-function onSelectionChange(list) {
-  const arr = Array.isArray(list) ? list : [];
-  selectedRows.value = arr.filter((r) => !isSummaryRow(r));
-}
-
-function _clearSelection() {
-  selectedRows.value = [];
-  try {
-    tableRef.value?.clearSelection?.();
-  } catch {
-    // ignore
-  }
 }
 
 function defaultOrdersFilters() {
@@ -752,21 +776,50 @@ function defaultFinanceFilters() {
     created_date: [],
     channel_group_id: null,
     customer_group_id: null,
+    salesperson_id: null,
     market: "",
     owner_name: "",
     insurance_expire_date: "",
     first_register_date: [],
     is_paid: null,
     is_rebate: null,
-    team_name: null,
+    team_names: [],
   };
 }
 
 const filters = ref(isFinance.value ? defaultFinanceFilters() : defaultOrdersFilters());
 
+/** ✅ 财务团队单选：统一写入 filters.team_names（数组） */
+const financeTeamSingle = computed({
+  get() {
+    const v = filters.value?.team_names;
+    if (Array.isArray(v)) return v[0] || null;
+    if (typeof v === "string") return v.trim() || null;
+    return null;
+  },
+  set(val) {
+    const s = String(val ?? "").trim();
+    filters.value.team_names = s ? [s] : [];
+  },
+});
+
 function dyn(row, key) {
   const dd = row?.dynamic_data;
   return dd && typeof dd === "object" ? dd[key] : undefined;
+}
+
+/** ✅ dynamic_data 兼容读取：支持多个候选键（用于 dl_* / 历史键名兼容） */
+function dynAny(row, keys = []) {
+  const dd = row?.dynamic_data;
+  if (!dd || typeof dd !== "object") return undefined;
+
+  for (const k of keys) {
+    const v = dd[k];
+    if (v !== null && v !== undefined && String(v).trim() !== "") {
+      return v;
+    }
+  }
+  return undefined;
 }
 
 function _trimStr(v) {
@@ -809,14 +862,11 @@ function fmtYmdSafe(anyVal) {
   const raw = String(anyVal).trim();
   if (!raw) return "-";
 
-  // 1) YYYYMMDD
   if (/^\d{8}$/.test(raw)) return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
 
-  // 2) 只要前 10 位是 YYYY-MM-DD，直接截断（避免 Date/时区坑，确保不露出时分秒）
   const m = raw.match(/^(\d{4}-\d{2}-\d{2})/);
   if (m && m[1]) return m[1];
 
-  // 3) 数字时间戳（秒/毫秒）
   if (/^\d+$/.test(raw)) {
     const n = Number(raw);
     if (Number.isFinite(n)) {
@@ -839,7 +889,6 @@ function fmtYmdSafe(anyVal) {
     return "-";
   }
 
-  // 4) 其它：不信任 Date 解析（可能导致漂移），不给展示时间，直接 "-"
   return "-";
 }
 
@@ -848,14 +897,11 @@ function normalizeCompactYmd(val) {
   const s = String(val).trim();
   if (!s) return "";
 
-  // YYYYMMDD
   if (/^\d{8}$/.test(s)) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
 
-  // YYYY-MM-DD...
   const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
   if (m && m[1]) return m[1];
 
-  // 兜底：不给露出 HH:mm:ss
   const ymd = fmtYmdSafe(s);
   return ymd === "-" ? "" : ymd;
 }
@@ -915,38 +961,21 @@ async function apiListSalespersonsOrders(params = {}) {
   return http.get("/orders/salespersons", { params });
 }
 
-async function apiListSalespersonsFinance(params = {}) {
-  return http.get("/finance/salespersons", { params });
-}
-
 async function apiGetCustomerGroupsAny() {
-  if (isFinance.value) return http.get("/finance/customer-groups");
+  if (isFinance.value) return listFinanceCustomerGroups();
   return getCustomerGroups();
 }
 
 async function apiGetChannelGroupsAny() {
-  if (isFinance.value) return http.get("/finance/channel-groups");
+  if (isFinance.value) return listFinanceChannelGroups();
   return getChannelGroups();
-}
-
-async function loadTeams() {
-  teamsLoading.value = true;
-  try {
-    const resp = await apiGetTeams();
-    teamOptions.value = normalizeTeamNames(resp);
-  } catch (e) {
-    console.error(e);
-    teamOptions.value = [];
-  } finally {
-    teamsLoading.value = false;
-  }
 }
 
 async function loadSalespersonsForTeam(teamName) {
   salesLoading.value = true;
   try {
     if (isFinance.value) {
-      const resp = await apiListSalespersonsFinance({ status: 1 });
+      const resp = await listFinanceSalespersons();
       salespersons.value = normalizeItems(resp);
       return;
     }
@@ -1073,8 +1102,6 @@ async function loadList() {
     const data = resp?.data ?? resp ?? {};
     orders.value = Array.isArray(data?.items) ? data.items : [];
     total.value = Number(data?.total ?? 0);
-
-    _clearSelection();
 
     if (isFinance.value) {
       await loadSummaryIfNeeded();
@@ -1350,7 +1377,7 @@ async function onRebateSwitch(row, nextVal) {
   }
 }
 
-/** ====================== 导出：调用后端 /finance/orders/export ====================== */
+/** ====================== 导出：调用后端 /finance/orders/export（永远按筛选条件导出） ====================== */
 
 function _nowShanghaiFileStamp() {
   const parts = new Intl.DateTimeFormat("zh-CN", {
@@ -1409,14 +1436,6 @@ function _triggerDownloadBlob(blob, filename) {
   }, 1200);
 }
 
-function _appendParam(sp, k, v) {
-  if (!k) return;
-  if (v === null || v === undefined) return;
-  const s = String(v).trim();
-  if (!s) return;
-  sp.append(k, s);
-}
-
 async function downloadFinanceExcel() {
   if (!isFinance.value) return;
   if (!canFinanceDownload.value) {
@@ -1428,45 +1447,8 @@ async function downloadFinanceExcel() {
   downloading.value = true;
 
   try {
-    const baseParams = buildSummaryParams();
-
-    const ids = (Array.isArray(selectedRows.value) ? selectedRows.value : [])
-      .filter((r) => !isSummaryRow(r))
-      .map((r) => Number(r?.id))
-      .filter((n) => Number.isFinite(n) && n > 0);
-
-    const sp = new URLSearchParams();
-
-    if (ids.length) {
-      for (const id of ids) sp.append("ids", String(id));
-    }
-
-    for (const [k, v] of Object.entries(baseParams || {})) {
-      if (k === "owner_name") {
-        if (v !== null && v !== undefined && String(v).trim()) _appendParam(sp, "owner", v);
-        continue;
-      }
-      if (k === "page" || k === "page_size") continue;
-
-      if (v === true || v === false) {
-        sp.append(k, v ? "true" : "false");
-        continue;
-      }
-
-      if (Array.isArray(v)) {
-        for (const it of v) _appendParam(sp, k, it);
-        continue;
-      }
-
-      _appendParam(sp, k, v);
-    }
-
-    const url = `/finance/orders/export?${sp.toString()}`;
-
-    const resp = await http.get(url, {
-      responseType: "blob",
-      validateStatus: (status) => status >= 200 && status < 500,
-    });
+    const params = buildSummaryParams();
+    const resp = await exportFinanceOrders(params);
 
     const status = Number(resp?.status || 0);
     const headers = resp?.headers || {};
@@ -1505,7 +1487,7 @@ async function downloadFinanceExcel() {
     const blob = resp.data instanceof Blob ? resp.data : new Blob([resp.data], { type: ct || "application/octet-stream" });
     _triggerDownloadBlob(blob, filename);
 
-    ElMessage.success(ids.length ? "已下载勾选数据" : "已下载全部符合条件数据");
+    ElMessage.success("已下载符合筛选条件数据");
   } catch (e) {
     console.error(e);
     ElMessage.error("下载失败");
@@ -1559,7 +1541,7 @@ const ORDER_INFO_POINT_KEY = {
 };
 
 function pickCreatedAt(row) {
-  if (isFinance.value) return row?.col_01_date || row?.created_at || row?.updated_at || null;
+  if (isFinance.value) return row?.col_01_date || row?.created_at || null;
   return row?.created_at || row?.updated_at || null;
 }
 
@@ -1589,13 +1571,15 @@ function pickSalespersonName(row) {
   return "-";
 }
 
+/** ✅ 订单侧兼容 id_name / dl_owner / owner_name */
 function pickOwner(row) {
-  const v = isFinance.value ? row?.col_05_owner : dyn(row, "id_name");
+  const v = isFinance.value ? row?.col_05_owner : dynAny(row, ["id_name", "dl_owner", "owner_name"]);
   return String(v ?? "").trim() || "-";
 }
 
+/** ✅ 订单侧兼容 plate_no / dl_plate_no */
 function pickPlate(row) {
-  const v = isFinance.value ? row?.col_06_plate_no : dyn(row, "dl_plate_no") || dyn(row, "plate_no");
+  const v = isFinance.value ? row?.col_06_plate_no : dynAny(row, ["plate_no", "dl_plate_no"]);
   return String(v ?? "").trim() || "-";
 }
 
@@ -1604,25 +1588,27 @@ function pickInsuranceExpire(row) {
   return normalizeCompactYmd(v) || "-";
 }
 
+/** ✅ 订单侧兼容 vin / dl_vin */
 function pickVin(row) {
-  const v = isFinance.value ? row?.col_08_vin : dyn(row, "vin") || dyn(row, "dl_vin");
+  const v = isFinance.value ? row?.col_08_vin : dynAny(row, ["vin", "dl_vin"]);
   return String(v ?? "").trim() || "-";
 }
 
+/** ✅ 订单侧兼容 engine_no / dl_engine_no */
 function pickEngine(row) {
-  const v = isFinance.value ? row?.col_09_engine_no : dyn(row, "engine_no") || dyn(row, "dl_engine_no");
+  const v = isFinance.value ? row?.col_09_engine_no : dynAny(row, ["engine_no", "dl_engine_no"]);
   return String(v ?? "").trim() || "-";
 }
 
+/** ✅ 订单侧兼容 vehicle_model / dl_brand_model / brand_model */
 function pickVehicleModel(row) {
-  const v = isFinance.value ? row?.col_10_vehicle_model : dyn(row, "vehicle_model") || dyn(row, "dl_vehicle_model");
+  const v = isFinance.value ? row?.col_10_vehicle_model : dynAny(row, ["vehicle_model", "dl_brand_model", "brand_model"]);
   return String(v ?? "").trim() || "-";
 }
 
+/** ✅ 订单侧兼容 first_register_date / dl_first_register_date */
 function pickFirstRegister(row) {
-  const v = isFinance.value
-    ? row?.col_11_first_register_date
-    : dyn(row, "dl_register_date") || dyn(row, "register_date") || dyn(row, "first_register_date");
+  const v = isFinance.value ? row?.col_11_first_register_date : dynAny(row, ["first_register_date", "dl_first_register_date"]);
   return normalizeCompactYmd(v) || "-";
 }
 
@@ -1636,12 +1622,25 @@ function pickPhone(row) {
   return String(v ?? "").trim() || "-";
 }
 
+/** ✅ 订单备注：财务侧优先 row.remark（FinanceOrderOut 顶层字段）；订单侧读 order_info.remark */
+function pickRemark(row) {
+  const v1 = String(row?.remark ?? "").trim();
+  if (v1) return v1;
+
+  const oi = orderInfo(row);
+  const v2 = String(oi?.remark ?? "").trim();
+  if (v2) return v2;
+
+  const v3 = String(dyn(row, "remark") ?? "").trim();
+  return v3 || "-";
+}
+
 function pickManagerName(row) {
   const v = String(row?.manager_name ?? "").trim();
   if (v) return v;
 
   const sp = _getSalespersonByRow(row);
-  const v2 = String(sp?.manager_name ?? sp?.parent_name ?? "").trim();
+  const v2 = String(sp?.manager_name ?? "").trim();
   return v2 || "-";
 }
 
@@ -1709,13 +1708,9 @@ function _rewardRaw(row, key) {
   if (!k) return null;
 
   if (isFinance.value) {
-    if (k === "channel_reward") {
-      return row?.col_31_channel_reward ?? row?.channel_reward ?? row?.channel_bonus ?? null;
-    }
-    if (k === "customer_reward") {
-      return row?.col_32_customer_reward ?? row?.customer_reward ?? row?.customer_bonus ?? null;
-    }
-    return row?.[k] ?? null;
+    if (k === "channel_reward") return row?.col_31_channel_reward ?? null;
+    if (k === "customer_reward") return row?.col_32_customer_reward ?? null;
+    return null;
   }
 
   const oi = orderInfo(row);
@@ -1827,13 +1822,18 @@ function buildListParams() {
   const p = { page: page.value, page_size: pageSize.value };
   const f = filters.value || {};
 
-  if (f.team_name) p.team_name = String(f.team_name).trim();
-
   if (isFinance.value) {
+    // ✅ 财务团队：统一只发 team_names（数组）；即使单选也用数组承载
+    const arr = Array.isArray(f.team_names)
+      ? f.team_names.map((x) => String(x || "").trim()).filter(Boolean)
+      : [];
+    if (arr.length) p.team_names = arr;
+
     _applyRangeParams(p, "created_date", f.created_date);
 
     if (f.channel_group_id) p.channel_group_id = f.channel_group_id;
     if (f.customer_group_id) p.customer_group_id = f.customer_group_id;
+    if (f.salesperson_id) p.salesperson_id = f.salesperson_id;
 
     const market = _trimStr(f.market);
     if (market) p.market = market;
@@ -1850,6 +1850,8 @@ function buildListParams() {
 
     return p;
   }
+
+  if (f.team_name) p.team_name = String(f.team_name).trim();
 
   if (props.mode === "finished") p.is_finished = true;
   if (props.mode === "unfinished") p.is_finished = false;
@@ -1907,9 +1909,6 @@ function buildSummaryRow(sum) {
     return Number.isFinite(x) ? x : 0;
   };
 
-  const chReward = n(sum?.channel_reward ?? sum?.channel_bonus ?? 0);
-  const cuReward = n(sum?.customer_reward ?? sum?.customer_bonus ?? 0);
-
   return {
     id: -1,
     _is_summary: true,
@@ -1919,13 +1918,13 @@ function buildSummaryRow(sum) {
     col_16_tax_amount: n(sum?.vehicle_tax_amount),
     col_17_noncar_amount: n(sum?.noncar_amount),
 
-    col_31_channel_reward: chReward,
-    col_32_customer_reward: cuReward,
-    channel_reward: chReward,
-    customer_reward: cuReward,
+    // ✅ 渠道/客户奖励（最新字段）
+    col_31_channel_reward: n(sum?.col_31_channel_reward ?? sum?.channel_reward ?? 0),
+    col_32_customer_reward: n(sum?.col_32_customer_reward ?? sum?.customer_reward ?? 0),
 
-    col_26_receivable: n(sum?.payable),
-    col_27_payable: n(sum?.receivable),
+    // ✅ 汇总应收应付口径：与后端一致（应收=receivable，应付=payable）
+    col_26_receivable: n(sum?.receivable),
+    col_27_payable: n(sum?.payable),
     col_28_profit: n(sum?.profit),
   };
 }
@@ -1978,16 +1977,6 @@ onMounted(async () => {
   gap: 8px;
   flex-wrap: wrap;
   margin-left: auto;
-}
-
-.selected-hint {
-  font-size: 12px;
-  color: rgba(31, 42, 68, 0.7);
-  font-weight: 650;
-  padding: 0 8px;
-  border-radius: 999px;
-  border: 1px solid rgba(60, 60, 60, 0.12);
-  background: rgba(255, 255, 255, 0.65);
 }
 
 .main-table {

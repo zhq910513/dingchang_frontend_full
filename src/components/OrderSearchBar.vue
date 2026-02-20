@@ -243,7 +243,7 @@
               <el-input
                 v-model="model.remark"
                 clearable
-                placeholder="备注"
+                placeholder="订单备注"
                 class="w180"
                 :disabled="loading"
                 @keyup.enter="emitSearch"

@@ -5,6 +5,7 @@ import http from "./http";
  * 财务：只对齐新后端（去兼容）
  * - GET    /finance/orders
  * - GET    /finance/orders/summary
+ * - GET    /finance/orders/export
  * - GET    /finance/orders/{orderId}
  * - PATCH  /finance/orders/{orderId}/status   body: { is_rebate?, is_paid? }
  * - POST   /finance/orders/{orderId}/return
@@ -32,6 +33,14 @@ function toValidId(orderId) {
   return n;
 }
 
+function cleanUndefined(obj) {
+  const out = {};
+  for (const [k, v] of Object.entries(obj || {})) {
+    if (v !== undefined) out[k] = v;
+  }
+  return out;
+}
+
 function isValidDate(d) {
   return d instanceof Date && Number.isFinite(d.getTime());
 }
@@ -41,7 +50,6 @@ function formatYmdInTz(d, timeZone = TZ_BJ) {
   const dt = isValidDate(d) ? d : new Date(d);
   if (!isValidDate(dt)) return "";
 
-  // en-CA 默认就是 YYYY-MM-DD（符合我们输出）
   const fmt = new Intl.DateTimeFormat("en-CA", {
     timeZone,
     year: "numeric",
@@ -74,7 +82,6 @@ function normalizeYmd(v) {
     return s;
   }
 
-  // 兜底：允许 number/other（极少见），直接转 string
   const s2 = String(v).trim();
   return s2 || "";
 }
@@ -206,6 +213,75 @@ function normalizeStatusPatch(data) {
   return out;
 }
 
+/**
+ * ✅ 清洗 finalize images[]
+ * 财务侧 slot_key 仅允许 related（后端也会校验，这里前端先兜一层）
+ */
+function sanitizeFinalizeImages(images) {
+  if (!Array.isArray(images)) return [];
+
+  const ALLOWED_SLOT = new Set(["related"]);
+  const out = [];
+
+  for (const img of images) {
+    if (!img || typeof img !== "object") continue;
+
+    const slot_key = String(img.slot_key ?? "").trim();
+    const storage_key = String(img.storage_key ?? "")
+      .trim()
+      .replace(/^\/+/, "");
+    const md5 = String(img.md5 ?? "").trim();
+
+    if (!slot_key || !ALLOWED_SLOT.has(slot_key)) continue;
+    if (!storage_key) continue;
+
+    const item = {
+      slot_key,
+      storage_key,
+      md5,
+    };
+
+    if (img.etag != null && String(img.etag).trim()) item.etag = String(img.etag).trim();
+
+    if (img.size != null && !Number.isNaN(Number(img.size))) {
+      const n = Number(img.size);
+      item.size = Number.isFinite(n) ? Math.max(0, n) : 0;
+    }
+
+    if (img.content_type != null && String(img.content_type).trim()) item.content_type = String(img.content_type).trim();
+    if (img.original_name != null && String(img.original_name).trim()) item.original_name = String(img.original_name).trim();
+    if (img.url != null && String(img.url).trim()) item.url = String(img.url).trim();
+
+    out.push(item);
+  }
+
+  return out;
+}
+
+/**
+ * ✅ 清洗 clear_slots（财务侧目前仅 related）
+ */
+function sanitizeClearSlots(clear_slots) {
+  if (!Array.isArray(clear_slots)) return [];
+
+  const ALLOWED = new Set(["related"]);
+  const seen = new Set();
+  const out = [];
+
+  for (const x of clear_slots) {
+    const s = String(x ?? "").trim();
+    if (!s) continue;
+    if (!ALLOWED.has(s)) continue;
+    if (seen.has(s)) continue;
+    seen.add(s);
+    out.push(s);
+  }
+
+  return out;
+}
+
+/** ===================== 财务订单列表 / 汇总 / 导出 / 详情 / 状态 ===================== */
+
 export function listFinanceOrders(params = {}) {
   const p = normalizeFinanceListParams(params);
   return http.get("/finance/orders", { params: p });
@@ -215,6 +291,15 @@ export function listFinanceOrders(params = {}) {
 export function getFinanceOrdersSummary(params = {}) {
   const p = normalizeFinanceListParams(params);
   return http.get("/finance/orders/summary", { params: p });
+}
+
+/** ✅ 导出（按当前筛选条件全量导出，不走分页） */
+export function exportFinanceOrders(params = {}) {
+  const p = normalizeFinanceListParams(params);
+  return http.get("/finance/orders/export", {
+    params: p,
+    responseType: "blob",
+  });
 }
 
 export function getFinanceOrderDetail(orderId) {
@@ -237,4 +322,65 @@ export function updateFinanceOrderStatus(orderId, data = {}) {
 export function returnFinanceOrder(orderId) {
   const id = toValidId(orderId);
   return http.post(`/finance/orders/${id}/return`);
+}
+
+/** ===================== 财务下拉（与订单侧分离，走 /finance/*） ===================== */
+
+export function listFinanceCustomerGroups(params = {}) {
+  const p = cleanQueryParams(params);
+  return http.get("/finance/customer-groups", { params: p });
+}
+
+export function listFinanceChannelGroups(params = {}) {
+  const p = cleanQueryParams(params);
+  return http.get("/finance/channel-groups", { params: p });
+}
+
+export function listFinanceSalespersons(params = {}) {
+  const p = cleanQueryParams(params);
+  return http.get("/finance/salespersons", { params: p });
+}
+
+/** ===================== 财务 BOS 上传链路（相关材料） ===================== */
+
+/**
+ * ✅ 获取财务 BOS STS
+ * 主路径：/finance/bos-sts
+ * 兼容路径：/finance/orders/bos-sts（若后端保留）
+ */
+export function getFinanceBosSts() {
+  return http.get("/finance/bos-sts");
+}
+
+/**
+ * ✅ 财务图片代理上传（后端代传 BOS）
+ * 主路径：/finance/bos-upload
+ * 兼容路径：/finance/orders/bos-upload（若后端保留）
+ */
+export function uploadFinanceBosProxy({ slot_key = "related", file }) {
+  const fd = new FormData();
+  fd.append("slot_key", String(slot_key || "related").trim());
+  fd.append("file", file);
+  return http.post("/finance/bos-upload", fd);
+}
+
+/**
+ * ✅ 提交财务相关材料关联
+ * - order_id 必填
+ * - images[] 可选
+ * - clear_slots 可选（仅 related）
+ */
+export function finalizeFinanceUpload(payload = {}) {
+  const src = payload && typeof payload === "object" ? payload : {};
+
+  const images = sanitizeFinalizeImages(src.images);
+  const clear_slots = sanitizeClearSlots(src.clear_slots);
+
+  const safePayload = cleanUndefined({
+    order_id: src.order_id != null ? toValidId(src.order_id) : undefined,
+    images,
+    clear_slots: clear_slots.length ? clear_slots : undefined,
+  });
+
+  return http.post("/finance/finalize", safePayload);
 }

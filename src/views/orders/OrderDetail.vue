@@ -198,6 +198,16 @@
             </div>
           </div>
 
+          <!-- ✅ 新增：订单备注（remark） -->
+          <div class="kv-grid kv-grid-2 info-grid">
+            <div class="kv-item kv-item-remark">
+              <div class="kv-label">订单备注</div>
+              <div class="kv-value">
+                <InfoValue v-model="editOrderInfo.remark" type="text" :editable="canEdit" />
+              </div>
+            </div>
+          </div>
+
           <div class="kv-grid kv-grid-4 info-grid info-grid-compact">
             <div class="kv-item">
               <div class="kv-label">商业金额</div>
@@ -949,6 +959,7 @@ async function _scrollCenterAndFlashThenConfirm({
 const editOrderInfo = reactive({
   insurance_expire_date: "",
   owner_phone: "",
+  remark: "",
 
   commercial_amount: null,
   compulsory_amount: null,
@@ -1011,6 +1022,7 @@ function _fillOrderInfoFromOrder(o) {
 
   editOrderInfo.insurance_expire_date = _dateOrEmpty(oi.insurance_expire_date);
   editOrderInfo.owner_phone = _trimOrEmpty(oi.owner_phone);
+  editOrderInfo.remark = _trimOrEmpty(oi.remark);
 
   editOrderInfo.commercial_amount = _numOrNullZeroAsEmpty(oi.commercial_amount);
   editOrderInfo.compulsory_amount = _numOrNullZeroAsEmpty(oi.compulsory_amount);
@@ -1044,10 +1056,12 @@ function _fillOrderInfoFromOrder(o) {
 
 function _sanitizeOrderInfoPayload() {
   const phone = String(editOrderInfo.owner_phone || "").trim();
+  const remark = String(editOrderInfo.remark || "").trim();
 
   return {
     insurance_expire_date: editOrderInfo.insurance_expire_date ? String(editOrderInfo.insurance_expire_date) : "",
     owner_phone: phone,
+    remark,
 
     commercial_amount: _numOrNull(editOrderInfo.commercial_amount),
     compulsory_amount: _numOrNull(editOrderInfo.compulsory_amount),
@@ -2388,6 +2402,11 @@ watch(
 .info-grid-compact .kv-item {
   grid-template-columns: 84px 1fr;
   padding: 8px 10px;
+}
+
+/* ✅ 备注行更适配一点（可选增强） */
+.kv-item-remark {
+  grid-template-columns: 84px 1fr;
 }
 
 .flash-value {
