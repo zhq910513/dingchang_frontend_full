@@ -19,7 +19,6 @@
     </div>
 
     <el-tabs v-model="activeTab" class="top-tabs" @tab-change="onTabChange">
-      <!-- ================= 导入订单 ================= -->
       <el-tab-pane label="导入订单" name="import">
         <el-card shadow="never" class="block-card">
           <template #header>
@@ -27,7 +26,6 @@
               <span>创建订单（拖拽上传：MD5 去重 + 直传 BOS）</span>
 
               <div class="card-title-right">
-                <!-- ✅ 上传模式：智能/直传/稳定（兼容 VPN） -->
                 <div class="upload-mode">
                   <span class="upload-mode-label">上传模式</span>
                   <el-select v-model="uploadMode" size="small" style="width: 160px" @change="persistUploadMode">
@@ -54,7 +52,6 @@
             </div>
           </template>
 
-          <!-- 顶部筛选（✅ 必选：客户/渠道） -->
           <div class="filters">
             <el-form
               ref="filtersFormRef"
@@ -109,7 +106,6 @@
             </el-form>
           </div>
 
-          <!-- 上传中的明显提示条 -->
           <el-alert
             v-if="uploadingCount > 0"
             class="upload-alert"
@@ -120,7 +116,6 @@
             :description="`正在上传 ${uploadingCount} 个文件…（全部上传完成后才能提交）`"
           />
 
-          <!-- 分卡证上传 -->
           <div class="upload-grid">
             <div v-for="slot in IMAGE_SLOTS" :key="slot.key" class="slot-card">
               <div class="slot-head">
@@ -132,7 +127,6 @@
                 </div>
               </div>
 
-              <!-- ✅ 单图槽：已有文件则锁定（必须先删除） -->
               <el-upload
                 v-if="!slot.multiple"
                 drag
@@ -169,7 +163,6 @@
                 </template>
               </el-upload>
 
-              <!-- ✅ 多图槽 -->
               <template v-else>
                 <el-upload
                   drag
@@ -224,12 +217,10 @@
                 </div>
               </template>
 
-              <!-- ✅ 上传提示：放在卡槽下方 -->
               <div v-if="slotUploadingCount(slot.key) > 0" class="uploading-tip">
                 正在上传：{{ slotUploadingCount(slot.key) }} 个文件…（上传完成后才能提交）
               </div>
 
-              <!-- ✅ 底部状态：已就绪 + 亮绿色实体球；移除按钮在右侧 -->
               <div class="slot-foot">
                 <div class="slot-foot-left">
                   <template v-if="slotUploadedCount(slot.key) > 0">
@@ -257,7 +248,6 @@
           </div>
         </el-card>
 
-        <!-- 图片识别任务抽屉 -->
         <el-drawer v-model="taskDrawer" direction="rtl" size="60%" :with-header="true">
           <template #header>
             <div class="drawer-header">
@@ -271,48 +261,47 @@
 
           <div class="table-scroll">
             <el-table :data="tasks" border stripe v-loading="loadingTasks" height="calc(100vh - 140px)">
-            <el-table-column prop="id" label="任务ID" width="90" />
-            <el-table-column prop="order_id" label="订单ID" width="90" />
-            <el-table-column label="状态" width="120">
-              <template #default="{ row }">
-                <el-tag :type="statusTagType(row.status)">{{ statusText(row.status) }}</el-tag>
-              </template>
-            </el-table-column>
+              <el-table-column prop="id" label="任务ID" width="90" />
+              <el-table-column prop="order_id" label="订单ID" width="90" />
+              <el-table-column label="状态" width="120">
+                <template #default="{ row }">
+                  <el-tag :type="statusTagType(row.status)">{{ statusText(row.status) }}</el-tag>
+                </template>
+              </el-table-column>
 
-            <el-table-column label="进度" width="180">
-              <template #default="{ row }">
-                <el-progress
-                  :percentage="row.progress || 0"
-                  :status="row.status === 'failed' ? 'exception' : row.status === 'finished' ? 'success' : 'active'"
-                />
-              </template>
-            </el-table-column>
+              <el-table-column label="进度" width="180">
+                <template #default="{ row }">
+                  <el-progress
+                    :percentage="row.progress || 0"
+                    :status="row.status === 'failed' ? 'exception' : row.status === 'finished' ? 'success' : 'active'"
+                  />
+                </template>
+              </el-table-column>
 
-            <el-table-column label="错误信息">
-              <template #default="{ row }">
-                <span
-                  v-if="row?.error_message"
-                  class="task-error"
-                  @click="showTaskError(row)"
-                  :title="hasChinese(row.error_message) ? '' : '点击查看详情'"
-                >
-                  {{ formatTaskError(row.error_message) }}
-                </span>
-                <span v-else>-</span>
-              </template>
-            </el-table-column>
+              <el-table-column label="错误信息">
+                <template #default="{ row }">
+                  <span
+                    v-if="row?.error_message"
+                    class="task-error"
+                    @click="showTaskError(row)"
+                    :title="hasChinese(row.error_message) ? '' : '点击查看详情'"
+                  >
+                    {{ formatTaskError(row.error_message) }}
+                  </span>
+                  <span v-else>-</span>
+                </template>
+              </el-table-column>
 
-            <el-table-column label="查看" width="140">
-              <template #default="{ row }">
-                <el-button size="small" @click="goOrder(row.order_id)" :disabled="!row.order_id">详情</el-button>
-              </template>
-            </el-table-column>
+              <el-table-column label="查看" width="140">
+                <template #default="{ row }">
+                  <el-button size="small" @click="goOrder(row.order_id)" :disabled="!row.order_id">详情</el-button>
+                </template>
+              </el-table-column>
             </el-table>
           </div>
         </el-drawer>
       </el-tab-pane>
 
-      <!-- ================= 手动新建 ================= -->
       <el-tab-pane label="手动新建" name="manual">
         <OrderCreateForm :embedded="true" />
       </el-tab-pane>
@@ -327,7 +316,13 @@ import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
 import { Tickets } from "@element-plus/icons-vue";
 
 import http from "../../api/http";
-import { createOrderDraft, finalizeOrderUpload, getChannelGroups, getCustomerGroups, uploadOrderImageProxy } from "../../api/orders";
+import {
+  createOrderDraft,
+  finalizeOrderUpload,
+  getChannelGroups,
+  getCustomerGroups,
+  uploadOrderImageProxy,
+} from "../../api/orders";
 import OrderCreateForm from "./OrderCreateForm.vue";
 import { uploadOrReuseByMd5 } from "../../utils/bosUpload";
 import { preprocessImageForUpload } from "../../utils/imagePreprocess";
@@ -346,7 +341,13 @@ onMounted(() => {
   if (tab === "manual" || tab === "import") activeTab.value = tab;
 });
 
-/** ====================== 回退逻辑（带 from） ====================== */
+watch(
+  () => route.query?.tab,
+  (tab) => {
+    if (tab === "manual" || tab === "import") activeTab.value = tab;
+  }
+);
+
 function goBack() {
   const from = route.query?.from;
   if (typeof from === "string" && from.startsWith("/")) {
@@ -360,18 +361,22 @@ function goBack() {
   router.push({ path: "/orders/all" });
 }
 
-/** ====================== 上传模式（智能/直传/稳定） ====================== */
+/** 上传模式 */
 const UPLOAD_MODE_KEY = "order_import_upload_mode";
 const uploadMode = ref("smart");
 
 function loadUploadMode() {
-  const v = localStorage.getItem(UPLOAD_MODE_KEY);
-  if (v === "smart" || v === "direct" || v === "stable") uploadMode.value = v;
+  try {
+    const v = window.localStorage.getItem(UPLOAD_MODE_KEY);
+    if (v === "smart" || v === "direct" || v === "stable") uploadMode.value = v;
+  } catch {
+    // ignore
+  }
 }
 
 function persistUploadMode() {
   try {
-    localStorage.setItem(UPLOAD_MODE_KEY, uploadMode.value);
+    window.localStorage.setItem(UPLOAD_MODE_KEY, uploadMode.value);
   } catch {
     // ignore
   }
@@ -446,7 +451,7 @@ async function suggestSwitchToStableOnce() {
   }
 }
 
-/** ====================== 渠道/客户筛选（✅ 必选） ====================== */
+/** 客户/渠道筛选（严格按后端字段） */
 const filtersFormRef = ref(null);
 
 const filters = ref({
@@ -459,58 +464,47 @@ const filtersRules = {
   channel_group_id: [{ required: true, message: "渠道必选", trigger: "change" }],
 };
 
-const canSubmitImport = computed(() => {
-  return Boolean(filters.value.customer_group_id) && Boolean(filters.value.channel_group_id);
-});
+const canSubmitImport = computed(() => Boolean(filters.value.customer_group_id) && Boolean(filters.value.channel_group_id));
 
 const customerGroups = ref([]);
 const channelGroups = ref([]);
 const groupsLoading = ref(false);
 
-/** ====================== 下拉展示：代码 + 名称（同时可模糊搜索） ====================== */
-function _pickStr(obj, keys = []) {
-  if (!obj || typeof obj !== "object") return "";
-  for (const k of keys) {
-    const v = obj?.[k];
-    if (v === null || v === undefined) continue;
-    const s = String(v).trim();
-    if (s) return s;
-  }
-  return "";
+function _trimStr(v) {
+  return String(v ?? "").trim();
 }
 
-// ✅ 这里改成 “code - name” 形式（中间更开一点）
 const CODE_NAME_SEP = " - ";
 
 function _formatCodeNameLabel(code, name, fallback = "") {
-  const c = String(code || "").trim();
-  const n = String(name || "").trim();
+  const c = _trimStr(code);
+  const n = _trimStr(name);
   if (c && n) return `${c}${CODE_NAME_SEP}${n}`;
   if (c) return c;
   if (n) return n;
-  return String(fallback || "").trim() || "-";
+  return _trimStr(fallback) || "-";
 }
 
+// 严格以后端当前字段为准：group_code / group_name
 function customerGroupLabel(g) {
-  const code = _pickStr(g, ["customer_code", "customerCode", "code", "group_code", "groupCode"]);
-  const name = _pickStr(g, ["customer_name", "customerName", "name", "group_name", "groupName"]);
-  const fallback = _pickStr(g, ["group_name", "groupName", "customer_name", "customerName"]) || (g?.id != null ? String(g.id) : "");
-  return _formatCodeNameLabel(code, name, fallback);
+  return _formatCodeNameLabel(g?.group_code, g?.group_name, g?.id);
 }
 
 function channelGroupLabel(g) {
-  const code = _pickStr(g, ["channel_code", "channelCode", "code", "group_code", "groupCode"]);
-  const name = _pickStr(g, ["channel_name", "channelName", "name", "group_name", "groupName"]);
-  const fallback = _pickStr(g, ["group_name", "groupName", "channel_name", "channelName"]) || (g?.id != null ? String(g.id) : "");
-  return _formatCodeNameLabel(code, name, fallback);
+  return _formatCodeNameLabel(g?.group_code, g?.group_name, g?.id);
+}
+
+function normalizeItemsStrict(resp) {
+  const items = resp?.data?.items;
+  return Array.isArray(items) ? items : [];
 }
 
 async function loadGroups() {
   groupsLoading.value = true;
   try {
     const [cg, ch] = await Promise.all([getCustomerGroups(), getChannelGroups()]);
-    customerGroups.value = cg?.data?.items || cg?.data || [];
-    channelGroups.value = ch?.data?.items || ch?.data || [];
+    customerGroups.value = normalizeItemsStrict(cg);
+    channelGroups.value = normalizeItemsStrict(ch);
   } catch (e) {
     console.error(e);
     ElNotification.error({
@@ -523,7 +517,7 @@ async function loadGroups() {
   }
 }
 
-/** ====================== 上传槽位 ====================== */
+/** 上传槽位 */
 const IMAGE_SLOTS = [
   { key: "vehicle_cert", label: "合格证", multiple: false },
   { key: "idcard_front", label: "身份证正面", multiple: false },
@@ -541,14 +535,12 @@ const slotFiles = ref(
 );
 
 const submitting = ref(false);
-
 const uploadedMap = ref({});
 const uploadState = ref({});
 const uploadingCount = ref(0);
-
 const localPreviewUrlMap = ref({});
 
-/** ====================== STS 缓存（直传用） ====================== */
+/** STS 缓存（直传用） */
 const bosHost = ref("");
 let cachedSts = null;
 let cachedStsExpireAt = 0;
@@ -563,7 +555,7 @@ function _parseExpireTs(expiration) {
 
 async function ensureSts() {
   const now = Date.now();
-  if (cachedSts && cachedStsExpireAt && now + 120_000 < cachedStsExpireAt) return cachedSts;
+  if (cachedSts && cachedStsExpireAt && now + 120000 < cachedStsExpireAt) return cachedSts;
 
   const resp = await http.get("/orders/bos-sts");
   const data = resp?.data;
@@ -576,7 +568,7 @@ async function ensureSts() {
   return cachedSts;
 }
 
-/** ====================== helpers ====================== */
+/** helpers */
 function isMultipleSlot(slotKey) {
   const s = IMAGE_SLOTS.find((x) => x.key === slotKey);
   return !!s?.multiple;
@@ -613,8 +605,8 @@ function _ensureLocalPreview(file) {
 function _replaceFileRawAndPreview(fileObj, newRaw) {
   if (!fileObj || !newRaw) return;
   const uid = fileObj.uid;
-
   const oldUrl = uid ? localPreviewUrlMap.value[uid] : fileObj.url;
+
   if (oldUrl) {
     try {
       URL.revokeObjectURL(oldUrl);
@@ -636,8 +628,8 @@ function clearSlot(slotKey) {
     const uid = f?.uid;
     if (!uid) continue;
 
-    if (uploadedMap.value[uid]) delete uploadedMap.value[uid];
-    if (uploadState.value[uid]) delete uploadState.value[uid];
+    delete uploadedMap.value[uid];
+    delete uploadState.value[uid];
 
     const u = localPreviewUrlMap.value[uid];
     if (u) {
@@ -652,8 +644,10 @@ function clearSlot(slotKey) {
   slotFiles.value[slotKey] = [];
 }
 
-/** ====================== Upload handlers ====================== */
+/** Upload handlers */
 function onFileChange(slotKey, file) {
+  if (!file?.uid || !file?.raw) return;
+
   if (!isMultipleSlot(slotKey)) {
     if (isSingleSlotLocked(slotKey)) {
       onExceedWarn(slotKey);
@@ -676,8 +670,10 @@ function onFileChange(slotKey, file) {
   }
 
   const list = slotFiles.value[slotKey] || [];
-  if (!list.find((x) => x.uid === file.uid)) list.push(file);
-  slotFiles.value[slotKey] = list;
+  if (!list.find((x) => x.uid === file.uid)) {
+    list.push(file);
+    slotFiles.value[slotKey] = list;
+  }
 
   _ensureLocalPreview(file);
 
@@ -693,15 +689,17 @@ function onFileChange(slotKey, file) {
 
 async function startUpload(slotKey, file) {
   const raw0 = file?.raw;
-  if (!raw0) return;
+  if (!raw0 || !file?.uid) return;
 
+  // 防重复触发（Element Plus on-change + 状态抖动很容易二次进来）
+  const curState = uploadState.value[file.uid]?.status;
+  if (curState === "uploading" || curState === "done") return;
   if (uploadedMap.value[file.uid]) return;
 
   uploadingCount.value += 1;
   uploadState.value[file.uid] = { status: "uploading" };
 
   try {
-    // ✅ 统一：上传前预处理（>2MB触发，规则在 imagePreprocess 内）
     let raw = raw0;
     try {
       const pre = await preprocessImageForUpload({ file: raw0, slotKey });
@@ -714,7 +712,6 @@ async function startUpload(slotKey, file) {
       raw = raw0;
     }
 
-    // ✅ 稳定模式：走后端代传
     if (uploadMode.value === "stable") {
       const resp = await uploadOrderImageProxy({ slot_key: slotKey, file: raw });
       const meta = resp?.data;
@@ -729,12 +726,10 @@ async function startUpload(slotKey, file) {
         original_name: meta?.original_name || raw.name || "file",
         preview_url: meta?.preview_url || "",
       };
-
       uploadState.value[file.uid] = { status: "done" };
       return;
     }
 
-    // ✅ 直传 / 智能：直传 BOS（MD5 去重）
     const sts = await ensureSts();
     if (!bosHost.value) throw new Error("上传配置缺失：bosHost 为空");
 
@@ -752,7 +747,6 @@ async function startUpload(slotKey, file) {
       content_type: meta?.content_type || raw.type || "application/octet-stream",
       original_name: meta?.original_name || raw.name || "file",
     };
-
     uploadState.value[file.uid] = { status: "done" };
   } catch (e) {
     if (uploadMode.value === "smart" && isLikelyNetworkBlocked(e)) {
@@ -773,7 +767,6 @@ async function startUpload(slotKey, file) {
             original_name: meta?.original_name || rawRetry.name || "file",
             preview_url: meta?.preview_url || "",
           };
-
           uploadState.value[file.uid] = { status: "done" };
           return;
         } catch (e2) {
@@ -792,39 +785,42 @@ async function startUpload(slotKey, file) {
     };
     throw e;
   } finally {
-    uploadingCount.value -= 1;
+    uploadingCount.value = Math.max(0, uploadingCount.value - 1);
   }
 }
 
 function slotUploadedCount(slotKey) {
   const list = slotFiles.value[slotKey] || [];
   let cnt = 0;
-  for (const f of list) {
-    if (uploadedMap.value[f.uid]) cnt += 1;
-  }
+  for (const f of list) if (uploadedMap.value[f.uid]) cnt += 1;
   return cnt;
 }
 
 function slotUploadingCount(slotKey) {
   const list = slotFiles.value[slotKey] || [];
   let cnt = 0;
-  for (const f of list) {
-    if (uploadState.value[f.uid]?.status === "uploading") cnt += 1;
-  }
+  for (const f of list) if (uploadState.value[f.uid]?.status === "uploading") cnt += 1;
   return cnt;
 }
 
-const hasAnyImage = computed(() => {
-  return IMAGE_SLOTS.some((s) => (slotFiles.value[s.key] || []).length > 0);
-});
+const hasAnyImage = computed(() => IMAGE_SLOTS.some((s) => (slotFiles.value[s.key] || []).length > 0));
 
 function collectFinalizeImages() {
   const out = [];
   for (const slot of IMAGE_SLOTS) {
     const list = slotFiles.value[slot.key] || [];
     for (const f of list) {
-      const meta = uploadedMap.value[f.uid];
-      if (meta) out.push(meta);
+      const m = uploadedMap.value[f.uid];
+      if (!m?.slot_key || !m?.storage_key || !m?.md5) continue;
+      out.push({
+        slot_key: m.slot_key,
+        storage_key: m.storage_key,
+        md5: m.md5,
+        size: Number(m.size || 0),
+        content_type: m.content_type ?? undefined,
+        etag: m.etag ?? undefined,
+        original_name: m.original_name ?? undefined,
+      });
     }
   }
   return out;
@@ -844,6 +840,7 @@ function resetImages() {
     acc[s.key] = [];
     return acc;
   }, {});
+
   uploadedMap.value = {};
   uploadState.value = {};
 }
@@ -853,15 +850,12 @@ function previewUrls(slotKey) {
   return list.map((f) => f.url).filter(Boolean);
 }
 
-/** ====================== 提交导入（✅ 直接提交，无二次确认弹窗） ====================== */
+/** 提交导入 */
 async function submitImport() {
-  if (!canSubmitImport.value) {
+  try {
+    await filtersFormRef.value?.validate?.();
+  } catch {
     ElMessage.warning("客户和渠道为必选项，请先选择后再提交");
-    try {
-      await filtersFormRef.value?.validate?.();
-    } catch {
-      // ignore
-    }
     return;
   }
 
@@ -887,8 +881,8 @@ async function submitImport() {
     const draftResp = await createOrderDraft({
       module: "order",
       dynamic_data: dynamicData,
-      customer_group_id: filters.value.customer_group_id ?? undefined,
-      channel_group_id: filters.value.channel_group_id ?? undefined,
+      customer_group_id: filters.value.customer_group_id,
+      channel_group_id: filters.value.channel_group_id,
     });
 
     const draft = draftResp?.data?.data ?? draftResp?.data ?? draftResp;
@@ -899,13 +893,12 @@ async function submitImport() {
       order_id: orderId,
       images,
       dynamic_data: dynamicData,
-      customer_group_id: filters.value.customer_group_id ?? undefined,
-      channel_group_id: filters.value.channel_group_id ?? undefined,
+      customer_group_id: filters.value.customer_group_id,
+      channel_group_id: filters.value.channel_group_id,
     });
 
     resetImages();
     await loadTasks();
-
     ElMessage.success(`订单 ${orderId} 已创建，OCR 识别任务已提交`);
   } catch (e) {
     console.error(e);
@@ -919,7 +912,7 @@ async function submitImport() {
   }
 }
 
-/** ====================== 任务抽屉 ====================== */
+/** 任务抽屉 */
 const taskDrawer = ref(false);
 const tasks = ref([]);
 const loadingTasks = ref(false);
@@ -930,7 +923,7 @@ async function loadTasks() {
   try {
     const resp = await http.get("/orders/ocr-tasks", { params: { limit: 50 } });
     const data = resp?.data;
-    tasks.value = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
+    tasks.value = Array.isArray(data?.items) ? data.items : [];
   } catch (e) {
     console.error(e);
     ElNotification.error({
@@ -991,7 +984,7 @@ function statusTagType(s) {
   return "info";
 }
 
-/** ✅ 抽屉打开后每 3 秒自动刷新；关闭则停止 */
+/** 抽屉自动刷新 */
 let taskRefreshTimer = null;
 
 function startTaskAutoRefresh() {
@@ -1008,20 +1001,15 @@ function stopTaskAutoRefresh() {
   taskRefreshTimer = null;
 }
 
-watch(
-  taskDrawer,
-  async (open) => {
-    if (open) {
-      await loadTasks();
-      startTaskAutoRefresh();
-    } else {
-      stopTaskAutoRefresh();
-    }
-  },
-  { immediate: false }
-);
+watch(taskDrawer, async (open) => {
+  if (open) {
+    await loadTasks();
+    startTaskAutoRefresh();
+  } else {
+    stopTaskAutoRefresh();
+  }
+});
 
-/** ====================== 生命周期 ====================== */
 onMounted(async () => {
   await Promise.all([loadGroups(), loadTasks()]);
 });
@@ -1058,7 +1046,6 @@ onBeforeUnmount(() => {
   display: inline-flex;
 }
 
-/* ✅ 更明显的“图片识别任务”按钮 */
 .task-btn {
   border-radius: 12px;
   padding: 8px 14px;
@@ -1089,7 +1076,6 @@ onBeforeUnmount(() => {
   gap: 8px;
 }
 
-/* 上传模式控件 */
 .upload-mode {
   display: flex;
   align-items: center;
@@ -1171,7 +1157,6 @@ onBeforeUnmount(() => {
   color: #999;
 }
 
-/* ✅ 亮绿色实体球 */
 .ready-dot {
   width: 10px;
   height: 10px;
@@ -1180,7 +1165,6 @@ onBeforeUnmount(() => {
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.18);
 }
 
-/* 任务错误信息：可点查看详情（控制台） */
 .task-error {
   cursor: pointer;
   color: rgba(31, 42, 68, 0.9);
@@ -1188,13 +1172,11 @@ onBeforeUnmount(() => {
   text-underline-offset: 2px;
 }
 
-/* Upload box base */
 .upload-box :deep(.el-upload-dragger) {
   border-radius: 12px;
   min-height: 170px;
 }
 
-/* ✅ 单图槽：空态提示强制居中 */
 .upload-one :deep(.el-upload-dragger) {
   padding: 0 !important;
   display: flex;
@@ -1202,12 +1184,10 @@ onBeforeUnmount(() => {
   justify-content: center;
 }
 
-/* 多图槽：保留稍微舒展的 padding */
 .upload-multi :deep(.el-upload-dragger) {
   padding: 12px;
 }
 
-/* 空态居中文案 */
 .upload-empty {
   width: 100%;
   height: 170px;
@@ -1234,7 +1214,6 @@ onBeforeUnmount(() => {
   font-weight: 650;
 }
 
-/* 单图槽：居中预览 */
 .one-wrap {
   position: relative;
   width: 100%;
@@ -1268,7 +1247,6 @@ onBeforeUnmount(() => {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
-/* 多图预览墙 */
 .preview-wall {
   margin-top: 10px;
   display: grid;

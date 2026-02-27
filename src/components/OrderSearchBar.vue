@@ -2,26 +2,39 @@
 <template>
   <el-card shadow="never" class="search-card">
     <el-form :model="model" label-width="0" class="search-form" size="small">
-      <!-- ✅ 财务搜索（对齐后端筛选集合） -->
+      <!-- 财务搜索（严格对齐后端筛选字段） -->
       <template v-if="variant === 'finance'">
         <div class="row">
-          <!-- ✅ 团队筛选：只展示具体团队；清空代表“不过滤” -->
+          <!-- 财务团队：后端字段为 team_names（数组） -->
           <el-select
-            v-model="model.team_name"
+            v-if="financeTeamMultiple"
+            v-model="financeTeamMultiModel"
+            multiple
+            collapse-tags
+            collapse-tags-tooltip
+            clearable
+            filterable
+            placeholder="团队（可多选）"
+            class="w260"
+            :disabled="loading || teamSelectDisabled"
+            @clear="onAutoSearchByClear"
+            @change="onFinanceTeamChange"
+          >
+            <el-option v-for="t in resolvedTeamOptions" :key="t.value" :label="t.label" :value="t.value" />
+          </el-select>
+
+          <el-select
+            v-else
+            v-model="financeTeamSingleModel"
             clearable
             filterable
             placeholder="团队"
             class="w180"
             :disabled="loading || teamSelectDisabled"
             @clear="onAutoSearchByClear"
-            @change="onTeamChange"
+            @change="onFinanceTeamChange"
           >
-            <el-option
-              v-for="t in resolvedTeamOptions"
-              :key="t.value"
-              :label="t.label"
-              :value="t.value"
-            />
+            <el-option v-for="t in resolvedTeamOptions" :key="t.value" :label="t.label" :value="t.value" />
           </el-select>
 
           <el-date-picker
@@ -51,7 +64,7 @@
             <el-option
               v-for="g in channelGroups"
               :key="g.id"
-              :label="g.group_name || g.channel_name || g.channel_code"
+              :label="g.group_name"
               :value="g.id"
             />
           </el-select>
@@ -69,7 +82,7 @@
             <el-option
               v-for="g in customerGroups"
               :key="g.id"
-              :label="g.group_name || g.customer_name || g.customer_code"
+              :label="g.group_name"
               :value="g.id"
             />
           </el-select>
@@ -152,7 +165,7 @@
         </div>
       </template>
 
-      <!-- ✅ 订单搜索（含团队筛选 + 业务员随团队过滤） -->
+      <!-- 订单搜索（严格对齐后端字段） -->
       <template v-else>
         <div class="row">
           <el-input
@@ -203,7 +216,6 @@
         <el-collapse-transition>
           <div v-show="showMore" class="more">
             <div class="row">
-              <!-- ✅ 团队筛选（订单）：只展示具体团队；清空代表“不过滤” -->
               <el-select
                 v-model="model.team_name"
                 clearable
@@ -212,14 +224,9 @@
                 class="w180"
                 :disabled="loading || teamSelectDisabled"
                 @clear="onAutoSearchByClear"
-                @change="onTeamChange"
+                @change="onOrderTeamChange"
               >
-                <el-option
-                  v-for="t in resolvedTeamOptions"
-                  :key="t.value"
-                  :label="t.label"
-                  :value="t.value"
-                />
+                <el-option v-for="t in resolvedTeamOptions" :key="t.value" :label="t.label" :value="t.value" />
               </el-select>
 
               <el-input
@@ -254,7 +261,7 @@
                 v-model="model.customer_group_id"
                 clearable
                 filterable
-                placeholder="客户群"
+                placeholder="客户"
                 class="w180"
                 :disabled="loading"
                 @clear="onAutoSearchByClear"
@@ -267,7 +274,7 @@
                 v-model="model.channel_group_id"
                 clearable
                 filterable
-                placeholder="渠道群"
+                placeholder="渠道"
                 class="w180"
                 :disabled="loading"
                 @clear="onAutoSearchByClear"
@@ -290,7 +297,7 @@
                 <el-option
                   v-for="u in filteredSalespersons"
                   :key="u.id"
-                  :label="u.full_name || u.real_name || u.username"
+                  :label="u.real_name || u.username"
                   :value="u.id"
                 />
               </el-select>
@@ -329,30 +336,17 @@ const props = defineProps({
   customerGroups: { type: Array, default: () => [] },
   channelGroups: { type: Array, default: () => [] },
 
-  /**
-   * ✅ 业务员列表：不再从业务员数据反推团队归属；
-   * 建议父组件在 team_name 变化时，按 team_name 调接口后传入已过滤的列表。
-   */
+  // 父组件应按 team 变化拉取后传入（本组件不猜团队归属）
   salespersons: { type: Array, default: () => [] },
   showSalesperson: { type: Boolean, default: true },
 
-  /**
-   * ✅ 新增：团队下拉数据（推荐父组件传入）
-   * 支持形态：
-   * - ["A","B"]
-   * - [{team_name:"A"}] / [{name:"A"}] / [{label:"A", value:"A"}]
-   */
+  // ["A","B"] 或 [{team_name:"A"}] / [{label:"A", value:"A"}]
   teamOptions: { type: Array, default: () => [] },
 
-  /**
-   * ✅ 新增：当前用户角色名（用于默认值策略）
-   * 期望：'super_admin' | 'manager'（大小写不敏感）
-   */
+  // super_admin | manager | finance | market | sales
   roleName: { type: String, default: "" },
 
-  /**
-   * ✅ 新增：当前用户可见团队名（当 teamOptions 没传时兜底）
-   */
+  // teamOptions 未传时兜底
   userTeamNames: { type: Array, default: () => [] },
 });
 
@@ -363,6 +357,10 @@ const showMore = ref(false);
 const roleNorm = computed(() => String(props.roleName || "").trim().toLowerCase());
 const isSuperAdmin = computed(() => roleNorm.value === "super_admin" || roleNorm.value === "superadmin");
 const isManager = computed(() => roleNorm.value === "manager");
+const isFinanceRole = computed(() => roleNorm.value === "finance");
+const isMarketRole = computed(() => roleNorm.value === "market");
+
+const financeTeamMultiple = computed(() => props.variant === "finance" && (isSuperAdmin.value || isManager.value));
 
 function cloneObj(v) {
   try {
@@ -381,10 +379,7 @@ function safeStringify(v) {
 }
 
 function normalizeRange(v) {
-  // ✅ daterange：统一成 null 或 [start,end]（Element Plus 更稳）
-  if (!v) return null;
-  if (!Array.isArray(v)) return null;
-  if (v.length !== 2) return null;
+  if (!v || !Array.isArray(v) || v.length !== 2) return null;
   const a = v[0];
   const b = v[1];
   if (!a || !b) return null;
@@ -397,14 +392,27 @@ function normalizeTeamName(v) {
   return s ? s : null;
 }
 
+function normalizeTeamNames(v) {
+  const arr = Array.isArray(v) ? v : [];
+  const out = [];
+  for (const x of arr) {
+    const s = normalizeTeamName(x);
+    if (s) out.push(s);
+  }
+  return Array.from(new Set(out));
+}
+
 function normalizeModel(obj) {
   const m = cloneObj(obj);
 
   if ("created_date" in m) m.created_date = normalizeRange(m.created_date);
   if ("first_register_date" in m) m.first_register_date = normalizeRange(m.first_register_date);
 
-  // ✅ team_name：统一 null/字符串
+  // 订单侧：team_name
   if ("team_name" in m) m.team_name = normalizeTeamName(m.team_name);
+
+  // 财务侧：team_names（数组）
+  if ("team_names" in m) m.team_names = normalizeTeamNames(m.team_names);
 
   return m;
 }
@@ -414,6 +422,7 @@ function normalizeOutgoing(obj) {
   if ("created_date" in m) m.created_date = normalizeRange(m.created_date);
   if ("first_register_date" in m) m.first_register_date = normalizeRange(m.first_register_date);
   if ("team_name" in m) m.team_name = normalizeTeamName(m.team_name);
+  if ("team_names" in m) m.team_names = normalizeTeamNames(m.team_names);
   return m;
 }
 
@@ -440,11 +449,9 @@ watch(
   model,
   (v) => {
     if (_syncingFromProp) return;
-
     const next = normalizeOutgoing(v);
     const s = safeStringify(next);
     if (s === _lastEmitted) return;
-
     _lastEmitted = s;
     emit("update:modelValue", next);
   },
@@ -466,9 +473,6 @@ function emitReset() {
   emit("reset");
 }
 
-/** ======================
- *  ✅ 团队 options 归一化
- * ====================== */
 function _asList(v) {
   if (v === null || v === undefined) return [];
   if (Array.isArray(v)) return v;
@@ -483,77 +487,109 @@ function _asList(v) {
 
 function _teamLabelOf(t) {
   if (t === null || t === undefined) return "";
-  if (typeof t === "string") return t;
-  return String(t.label || t.team_name || t.name || t.value || "").trim();
+  if (typeof t === "string") return t.trim();
+  return String(t.label ?? t.team_name ?? t.name ?? t.value ?? "").trim();
 }
 
 function _teamValueOf(t) {
   if (t === null || t === undefined) return null;
-  if (typeof t === "string") return t.trim() || null;
-  const v = t.value ?? t.team_name ?? t.name ?? t.label;
-  return normalizeTeamName(v);
+  if (typeof t === "string") return normalizeTeamName(t);
+  return normalizeTeamName(t.value ?? t.team_name ?? t.name ?? t.label);
 }
 
 const resolvedTeamOptions = computed(() => {
-  const raw = _asList(props.teamOptions);
-  let items = raw
+  let items = _asList(props.teamOptions)
     .map((t) => {
       const value = _teamValueOf(t);
-      const label = _teamLabelOf(t) || (value ? String(value) : "");
+      const label = _teamLabelOf(t) || (value || "");
       return value ? { value, label } : null;
     })
     .filter(Boolean);
 
-  // 兜底：如果父组件没传 teamOptions，则尝试用 userTeamNames
   if (!items.length) {
-    const raw2 = _asList(props.userTeamNames);
-    items = raw2
+    items = _asList(props.userTeamNames)
       .map((x) => {
-        const v = normalizeTeamName(x);
-        return v ? { value: v, label: v } : null;
+        const value = normalizeTeamName(x);
+        return value ? { value, label: value } : null;
       })
       .filter(Boolean);
   }
 
-  // 去重 + 稳定排序
-  const m = new Map();
-  for (const it of items) m.set(it.value, it.label);
-  return Array.from(m.entries())
+  const map = new Map();
+  for (const it of items) map.set(it.value, it.label);
+
+  return Array.from(map.entries())
     .map(([value, label]) => ({ value, label }))
-    .sort((a, b) => String(a.value).localeCompare(String(b.value)));
+    .sort((a, b) => String(a.value).localeCompare(String(b.value), "zh-CN"));
 });
 
-const teamSelectDisabled = computed(() => {
-  // 超级管理员也仅展示具体团队；清空代表“不过滤”
-  const cnt = resolvedTeamOptions.value.length;
-  return cnt <= 1;
+const resolvedTeamValues = computed(() => resolvedTeamOptions.value.map((x) => x.value));
+
+const teamSelectDisabled = computed(() => resolvedTeamOptions.value.length <= 1);
+
+const financeTeamSingleModel = computed({
+  get() {
+    const arr = normalizeTeamNames(model.value?.team_names);
+    return arr[0] || null;
+  },
+  set(val) {
+    const t = normalizeTeamName(val);
+    model.value.team_names = t ? [t] : [];
+  },
 });
 
-/** ======================
- *  ✅ 默认团队策略
- *  - super_admin：默认不选（null/清空 = 全部可见范围）
- *  - manager：默认第一个团队
- * ====================== */
+const financeTeamMultiModel = computed({
+  get() {
+    return normalizeTeamNames(model.value?.team_names);
+  },
+  set(vals) {
+    model.value.team_names = normalizeTeamNames(vals);
+  },
+});
+
 let _defaultTeamApplied = false;
 
 function applyDefaultTeamOnce() {
   if (_defaultTeamApplied) return;
   _defaultTeamApplied = true;
 
+  const teamValues = resolvedTeamValues.value;
+
+  // 财务页用 team_names；订单页用 team_name
+  if (props.variant === "finance") {
+    const cur = normalizeTeamNames(model.value?.team_names).filter((x) => teamValues.includes(x));
+
+    if (isSuperAdmin.value) {
+      model.value.team_names = cur; // 默认不过滤（可为空）
+      return;
+    }
+
+    if (isManager.value) {
+      model.value.team_names = cur.length ? cur : (teamValues[0] ? [teamValues[0]] : []);
+      return;
+    }
+
+    // finance/market/sales 等：保留一个有效值，无则清空
+    model.value.team_names = cur.length ? [cur[0]] : [];
+    return;
+  }
+
+  // 订单页 team_name
   const cur = normalizeTeamName(model.value?.team_name);
+  const hasCur = !!cur && teamValues.includes(cur);
 
   if (isSuperAdmin.value) {
-    // 超级：默认不过滤（保持当前值即可）
-    model.value.team_name = cur;
+    model.value.team_name = hasCur ? cur : null;
     return;
   }
 
   if (isManager.value) {
-    // 经理：必须落到某个团队（由上游限制 options）
-    if (cur) return;
-    const first = resolvedTeamOptions.value[0]?.value || null;
-    if (first) model.value.team_name = first;
+    if (hasCur) return;
+    model.value.team_name = teamValues[0] || null;
+    return;
   }
+
+  model.value.team_name = hasCur ? cur : null;
 }
 
 onMounted(() => {
@@ -561,25 +597,17 @@ onMounted(() => {
 });
 
 watch(
-  () => [isSuperAdmin.value, isManager.value, resolvedTeamOptions.value.length],
+  () => [props.variant, roleNorm.value, resolvedTeamValues.value.join("|")],
   () => {
-    // teams 异步加载时补一次默认策略
     _defaultTeamApplied = false;
     nextTick(() => applyDefaultTeamOnce());
   }
 );
 
-/** ======================
- *  ✅ 业务员展示：不从业务员数据反推团队
- * ====================== */
 const filteredSalespersons = computed(() => {
-  const list = Array.isArray(props.salespersons) ? props.salespersons : [];
-  return list;
+  return Array.isArray(props.salespersons) ? props.salespersons : [];
 });
 
-/** ======================
- *  筛选框体验：清空即触发一次查询
- * ====================== */
 function onAutoSearchByClear() {
   if (props.loading) return;
   emit("search");
@@ -597,20 +625,55 @@ function onSelectChange(v) {
   if (v === null || v === undefined || v === "") emit("search");
 }
 
-function onTeamChange(v) {
-  // 切换团队：自动触发查询；并且重置业务员选择（避免跨团队残留）
+function onOrderTeamChange(v) {
   if (props.loading) return;
 
-  const nextTeam = normalizeTeamName(v);
+  let nextTeam = normalizeTeamName(v);
+
+  if (isManager.value && !nextTeam) {
+    nextTeam = resolvedTeamOptions.value[0]?.value || null;
+  }
+
+  if (nextTeam && !resolvedTeamValues.value.includes(nextTeam)) {
+    nextTeam = null;
+  }
+
   model.value.team_name = nextTeam;
 
   if ("salesperson_id" in model.value) {
     model.value.salesperson_id = null;
   }
 
-  // ✅ 给父组件一个可选钩子：team 变化时可拉取 salespersons(team_name=xxx)
   emit("team-change", nextTeam);
+  emit("search");
+}
 
+function onFinanceTeamChange(v) {
+  if (props.loading) return;
+
+  let teamNames = financeTeamMultiple.value ? normalizeTeamNames(v) : normalizeTeamNames([v]);
+
+  // 仅保留有效团队
+  teamNames = teamNames.filter((x) => resolvedTeamValues.value.includes(x));
+
+  // manager 单选/多选都不允许清空到空（默认回第一个）
+  if (isManager.value && teamNames.length === 0) {
+    const first = resolvedTeamOptions.value[0]?.value;
+    if (first) teamNames = [first];
+  }
+
+  // 非 super/manager 的财务页保持单值
+  if (!financeTeamMultiple.value && teamNames.length > 1) {
+    teamNames = [teamNames[0]];
+  }
+
+  model.value.team_names = teamNames;
+
+  if ("salesperson_id" in model.value) {
+    model.value.salesperson_id = null;
+  }
+
+  emit("team-change", financeTeamMultiple.value ? [...teamNames] : (teamNames[0] || null));
   emit("search");
 }
 </script>

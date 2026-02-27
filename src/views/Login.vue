@@ -115,10 +115,8 @@ function getLoginErrorMessage(e) {
   const detail = e?.response?.data?.detail;
   const msg = e?.message;
 
-  // 后端 detail 如果是中文，优先展示（避免丢失精确信息）
   if (detail && typeof detail === "string" && hasChinese(detail)) return detail;
 
-  // 网络/超时等 axios 常见英文
   const m = String(msg || "");
   if (/timeout/i.test(m) || /ECONNABORTED/i.test(String(e?.code || ""))) {
     return "请求超时，请检查网络后重试";
@@ -127,7 +125,6 @@ function getLoginErrorMessage(e) {
     return "网络异常，请检查网络连接";
   }
 
-  // 按 HTTP 状态码给中文兜底（不猜测具体业务语义）
   if (status === 401) return "登录失败：账号或密码不正确";
   if (status === 403) return "登录失败：当前账号无权限";
   if (status >= 500) return "服务器异常，请稍后重试";
@@ -148,8 +145,10 @@ async function redirectAfterLogin(roleName) {
 }
 
 onMounted(async () => {
+  // ✅ 登录页确保不带主壳子的 body 锁
+  document.body.classList.remove("app-shell-lock");
+
   if (!store.isLoggedIn) return;
-  // ✅ 已登录也尊重 redirect（并校验权限）
   await redirectAfterLogin(store.roleName);
 });
 
@@ -199,6 +198,7 @@ async function doLogin() {
 <style scoped>
 .login-page {
   height: 100vh;
+  height: 100dvh;
   width: 100%;
   position: relative;
   overflow: hidden;
@@ -221,7 +221,6 @@ async function doLogin() {
   transform: translateZ(0);
 }
 
-/* 仅保留左上氛围光 */
 .b1 {
   width: 520px;
   height: 520px;
@@ -236,10 +235,12 @@ async function doLogin() {
   justify-content: center;
   align-items: flex-start;
   padding: 24px;
-  padding-top: clamp(140px, 20vh, 280px);
+  padding-top: clamp(120px, 18vh, 260px);
   position: relative;
   z-index: 1;
   overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .login-card {
@@ -267,6 +268,7 @@ async function doLogin() {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
 }
 
 .logo-wrap {
@@ -279,6 +281,7 @@ async function doLogin() {
   background: transparent;
   overflow: hidden;
   border: 1px solid rgba(60, 60, 60, 0.08);
+  flex-shrink: 0;
 }
 
 .logo {
@@ -289,11 +292,18 @@ async function doLogin() {
   border-radius: inherit;
 }
 
+.brand-text {
+  min-width: 0;
+}
+
 .brand-title {
   font-size: 18px;
   font-weight: 700;
   letter-spacing: 0.2px;
   color: #1f2a44;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .brand-subtitle {
@@ -304,6 +314,7 @@ async function doLogin() {
 
 .brand-tag {
   border-radius: 10px;
+  flex-shrink: 0;
 }
 
 .login-form {
@@ -333,6 +344,7 @@ async function doLogin() {
 
 .login-form :deep(.el-input__wrapper) {
   border-radius: 10px;
+  min-height: 40px;
 }
 
 .login-btn {
@@ -340,6 +352,7 @@ async function doLogin() {
   border-radius: 10px;
   height: 40px;
   font-weight: 600;
+  margin-top: 2px;
 }
 
 .footer-note {
@@ -347,5 +360,75 @@ async function doLogin() {
   text-align: center;
   font-size: 12px;
   color: rgba(31, 42, 68, 0.55);
+  line-height: 1.45;
+}
+
+@media (max-width: 768px) {
+  .login-shell {
+    padding: 14px;
+    padding-top: max(40px, env(safe-area-inset-top));
+    align-items: center;
+  }
+
+  .login-card {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 12px;
+  }
+
+  .card-inner {
+    padding: 18px 14px 16px;
+  }
+
+  .brand {
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .brand-left {
+    gap: 10px;
+  }
+
+  .logo-wrap {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+  }
+
+  .brand-title {
+    font-size: 16px;
+  }
+
+  .brand-subtitle {
+    font-size: 11px;
+  }
+
+  .login-form :deep(.el-form-item) {
+    display: block;
+    margin-bottom: 14px;
+  }
+
+  .login-form :deep(.el-form-item__label) {
+    width: auto !important;
+    justify-content: flex-start;
+    margin-bottom: 6px;
+    line-height: 1.2;
+    padding: 0;
+    float: none;
+  }
+
+  .login-form :deep(.el-form-item__content) {
+    margin-left: 0 !important;
+  }
+
+  .login-btn {
+    height: 42px;
+  }
+
+  .footer-note {
+    font-size: 11px;
+    margin-top: 10px;
+  }
 }
 </style>

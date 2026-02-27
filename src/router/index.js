@@ -9,7 +9,6 @@ function _normRole(r) {
 
 function defaultHomeByRole(roleName) {
   const rn = _normRole(roleName);
-  // ✅ 市场账号默认跳转到“渠道管理”
   if (rn === ROLE.MARKET) return "/channels";
   if (rn === ROLE.FINANCE) return "/finance";
   return "/orders/all";
@@ -31,38 +30,40 @@ function hasAccess(roleName, path) {
 
   if (p === "/" || p === "") return true;
 
+  // 报价助手：当前仅 super_admin
+  if (p.startsWith("/ai-assistant")) {
+    return rn === ROLE.SUPER_ADMIN;
+  }
+
   // 账号管理：仅 super_admin/manager
   if (p.startsWith("/users")) {
     return rn === ROLE.SUPER_ADMIN || rn === ROLE.MANAGER;
   }
 
-  // 财务不能看订单
+  // 财务不能看订单（含 /orders 下所有入口）
   if (rn === ROLE.FINANCE && p.startsWith("/orders")) return false;
 
   // 业务员不能看财务
   if (rn === ROLE.SALES && p.startsWith("/finance")) return false;
 
-  // ✅ 市场账号：允许看财务，但不允许订单写入口
+  // 市场账号：允许看订单列表/详情、财务（只读）、客户、渠道；禁止订单写入口
   if (rn === ROLE.MARKET) {
     if (p.startsWith("/orders/create")) return false;
     if (p.startsWith("/orders/import")) return false;
 
     if (p.startsWith("/orders")) return true;
-
-    // ✅ market 允许进入 finance（查看）
     if (p.startsWith("/finance")) return true;
-
     if (p.startsWith("/customers")) return true;
     if (p.startsWith("/channels")) return true;
 
-    // 未来新增模块：默认拒绝
+    // 其他新增模块默认拒绝（/login 已在守卫前面处理）
     if (p.startsWith("/")) return false;
   }
 
   return true;
 }
 
-// ✅ 全部改为懒加载：把页面组件从首包挪走
+// 全部懒加载
 const Login = () => import("../views/Login.vue");
 const Dashboard = () => import("../views/Dashboard.vue");
 
@@ -84,6 +85,9 @@ const FinanceList = () => import("../views/finance/FinanceList.vue");
 const CustomerList = () => import("../views/customers/CustomerList.vue");
 const ChannelList = () => import("../views/channels/ChannelList.vue");
 
+// 报价助手（新模块）
+const AiAssistantWorkbench = () => import("../views/ai-assistant/AiAssistantWorkbench.vue");
+
 const routes = [
   { path: "/login", name: "login", component: Login },
 
@@ -101,9 +105,12 @@ const routes = [
       { path: "orders/create", name: "orders-create", component: OrderCreate },
       { path: "orders/:id", name: "orders-detail", component: OrderDetail },
 
+      // 报价助手入口（当前仅 super_admin）
+      { path: "ai-assistant", name: "ai-assistant", component: AiAssistantWorkbench },
+
       { path: "users", name: "users", component: UserList },
 
-      // ✅ 财务：meta 方便页面做只读
+      // 财务页与财务详情：由页面按 meta 只读控制（市场账号可进但不可写）
       { path: "finance", name: "finance", component: FinanceList, meta: { financeReadOnly: true } },
       {
         path: "finance/orders/:id",

@@ -7,6 +7,22 @@
       </div>
     </div>
 
+    <!-- 上传模式（与导入页对齐） -->
+    <el-card shadow="never" class="section-card">
+      <div class="upload-mode-row">
+        <div class="upload-mode">
+          <span class="upload-mode-label">上传模式</span>
+          <el-select v-model="uploadMode" size="small" style="width: 160px" @change="persistUploadMode">
+            <el-option label="智能（推荐）" value="smart" />
+            <el-option label="直传（更快）" value="direct" />
+            <el-option label="稳定（兼容VPN）" value="stable" />
+          </el-select>
+        </div>
+
+        <div class="upload-mode-tip">图片上传失败时，智能模式会提示切换到稳定模式</div>
+      </div>
+    </el-card>
+
     <!-- ① 基础信息 -->
     <el-card shadow="never" class="section-card meta-card">
       <template #header>
@@ -15,7 +31,6 @@
         </div>
       </template>
 
-      <!-- ✅ rules + prop -> 必选红色星星 -->
       <el-form ref="metaFormRef" :model="meta" :rules="metaRules" label-width="80px">
         <el-row :gutter="12">
           <el-col :span="12">
@@ -27,6 +42,8 @@
                 placeholder="必选"
                 class="fv fv-select"
                 style="width: 100%"
+                :loading="groupsLoading"
+                :disabled="groupsLoading"
               >
                 <el-option
                   v-for="g in customerGroups"
@@ -47,6 +64,8 @@
                 placeholder="必选"
                 class="fv fv-select"
                 style="width: 100%"
+                :loading="groupsLoading"
+                :disabled="groupsLoading"
               >
                 <el-option
                   v-for="g in channelGroups"
@@ -126,7 +145,6 @@
             </span>
           </div>
 
-          <!-- ✅ 单图槽：参照导入页（只有一个可拖放区域） -->
           <el-upload
             drag
             :auto-upload="false"
@@ -162,7 +180,6 @@
             </template>
           </el-upload>
 
-          <!-- ✅ 上传提示：放在当前卡槽下方 -->
           <div v-if="slotUploadingCount('vehicle_cert') > 0" class="uploading-tip">
             正在上传：{{ slotUploadingCount("vehicle_cert") }} 个文件…（上传完成后才能提交）
           </div>
@@ -675,11 +692,11 @@
       </div>
     </el-card>
 
-    <!-- ⑤ 备用图（多张） -->
+    <!-- ⑤ 相关图片（多张） -->
     <el-card shadow="never" class="section-card">
       <template #header>
         <div class="section-header">
-          <div class="section-title">备用图</div>
+          <div class="section-title">相关图片（可多张）</div>
         </div>
       </template>
 
@@ -714,23 +731,6 @@
       </div>
     </el-card>
 
-    <!-- ⑥ 更多字段（可选） -->
-    <el-card shadow="never" class="section-card">
-      <template #header>
-        <div class="section-header">
-          <div class="section-title">更多字段（可选）</div>
-        </div>
-      </template>
-
-      <el-input
-        v-model="extraJson"
-        type="textarea"
-        :rows="6"
-        placeholder='可粘贴 JSON（会合并进 dynamic_data），例如：{ "custom_key": "value" }'
-        class="fv"
-      />
-    </el-card>
-
     <div class="footer-actions">
       <el-button @click="resetAll" :disabled="submitting || uploadingCount > 0">清空</el-button>
       <el-button type="primary" :loading="submitting" :disabled="uploadingCount > 0" @click="submit">提交</el-button>
@@ -739,17 +739,24 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { ElMessage, ElNotification } from "element-plus";
+import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
 import { Plus } from "@element-plus/icons-vue";
 import { CaretBottom, CaretTop } from "@element-plus/icons-vue";
 
 import VehicleCertTable from "./VehicleCertTable.vue";
 
 import http from "../../api/http";
-import { createOrder, getCustomerGroups, getChannelGroups, createOrderDraft, finalizeOrderUpload } from "../../api/orders";
+import {
+  getCustomerGroups,
+  getChannelGroups,
+  createOrderDraft,
+  finalizeOrderUpload,
+  uploadOrderImageProxy,
+} from "../../api/orders";
 import { uploadOrReuseByMd5 } from "../../utils/bosUpload";
+import { preprocessImageForUpload } from "../../utils/imagePreprocess";
 
 const props = defineProps({
   embedded: { type: Boolean, default: false },
@@ -757,8 +764,25 @@ const props = defineProps({
 
 const router = useRouter();
 const submitting = ref(false);
+const groupsLoading = ref(false);
 
-/** ✅ 基础信息必选 */
+/** 上传模式（与导入页一致） */
+const UPLOAD_MODE_KEY = "order_create_upload_mode";
+const uploadMode = ref("smart");
+
+function loadUploadMode() {
+  const v = localStorage.getItem(UPLOAD_MODE_KEY);
+  if (v === "smart" || v === "direct" || v === "stable") uploadMode.value = v;
+}
+function persistUploadMode() {
+  try {
+    localStorage.setItem(UPLOAD_MODE_KEY, uploadMode.value);
+  } catch {
+    // ignore
+  }
+}
+
+/** 基础信息必选 */
 const metaFormRef = ref(null);
 const meta = ref({
   customer_group_id: null,
@@ -772,7 +796,7 @@ const metaRules = {
 const customerGroups = ref([]);
 const channelGroups = ref([]);
 
-/** ====================== ✅ 下拉展示：代码 + 名称（支持模糊搜索） ====================== */
+/** 下拉展示：代码 + 名称 */
 function _trim(v) {
   return String(v ?? "").trim();
 }
@@ -805,7 +829,7 @@ function channelGroupLabel(g) {
   return id || "-";
 }
 
-// ✅ formData
+/** 轻量表单字段（动态字段口径） */
 const formData = ref({
   cert_no: "",
   cert_issue_date: "",
@@ -870,8 +894,6 @@ const formData = ref({
   remark: "",
 });
 
-const extraJson = ref("");
-
 // 展开开关
 const certExpanded = ref(false);
 const idExpanded = ref(false);
@@ -893,18 +915,16 @@ function slotLabel(slotKey) {
   return IMAGE_SLOTS.find((s) => s.key === slotKey)?.label || slotKey;
 }
 
-/** ✅ 单图槽：已有文件则锁定（必须先删除） */
 function isSingleSlotLocked(slotKey) {
   if (isMultiSlot(slotKey)) return false;
   return (slotFiles.value[slotKey] || []).length >= 1;
 }
 
-/** ✅ 单图槽超出：只提示，不替换 */
 function onExceedWarn(slotKey) {
   ElMessage.warning(`${slotLabel(slotKey)}：请先删除当前图片，再上传新图片`);
 }
 
-/** ====================== files/state ====================== */
+/** files/state */
 const slotFiles = ref({
   vehicle_cert: [],
   idcard_front: [],
@@ -922,7 +942,7 @@ const uploadState = ref({});
 // uid -> objectURL
 const localPreviewUrlMap = ref({});
 
-/** ====================== STS 缓存 ====================== */
+/** STS 缓存 */
 const bosHost = ref("");
 let cachedSts = null;
 let cachedStsExpireAt = 0;
@@ -942,7 +962,7 @@ async function ensureSts() {
   const resp = await http.get("/orders/bos-sts");
   const data = resp?.data;
   if (!data?.accessKeyId || !data?.secretAccessKey || !data?.sessionToken) {
-    throw new Error("bos-sts response invalid");
+    throw new Error("获取上传凭证失败：返回数据不完整");
   }
   cachedSts = data;
   bosHost.value = data.bosHost || "";
@@ -950,7 +970,7 @@ async function ensureSts() {
   return cachedSts;
 }
 
-/** ====================== 单图槽 helpers ====================== */
+/** 单图槽 helpers */
 function firstFile(slotKey) {
   const list = slotFiles.value[slotKey] || [];
   return list.length ? list[0] : null;
@@ -969,6 +989,26 @@ function _ensureLocalPreview(file) {
     file.url = u;
     localPreviewUrlMap.value[file.uid] = u;
   }
+}
+
+function _replaceFileRawAndPreview(fileObj, newRaw) {
+  if (!fileObj || !newRaw) return;
+  const uid = fileObj.uid;
+
+  const oldUrl = uid ? localPreviewUrlMap.value[uid] : fileObj.url;
+  if (oldUrl) {
+    try {
+      URL.revokeObjectURL(oldUrl);
+    } catch {
+      // ignore
+    }
+    if (uid) delete localPreviewUrlMap.value[uid];
+  }
+
+  const u = URL.createObjectURL(newRaw);
+  fileObj.raw = newRaw;
+  fileObj.url = u;
+  if (uid) localPreviewUrlMap.value[uid] = u;
 }
 
 function _revokeLocalPreviewByUid(uid) {
@@ -994,7 +1034,67 @@ function clearSlot(slotKey) {
   slotFiles.value[slotKey] = [];
 }
 
-/** ====================== Upload handlers（单图槽） ====================== */
+/** 错误处理 */
+function hasChinese(s) {
+  return /[\u4e00-\u9fa5]/.test(String(s || ""));
+}
+function _rawErrMsg(e) {
+  const m = e?.response?.data?.detail || e?.response?.data?.message || e?.message || "";
+  return String(m || "");
+}
+function normalizeErrMsg(e, fallback = "操作失败，请稍后重试") {
+  const detail = e?.response?.data?.detail;
+  const msg = _rawErrMsg(e);
+  const status = e?.response?.status;
+  const code = String(e?.code || "");
+
+  if (typeof detail === "string" && detail && hasChinese(detail)) return detail;
+  if (msg && hasChinese(msg)) return msg;
+
+  const low = msg.toLowerCase();
+  if (low.includes("network error") || low.includes("failed to fetch")) return "网络异常，请检查网络连接";
+  if (low.includes("timeout") || code.includes("ECONNABORTED")) return "请求超时，请稍后重试";
+  if (low.includes("cors")) return "跨域受限或网络拦截，请切换网络后重试";
+
+  if (status === 401) return "登录状态已失效，请重新登录";
+  if (status === 403) return "无权限执行该操作";
+  if (status >= 500) return "服务器异常，请稍后重试";
+  return fallback;
+}
+function isLikelyNetworkBlocked(err) {
+  const m = _rawErrMsg(err).toLowerCase();
+  return (
+    m.includes("failed to fetch") ||
+    m.includes("network error") ||
+    m.includes("err_") ||
+    m.includes("cors") ||
+    m.includes("代理") ||
+    m.includes("vpn") ||
+    m.includes("127.0.0.1:7890")
+  );
+}
+async function suggestSwitchToStableOnce() {
+  try {
+    await ElMessageBox.confirm(
+      `上传可能被当前网络环境拦截（常见于 VPN/代理/公司网关）。\n\n建议切换到【稳定模式上传】继续，无需任何设置。`,
+      "上传失败（网络拦截）",
+      {
+        confirmButtonText: "切换为稳定模式",
+        cancelButtonText: "继续直传重试",
+        type: "warning",
+        center: true,
+        distinguishCancelAndClose: true,
+      }
+    );
+    uploadMode.value = "stable";
+    persistUploadMode();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Upload handlers（单图槽） */
 function onFileChange(slotKey, file) {
   clearSlot(slotKey);
   _ensureLocalPreview(file);
@@ -1004,14 +1104,14 @@ function onFileChange(slotKey, file) {
     console.error(e);
     ElNotification({
       title: "上传失败",
-      message: `上传失败：${e?.message || "unknown error"}`,
+      message: normalizeErrMsg(e, "上传失败，请稍后重试"),
       type: "error",
       duration: 4500,
     });
   });
 }
 
-/** ====================== Upload handlers（多图槽 related） ====================== */
+/** Upload handlers（多图槽 related） */
 function onFileChangeMulti(slotKey, file, files) {
   slotFiles.value[slotKey] = Array.isArray(files) ? files : [];
   _ensureLocalPreview(file);
@@ -1020,7 +1120,7 @@ function onFileChangeMulti(slotKey, file, files) {
     console.error(e);
     ElNotification({
       title: "上传失败",
-      message: `上传失败：${e?.message || "unknown error"}`,
+      message: normalizeErrMsg(e, "上传失败，请稍后重试"),
       type: "error",
       duration: 4500,
     });
@@ -1036,15 +1136,46 @@ function onFileRemoveMulti(slotKey, file, files) {
 }
 
 async function startUpload(slotKey, file) {
-  const raw = file?.raw;
-  if (!raw) return;
-
+  const raw0 = file?.raw;
+  if (!raw0) return;
   if (uploadedMap.value[file.uid]) return;
 
   uploadingCount.value += 1;
   uploadState.value[file.uid] = { status: "uploading" };
 
   try {
+    // 预处理（与导入页一致）
+    let raw = raw0;
+    try {
+      const pre = await preprocessImageForUpload({ file: raw0, slotKey });
+      if (pre?.file) {
+        raw = pre.file;
+        _replaceFileRawAndPreview(file, raw);
+      }
+    } catch {
+      raw = raw0;
+    }
+
+    // 稳定模式：后端代传
+    if (uploadMode.value === "stable") {
+      const resp = await uploadOrderImageProxy({ slot_key: slotKey, file: raw });
+      const meta = resp?.data || {};
+      uploadedMap.value[file.uid] = {
+        slot_key: slotKey,
+        md5: meta?.md5,
+        storage_key: meta?.storage_key,
+        etag: meta?.etag || "",
+        size: meta?.size || raw.size || 0,
+        content_type: meta?.content_type || raw.type || "application/octet-stream",
+        original_name: meta?.original_name || raw.name || "file",
+        preview_url: meta?.preview_url || "",
+      };
+      if (meta?.preview_url) file.url = meta.preview_url;
+      uploadState.value[file.uid] = { status: "done" };
+      return;
+    }
+
+    // 智能/直传：BOS直传
     const sts = await ensureSts();
     if (!bosHost.value) throw new Error("bosHost missing");
 
@@ -1062,12 +1193,42 @@ async function startUpload(slotKey, file) {
     uploadedMap.value[file.uid] = {
       slot_key: slotKey,
       ...meta0,
+      size: meta0?.size || raw.size || 0,
+      content_type: meta0?.content_type || raw.type || "application/octet-stream",
+      original_name: meta0?.original_name || raw.name || "file",
     };
 
     uploadState.value[file.uid] = { status: "done" };
-
-    // ✅ 按需求：不再弹“上传成功通知”
   } catch (e) {
+    if (uploadMode.value === "smart" && isLikelyNetworkBlocked(e)) {
+      const switched = await suggestSwitchToStableOnce();
+      if (switched) {
+        try {
+          const rawRetry = file?.raw || raw0;
+          const resp = await uploadOrderImageProxy({ slot_key: slotKey, file: rawRetry });
+          const meta = resp?.data || {};
+
+          uploadedMap.value[file.uid] = {
+            slot_key: slotKey,
+            md5: meta?.md5,
+            storage_key: meta?.storage_key,
+            etag: meta?.etag || "",
+            size: meta?.size || rawRetry.size || 0,
+            content_type: meta?.content_type || rawRetry.type || "application/octet-stream",
+            original_name: meta?.original_name || rawRetry.name || "file",
+            preview_url: meta?.preview_url || "",
+          };
+          if (meta?.preview_url) file.url = meta.preview_url;
+
+          uploadState.value[file.uid] = { status: "done" };
+          return;
+        } catch (e2) {
+          uploadState.value[file.uid] = { status: "error" };
+          throw e2;
+        }
+      }
+    }
+
     uploadState.value[file.uid] = { status: "error" };
     throw e;
   } finally {
@@ -1093,41 +1254,24 @@ function slotUploadingCount(slotKey) {
   return cnt;
 }
 
-const hasAnyImage = computed(() => {
-  return IMAGE_SLOTS.some((s) => (slotFiles.value[s.key] || []).length > 0);
-});
-
 function resetAll() {
   meta.value = { customer_group_id: null, channel_group_id: null };
   for (const k of Object.keys(formData.value)) formData.value[k] = "";
-  extraJson.value = "";
+
+  certExpanded.value = false;
+  idExpanded.value = false;
+  dlExpanded.value = false;
 
   for (const s of IMAGE_SLOTS) clearSlot(s.key);
 
   uploadedMap.value = {};
   uploadState.value = {};
-
-  for (const uid of Object.keys(localPreviewUrlMap.value)) {
-    _revokeLocalPreviewByUid(uid);
-  }
-  localPreviewUrlMap.value = {};
 }
 
 function buildDynamicData() {
-  let extra = {};
-  if (extraJson.value && extraJson.value.trim()) {
-    try {
-      const obj = JSON.parse(extraJson.value);
-      if (obj && typeof obj === "object" && !Array.isArray(obj)) extra = obj;
-    } catch {
-      ElMessage.warning("更多字段 JSON 解析失败：已忽略该部分");
-    }
-  }
+  const base = { ...formData.value };
 
-  const base = { ...extra, ...formData.value };
-  if (meta.value.customer_group_id) base.customer_group_id = meta.value.customer_group_id;
-  if (meta.value.channel_group_id) base.channel_group_id = meta.value.channel_group_id;
-
+  // 只保留有值字段（不把 group_id 塞进 dynamic_data，避免口径混淆）
   for (const [k, v] of Object.entries(base)) {
     if (v === "" || v === null || v === undefined) delete base[k];
   }
@@ -1155,6 +1299,7 @@ function collectFinalizeImages() {
   return out;
 }
 
+/** 统一提交：全部走 draft -> finalize（无图也走同口径） */
 async function submit() {
   try {
     await metaFormRef.value?.validate?.();
@@ -1163,35 +1308,15 @@ async function submit() {
     return;
   }
 
+  if (uploadingCount.value > 0) {
+    ElMessage.warning("还有文件在上传中，请稍后再提交");
+    return;
+  }
+
   submitting.value = true;
   try {
     const dynamicData = buildDynamicData();
-
-    if (!hasAnyImage.value) {
-      const resp = await createOrder({
-        module: "order",
-        dynamic_data: dynamicData,
-        image_urls: [],
-        ocr_raw_json: null,
-        customer_group_id: meta.value.customer_group_id,
-        channel_group_id: meta.value.channel_group_id,
-      });
-      const id = resp?.data?.id;
-      ElMessage.success("订单创建成功");
-      if (id) router.push({ path: `/orders/${id}` });
-      return;
-    }
-
-    if (uploadingCount.value > 0) {
-      ElMessage.warning("还有文件在上传中，请稍后再提交");
-      return;
-    }
-
     const images = collectFinalizeImages();
-    if (!images.length) {
-      ElMessage.warning("未检测到已上传文件（可能上传失败）");
-      return;
-    }
 
     const draftResp = await createOrderDraft({
       module: "order",
@@ -1199,46 +1324,62 @@ async function submit() {
       customer_group_id: meta.value.customer_group_id ?? undefined,
       channel_group_id: meta.value.channel_group_id ?? undefined,
     });
+
     const draft = draftResp?.data?.data ?? draftResp?.data ?? draftResp;
     const orderId = draft?.order_id;
     if (!orderId) throw new Error("draft failed: missing order_id");
 
     await finalizeOrderUpload({
       order_id: orderId,
-      images,
+      images, // 可为空数组（无图也统一 finalize）
       dynamic_data: dynamicData || {},
       customer_group_id: meta.value.customer_group_id ?? undefined,
       channel_group_id: meta.value.channel_group_id ?? undefined,
     });
 
-    ElNotification({
-      title: "已提交识别",
-      message: "订单已创建并提交识别任务，稍后可在订单详情查看回填结果。",
-      type: "success",
-      duration: 4500,
-    });
+    if (images.length > 0) {
+      ElNotification({
+        title: "创建成功",
+        message: "订单已创建并提交识别任务，稍后可在订单详情查看回填结果。",
+        type: "success",
+        duration: 3500,
+      });
+    } else {
+      ElMessage.success("订单创建成功");
+    }
 
     router.push({ path: `/orders/${orderId}` });
   } catch (e) {
     console.error(e);
-    ElMessage.error("提交失败");
+    ElMessage.error(`提交失败：${normalizeErrMsg(e, "提交失败，请稍后重试")}`);
   } finally {
     submitting.value = false;
   }
 }
 
 async function loadGroups() {
+  groupsLoading.value = true;
   try {
     const [cg, ch] = await Promise.all([getCustomerGroups(), getChannelGroups()]);
     customerGroups.value = cg?.data?.items || cg?.data || [];
     channelGroups.value = ch?.data?.items || ch?.data || [];
   } catch (e) {
     console.error(e);
+    ElMessage.error("加载客户/渠道分组失败");
+  } finally {
+    groupsLoading.value = false;
   }
 }
 
 onMounted(() => {
+  loadUploadMode();
   loadGroups();
+});
+
+onBeforeUnmount(() => {
+  for (const uid of Object.keys(localPreviewUrlMap.value)) {
+    _revokeLocalPreviewByUid(uid);
+  }
 });
 </script>
 
@@ -1265,6 +1406,31 @@ onMounted(() => {
   border-radius: 12px;
   border: 1px solid rgba(60, 60, 60, 0.08);
   margin-bottom: 12px;
+}
+
+.upload-mode-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 36px;
+}
+
+.upload-mode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.upload-mode-label {
+  font-size: 12px;
+  color: rgba(31, 42, 68, 0.72);
+  font-weight: 700;
+}
+
+.upload-mode-tip {
+  font-size: 12px;
+  color: rgba(31, 42, 68, 0.5);
 }
 
 .section-header {
@@ -1378,7 +1544,6 @@ onMounted(() => {
   color: #999;
 }
 
-/* ✅ 亮绿色实体球（与导入页一致） */
 .ready-dot {
   width: 10px;
   height: 10px;
@@ -1389,13 +1554,11 @@ onMounted(() => {
   vertical-align: -1px;
 }
 
-/* ✅ 单图槽：导入页同款 upload-box */
 .upload-box :deep(.el-upload-dragger) {
   border-radius: 12px;
   min-height: 170px;
 }
 
-/* 单图槽：空态强制居中 + 无 padding */
 .upload-one :deep(.el-upload-dragger) {
   padding: 0 !important;
   display: flex;
@@ -1403,7 +1566,6 @@ onMounted(() => {
   justify-content: center;
 }
 
-/* 空态居中文案 */
 .upload-empty {
   width: 100%;
   height: 170px;
@@ -1430,7 +1592,6 @@ onMounted(() => {
   font-weight: 650;
 }
 
-/* 单图槽：居中预览 */
 .one-wrap {
   position: relative;
   width: 100%;
@@ -1464,7 +1625,6 @@ onMounted(() => {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
-/* related 仍保留原 picture-card */
 .upload-card :deep(.el-upload--picture-card) {
   width: 100%;
 }
@@ -1489,7 +1649,6 @@ onMounted(() => {
   width: 120px;
 }
 
-/* 卡槽底部：状态 + 移除按钮 */
 .slot-foot {
   margin-top: 8px;
   font-size: 12px;
@@ -1527,6 +1686,11 @@ onMounted(() => {
 }
 
 @media (max-width: 980px) {
+  .upload-mode-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .two-col {
     grid-template-columns: 1fr;
   }

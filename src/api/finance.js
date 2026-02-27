@@ -10,22 +10,14 @@ import http from "./http";
  * - PATCH  /finance/orders/{orderId}/status   body: { is_rebate?, is_paid? }
  * - POST   /finance/orders/{orderId}/return
  *
- * ✅ 关键对齐：
- * - 前端筛选组件常用：
- *   - created_date: [start,end]
- *   - first_register_date: [start,end]
- * - 后端通常收：
- *   - created_date_start / created_date_end
- *   - first_register_date_start / first_register_date_end
- *   => 这里负责映射 + 成对护栏
- *
- * ✅ 重要：全系统时间统一 Asia/Shanghai（北京时间）
+ * ✅ 全系统时间统一 Asia/Shanghai（北京时间）
+ * ✅ 严谨模式：前端不猜字段、不传旧兼容字段
  */
 
 const TZ_BJ = "Asia/Shanghai";
+const FINANCE_ALLOWED_SLOT = new Set(["related"]);
 
 function toValidId(orderId) {
-  // ✅ 更严格：必须是正整数（拒绝 1.2 这种被截断的脏输入）
   const n = typeof orderId === "string" ? Number(orderId.trim()) : Number(orderId);
   if (!Number.isFinite(n)) throw new Error("finance api: invalid orderId");
   if (!Number.isInteger(n)) throw new Error("finance api: orderId must be an integer");
@@ -46,7 +38,6 @@ function isValidDate(d) {
 }
 
 function formatYmdInTz(d, timeZone = TZ_BJ) {
-  // ✅ 用指定时区输出 YYYY-MM-DD（避免本地时区/UTC 跨日坑）
   const dt = isValidDate(d) ? d : new Date(d);
   if (!isValidDate(dt)) return "";
 
@@ -68,22 +59,24 @@ function normalizeYmd(v) {
     const s = v.trim();
     if (!s) return "";
 
-    // 兼容 YYYYMMDD
     if (/^\d{8}$/.test(s)) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
 
-    // 兼容 YYYY-MM-DD 或 YYYY-MM-DDTHH:mm:ss...
     const m1 = s.match(/^(\d{4}-\d{2}-\d{2})/);
     if (m1) return m1[1];
 
-    // 兼容 YYYY/MM/DD
     const m2 = s.match(/^(\d{4})\/(\d{2})\/(\d{2})/);
     if (m2) return `${m2[1]}-${m2[2]}-${m2[3]}`;
 
-    return s;
+    // 严谨模式：未知格式不透传
+    return "";
   }
 
-  const s2 = String(v).trim();
-  return s2 || "";
+  if (typeof v === "number" && Number.isFinite(v)) {
+    const d = new Date(v);
+    return isValidDate(d) ? formatYmdInTz(d, TZ_BJ) : "";
+  }
+
+  return "";
 }
 
 function normalizeRangeToYmdPair(v) {
@@ -95,15 +88,13 @@ function normalizeRangeToYmdPair(v) {
 }
 
 /**
- * ✅ 清洗 query 参数：
+ * 清洗 query 参数：
  * - 去掉 null / undefined
  * - 字符串 trim 后为空则去掉
  * - 数组去掉空值后为空则去掉
  * - number: NaN/Infinity 丢弃
  * - Date: 自动转 YYYY-MM-DD（北京时间）
  * - 其他类型原样保留（boolean/object）
- *
- * ❗注意：daterange 不在这里做“拆 start/end”，由 normalizeFinanceListParams 统一处理
  */
 function cleanQueryParams(params) {
   const out = {};
@@ -152,7 +143,7 @@ function cleanQueryParams(params) {
 }
 
 /**
- * ✅ 财务列表 query 参数归一化（对齐后端）：
+ * 财务列表 query 参数归一化（对齐后端）
  * - created_date: [start,end] => created_date_start/created_date_end
  * - first_register_date: [start,end] => first_register_date_start/first_register_date_end
  * - 成对护栏：*_start 与 *_end 必须同时存在，否则两者都不发（避免后端 400）
@@ -160,30 +151,39 @@ function cleanQueryParams(params) {
 function normalizeFinanceListParams(params) {
   const out = cleanQueryParams(params);
 
-  // 1) 从 daterange 字段拆分
+  // created_date：仅当未显式传 start/end 时，才从 daterange 拆分
   if (Object.prototype.hasOwnProperty.call(out, "created_date")) {
-    const pair = normalizeRangeToYmdPair(out.created_date);
+    const hasStart = Object.prototype.hasOwnProperty.call(out, "created_date_start");
+    const hasEnd = Object.prototype.hasOwnProperty.call(out, "created_date_end");
+
+    const pair = !hasStart && !hasEnd ? normalizeRangeToYmdPair(out.created_date) : null;
     delete out.created_date;
+
     if (pair) {
       out.created_date_start = pair[0];
       out.created_date_end = pair[1];
     }
   }
 
+  // first_register_date：仅当未显式传 start/end 时，才从 daterange 拆分
   if (Object.prototype.hasOwnProperty.call(out, "first_register_date")) {
-    const pair = normalizeRangeToYmdPair(out.first_register_date);
+    const hasStart = Object.prototype.hasOwnProperty.call(out, "first_register_date_start");
+    const hasEnd = Object.prototype.hasOwnProperty.call(out, "first_register_date_end");
+
+    const pair = !hasStart && !hasEnd ? normalizeRangeToYmdPair(out.first_register_date) : null;
     delete out.first_register_date;
+
     if (pair) {
       out.first_register_date_start = pair[0];
       out.first_register_date_end = pair[1];
     }
   }
 
-  // 2) 成对护栏（避免只传 start 或只传 end）
   const pairs = [
     ["created_date_start", "created_date_end"],
     ["first_register_date_start", "first_register_date_end"],
   ];
+
   for (const [a, b] of pairs) {
     const hasA = Object.prototype.hasOwnProperty.call(out, a) && String(out[a] ?? "").trim() !== "";
     const hasB = Object.prototype.hasOwnProperty.call(out, b) && String(out[b] ?? "").trim() !== "";
@@ -197,7 +197,7 @@ function normalizeFinanceListParams(params) {
 }
 
 /**
- * ✅ 只允许发 is_paid / is_rebate，并做布尔兜底
+ * 只允许发 is_paid / is_rebate，并做布尔兜底
  */
 function normalizeStatusPatch(data) {
   const src = data && typeof data === "object" ? data : {};
@@ -214,43 +214,43 @@ function normalizeStatusPatch(data) {
 }
 
 /**
- * ✅ 清洗 finalize images[]
+ * 清洗 finalize images[]
  * 财务侧 slot_key 仅允许 related（后端也会校验，这里前端先兜一层）
  */
 function sanitizeFinalizeImages(images) {
   if (!Array.isArray(images)) return [];
 
-  const ALLOWED_SLOT = new Set(["related"]);
   const out = [];
 
   for (const img of images) {
     if (!img || typeof img !== "object") continue;
 
     const slot_key = String(img.slot_key ?? "").trim();
-    const storage_key = String(img.storage_key ?? "")
-      .trim()
-      .replace(/^\/+/, "");
+    const storage_key = String(img.storage_key ?? "").trim().replace(/^\/+/, "");
     const md5 = String(img.md5 ?? "").trim();
 
-    if (!slot_key || !ALLOWED_SLOT.has(slot_key)) continue;
+    if (!slot_key || !FINANCE_ALLOWED_SLOT.has(slot_key)) continue;
     if (!storage_key) continue;
 
     const item = {
       slot_key,
       storage_key,
-      md5,
     };
 
+    if (md5) item.md5 = md5;
     if (img.etag != null && String(img.etag).trim()) item.etag = String(img.etag).trim();
 
     if (img.size != null && !Number.isNaN(Number(img.size))) {
       const n = Number(img.size);
-      item.size = Number.isFinite(n) ? Math.max(0, n) : 0;
+      if (Number.isFinite(n)) item.size = Math.max(0, n);
     }
 
-    if (img.content_type != null && String(img.content_type).trim()) item.content_type = String(img.content_type).trim();
-    if (img.original_name != null && String(img.original_name).trim()) item.original_name = String(img.original_name).trim();
-    if (img.url != null && String(img.url).trim()) item.url = String(img.url).trim();
+    if (img.content_type != null && String(img.content_type).trim()) {
+      item.content_type = String(img.content_type).trim();
+    }
+    if (img.original_name != null && String(img.original_name).trim()) {
+      item.original_name = String(img.original_name).trim();
+    }
 
     out.push(item);
   }
@@ -259,19 +259,18 @@ function sanitizeFinalizeImages(images) {
 }
 
 /**
- * ✅ 清洗 clear_slots（财务侧目前仅 related）
+ * 清洗 clear_slots（财务侧目前仅 related）
  */
 function sanitizeClearSlots(clear_slots) {
   if (!Array.isArray(clear_slots)) return [];
 
-  const ALLOWED = new Set(["related"]);
   const seen = new Set();
   const out = [];
 
   for (const x of clear_slots) {
     const s = String(x ?? "").trim();
     if (!s) continue;
-    if (!ALLOWED.has(s)) continue;
+    if (!FINANCE_ALLOWED_SLOT.has(s)) continue;
     if (seen.has(s)) continue;
     seen.add(s);
     out.push(s);
@@ -287,13 +286,11 @@ export function listFinanceOrders(params = {}) {
   return http.get("/finance/orders", { params: p });
 }
 
-/** ✅ 汇总（同筛选条件，全量汇总，不受分页影响） */
 export function getFinanceOrdersSummary(params = {}) {
   const p = normalizeFinanceListParams(params);
   return http.get("/finance/orders/summary", { params: p });
 }
 
-/** ✅ 导出（按当前筛选条件全量导出，不走分页） */
 export function exportFinanceOrders(params = {}) {
   const p = normalizeFinanceListParams(params);
   return http.get("/finance/orders/export", {
@@ -311,7 +308,6 @@ export function updateFinanceOrderStatus(orderId, data = {}) {
   const id = toValidId(orderId);
   const body = normalizeStatusPatch(data);
 
-  // ✅ 避免空 PATCH（常见误操作/脏调用会导致“成功但没改”）
   if (!Object.keys(body).length) {
     throw new Error("finance api: status patch requires is_paid and/or is_rebate boolean");
   }
@@ -337,35 +333,53 @@ export function listFinanceChannelGroups(params = {}) {
 }
 
 export function listFinanceSalespersons(params = {}) {
-  const p = cleanQueryParams(params);
+  const p0 = params && typeof params === "object" ? params : {};
+  const statusRaw = p0.status !== undefined && p0.status !== null ? Number(p0.status) : 1;
+  const status = Number.isFinite(statusRaw) ? statusRaw : 1;
+
+  const p = cleanQueryParams({
+    ...p0,
+    status,
+  });
+
   return http.get("/finance/salespersons", { params: p });
 }
 
 /** ===================== 财务 BOS 上传链路（相关材料） ===================== */
 
 /**
- * ✅ 获取财务 BOS STS
+ * 获取财务 BOS STS
  * 主路径：/finance/bos-sts
- * 兼容路径：/finance/orders/bos-sts（若后端保留）
  */
 export function getFinanceBosSts() {
   return http.get("/finance/bos-sts");
 }
 
 /**
- * ✅ 财务图片代理上传（后端代传 BOS）
- * 主路径：/finance/bos-upload
- * 兼容路径：/finance/orders/bos-upload（若后端保留）
+ * 财务图片代理上传（后端代传 BOS）
+ * ⚠️ 后端要求 form-data 必须带 order_id + slot_key + file
+ * ⚠️ 财务侧 slot_key 仅允许 related
  */
-export function uploadFinanceBosProxy({ slot_key = "related", file }) {
+export function uploadFinanceBosProxy({ order_id, slot_key = "related", file }) {
+  if (!file) {
+    throw new Error("finance api: upload requires file");
+  }
+
+  const sk = String(slot_key || "related").trim();
+  if (!FINANCE_ALLOWED_SLOT.has(sk)) {
+    throw new Error("finance api: invalid slot_key");
+  }
+
   const fd = new FormData();
-  fd.append("slot_key", String(slot_key || "related").trim());
+  fd.append("order_id", String(toValidId(order_id)));
+  fd.append("slot_key", sk);
   fd.append("file", file);
+
   return http.post("/finance/bos-upload", fd);
 }
 
 /**
- * ✅ 提交财务相关材料关联
+ * 提交财务相关材料关联
  * - order_id 必填
  * - images[] 可选
  * - clear_slots 可选（仅 related）
@@ -381,6 +395,10 @@ export function finalizeFinanceUpload(payload = {}) {
     images,
     clear_slots: clear_slots.length ? clear_slots : undefined,
   });
+
+  if (!safePayload.order_id) {
+    throw new Error("finance api: finalize requires order_id");
+  }
 
   return http.post("/finance/finalize", safePayload);
 }

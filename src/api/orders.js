@@ -7,8 +7,17 @@ import http from "./http";
  */
 const TZ_BJ = "Asia/Shanghai";
 
+/** ✅ 订单图片槽位（以后端当前口径为准） */
+const ORDER_IMAGE_SLOTS = new Set([
+  "vehicle_cert",
+  "idcard_front",
+  "idcard_back",
+  "driving_license_main",
+  "driving_license_sub",
+  "related",
+]);
+
 function toValidId(id) {
-  // ✅ 更严格：必须是正整数（拒绝 1.2 这种被截断的脏输入）
   const n = typeof id === "string" ? Number(id.trim()) : Number(id);
   if (!Number.isFinite(n)) throw new Error("orders api: invalid id");
   if (!Number.isInteger(n)) throw new Error("orders api: id must be an integer");
@@ -24,6 +33,10 @@ function cleanUndefined(obj) {
   return out;
 }
 
+function isPlainObject(v) {
+  return Object.prototype.toString.call(v) === "[object Object]";
+}
+
 function isValidDate(d) {
   return d instanceof Date && Number.isFinite(d.getTime());
 }
@@ -32,7 +45,6 @@ function formatYmdInTz(d, timeZone = TZ_BJ) {
   const dt = isValidDate(d) ? d : new Date(d);
   if (!isValidDate(dt)) return "";
 
-  // en-CA 默认就是 YYYY-MM-DD
   const fmt = new Intl.DateTimeFormat("en-CA", {
     timeZone,
     year: "numeric",
@@ -50,23 +62,27 @@ function normalizeYmd(v) {
     const s = v.trim();
     if (!s) return "";
 
-    // 兼容 YYYYMMDD
+    // YYYYMMDD
     if (/^\d{8}$/.test(s)) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
 
-    // 兼容 YYYY-MM-DD 或 YYYY-MM-DDTHH:mm:ss...
+    // YYYY-MM-DD 或 YYYY-MM-DDTHH:mm:ss...
     const m1 = s.match(/^(\d{4}-\d{2}-\d{2})/);
     if (m1) return m1[1];
 
-    // 兼容 YYYY/MM/DD
+    // YYYY/MM/DD
     const m2 = s.match(/^(\d{4})\/(\d{2})\/(\d{2})/);
     if (m2) return `${m2[1]}-${m2[2]}-${m2[3]}`;
 
-    return s;
+    // 严谨模式：未知格式不透传，直接丢弃
+    return "";
   }
 
-  // 兜底：number/other
-  const s2 = String(v).trim();
-  return s2 || "";
+  if (typeof v === "number" && Number.isFinite(v)) {
+    const d = new Date(v);
+    return isValidDate(d) ? formatYmdInTz(d, TZ_BJ) : "";
+  }
+
+  return "";
 }
 
 function normalizeRangeToYmdPair(v) {
@@ -86,7 +102,7 @@ function normalizeRangeToYmdPair(v) {
  * - Date: 自动转 YYYY-MM-DD（北京时间）
  * - 其他类型原样保留（boolean/object）
  *
- * ❗注意：daterange 不在这里做“拆 start/end”，由 normalizeListOrdersParams 统一处理
+ * ❗daterange 不在这里拆 start/end，由 normalizeListOrdersParams 统一处理
  */
 function cleanQueryParams(params) {
   const out = {};
@@ -143,7 +159,6 @@ function cleanQueryParams(params) {
 function normalizeListOrdersParams(params) {
   const out = cleanQueryParams(params);
 
-  // 1) 从 daterange 字段拆分（仅当未显式传 start/end 时才使用）
   if (Object.prototype.hasOwnProperty.call(out, "created_date")) {
     const hasStart = Object.prototype.hasOwnProperty.call(out, "created_date_start");
     const hasEnd = Object.prototype.hasOwnProperty.call(out, "created_date_end");
@@ -170,7 +185,6 @@ function normalizeListOrdersParams(params) {
     }
   }
 
-  // 2) 成对参数护栏（避免只传 start 或只传 end 导致后端校验 400）
   const pairs = [
     ["created_date_start", "created_date_end"],
     ["first_register_date_start", "first_register_date_end"],
@@ -187,13 +201,23 @@ function normalizeListOrdersParams(params) {
   return out;
 }
 
+/** ✅ 仅接受对象；非对象兜底 {} */
+function safeObj(v) {
+  return isPlainObject(v) ? v : {};
+}
+
+function safeMaybeObj(v) {
+  if (v === undefined) return undefined;
+  return isPlainObject(v) ? v : undefined;
+}
+
 // 列表
 export function listOrders(params = {}) {
   const p = normalizeListOrdersParams(params);
   return http.get("/orders", { params: p });
 }
 
-// 详情（✅ 后端就是 /orders/{id}，且 {id:int} 不会与 /customer-groups 冲突）
+// 详情
 export function getOrder(id) {
   const oid = toValidId(id);
   return http.get(`/orders/${oid}`);
@@ -201,38 +225,41 @@ export function getOrder(id) {
 
 // 创建（纯文本创建）
 export function createOrder(data = {}) {
+  const d = safeObj(data);
   const payload = cleanUndefined({
-    module: data.module || "order",
-    dynamic_data: data.dynamic_data || {},
-    image_urls: data.image_urls || [],
-    salesperson_id: data.salesperson_id ?? undefined,
-    customer_group_id: data.customer_group_id ?? undefined,
-    channel_group_id: data.channel_group_id ?? undefined,
-    is_finished: data.is_finished ?? undefined,
-    is_rebate: data.is_rebate ?? undefined,
-    is_paid: data.is_paid ?? undefined,
-    order_info: data.order_info ?? undefined,
+    module: d.module || "order",
+    dynamic_data: isPlainObject(d.dynamic_data) ? d.dynamic_data : {},
+    salesperson_id: d.salesperson_id ?? undefined,
+    customer_group_id: d.customer_group_id ?? undefined,
+    channel_group_id: d.channel_group_id ?? undefined,
+    is_finished: d.is_finished ?? undefined,
+    order_info: safeMaybeObj(d.order_info),
   });
   return http.post("/orders", payload);
 }
 
-// 方案B1：创建订单草稿（拿到 order_id）
+// 创建订单草稿
 export function createOrderDraft(data = {}) {
+  const d = safeObj(data);
   const payload = cleanUndefined({
-    module: data.module || "order",
-    dynamic_data: data.dynamic_data || {},
-    // ✅ 后端 OrderDraftIn 没有 order_info：不要传
-    customer_group_id: data.customer_group_id ?? undefined,
-    channel_group_id: data.channel_group_id ?? undefined,
-    salesperson_id: data.salesperson_id ?? undefined,
+    module: d.module || "order",
+    dynamic_data: isPlainObject(d.dynamic_data) ? d.dynamic_data : {},
+    customer_group_id: d.customer_group_id ?? undefined,
+    channel_group_id: d.channel_group_id ?? undefined,
+    salesperson_id: d.salesperson_id ?? undefined,
+    order_info: safeMaybeObj(d.order_info),
   });
   return http.post("/orders/draft", payload);
 }
 
 /**
- * ✅ 统一清洗 images[]
+ * ✅ 清洗 images[]
+ * - 只保留后端需要字段
+ * - 槽位白名单
+ * - storage_key 去掉前导 /
+ * - md5 为空时不传（但后端存储启用时会要求 md5）
  */
-function sanitizeFinalizeImages(images) {
+function sanitizeImages(images) {
   if (!Array.isArray(images)) return [];
 
   const out = [];
@@ -243,24 +270,31 @@ function sanitizeFinalizeImages(images) {
     const storage_key = img.storage_key != null ? String(img.storage_key).trim().replace(/^\/+/, "") : "";
     const md5 = img.md5 != null ? String(img.md5).trim() : "";
 
-    if (!slot_key || !storage_key) continue;
+    if (!slot_key || !ORDER_IMAGE_SLOTS.has(slot_key)) continue;
+    if (!storage_key) continue;
 
-    const item = {
-      slot_key,
-      storage_key,
-      md5,
-    };
+    const item = { slot_key, storage_key };
 
+    if (md5) item.md5 = md5;
     if (img.etag != null && String(img.etag).trim()) item.etag = String(img.etag).trim();
 
     if (img.size != null && !Number.isNaN(Number(img.size))) {
       const n = Number(img.size);
-      item.size = Number.isFinite(n) ? Math.max(0, n) : 0;
+      if (Number.isFinite(n)) item.size = Math.max(0, n);
     }
 
-    if (img.content_type != null && String(img.content_type).trim()) item.content_type = String(img.content_type).trim();
-    if (img.original_name != null && String(img.original_name).trim()) item.original_name = String(img.original_name).trim();
-    if (img.url != null && String(img.url).trim()) item.url = String(img.url).trim();
+    if (img.content_type != null && String(img.content_type).trim()) {
+      item.content_type = String(img.content_type).trim();
+    }
+    if (img.original_name != null && String(img.original_name).trim()) {
+      item.original_name = String(img.original_name).trim();
+    }
+
+    // ✅ url 字段：后端 FinalizeImageIn 接受 url（可选）
+    const url = (img.url != null && String(img.url).trim()) ? String(img.url).trim()
+      : (img.preview_url != null && String(img.preview_url).trim()) ? String(img.preview_url).trim()
+      : "";
+    if (url) item.url = url;
 
     out.push(item);
   }
@@ -268,15 +302,15 @@ function sanitizeFinalizeImages(images) {
 }
 
 /**
- * ✅ 清洗 clear_slots（目前仅 related）
+ * ✅ 清洗 clear_slots（当前仅 related）
  */
 function sanitizeClearSlots(clear_slots) {
   if (!Array.isArray(clear_slots)) return [];
 
   const ALLOWED = new Set(["related"]);
-
   const seen = new Set();
   const out = [];
+
   for (const x of clear_slots) {
     const s = String(x ?? "").trim();
     if (!s) continue;
@@ -288,52 +322,73 @@ function sanitizeClearSlots(clear_slots) {
   return out;
 }
 
-// finalize：提交图片清单
+// finalize：提交图片清单（订单业务终态）
 export function finalizeOrderUpload(payload = {}) {
-  const src = payload && typeof payload === "object" ? payload : {};
+  const src = safeObj(payload);
 
   const cs = sanitizeClearSlots(src.clear_slots);
-  const images = sanitizeFinalizeImages(src.images);
+  const images = sanitizeImages(src.images);
 
   const safePayload = cleanUndefined({
     order_id: src.order_id != null ? toValidId(src.order_id) : undefined,
     images,
     clear_slots: cs.length ? cs : undefined,
-    dynamic_data: src.dynamic_data ?? undefined,
-
+    dynamic_data: safeMaybeObj(src.dynamic_data),
     customer_group_id: src.customer_group_id ?? undefined,
     channel_group_id: src.channel_group_id ?? undefined,
     salesperson_id: src.salesperson_id ?? undefined,
+    order_info: safeMaybeObj(src.order_info),
   });
 
   return http.post("/orders/finalize", safePayload);
 }
 
-// ✅ 稳定模式：浏览器上传到后端，由后端代传 BOS
-export function uploadOrderImageProxy({ slot_key, file }) {
+// 浏览器上传到后端，由后端代传 BOS
+export function uploadOrderImageProxy({ slot_key, file } = {}) {
+  const sk = String(slot_key ?? "").trim();
+  if (!sk) throw new Error("orders api: slot_key is required");
+  if (!ORDER_IMAGE_SLOTS.has(sk)) throw new Error("orders api: invalid slot_key");
+  if (!file) throw new Error("orders api: file is required");
+
   const fd = new FormData();
-  fd.append("slot_key", String(slot_key || "").trim());
+  fd.append("slot_key", sk);
   fd.append("file", file);
   return http.post("/orders/bos-upload", fd);
+}
+
+/**
+ * ✅ 报价助手闭环：绑定图片到订单的 slot（写 OrderImage）
+ * 后端接口：POST /orders/{order_id}/images/bind
+ */
+export function bindOrderImagesForAi({ order_id, images = [], clear_slots = [], trigger_ocr = true } = {}) {
+  const oid = toValidId(order_id);
+  const imgs = sanitizeImages(images);
+  const cs = sanitizeClearSlots(clear_slots);
+
+  const payload = cleanUndefined({
+    images: imgs,
+    clear_slots: cs.length ? cs : undefined,
+    trigger_ocr: !!trigger_ocr,
+  });
+
+  return http.post(`/orders/${oid}/images/bind`, payload);
 }
 
 // 更新（详情页保存）
 export function updateOrder(id, data = {}) {
   const oid = toValidId(id);
+  const d = safeObj(data);
 
   const payload = cleanUndefined({
-    module: data.module ?? undefined,
-    dynamic_data: data.dynamic_data !== undefined ? data.dynamic_data : undefined,
-    status: data.status !== undefined ? data.status : undefined,
-    audit_status: data.audit_status !== undefined ? data.audit_status : undefined,
-    image_urls: data.image_urls !== undefined ? data.image_urls : undefined,
-    is_finished: data.is_finished !== undefined ? data.is_finished : undefined,
-    is_rebate: data.is_rebate !== undefined ? data.is_rebate : undefined,
-    is_paid: data.is_paid !== undefined ? data.is_paid : undefined,
-    customer_group_id: data.customer_group_id !== undefined ? data.customer_group_id : undefined,
-    channel_group_id: data.channel_group_id !== undefined ? data.channel_group_id : undefined,
-    salesperson_id: data.salesperson_id !== undefined ? data.salesperson_id : undefined,
-    order_info: data.order_info !== undefined ? data.order_info : undefined,
+    module: d.module ?? undefined,
+    dynamic_data: d.dynamic_data !== undefined ? safeMaybeObj(d.dynamic_data) : undefined,
+    status: d.status !== undefined ? d.status : undefined,
+    audit_status: d.audit_status !== undefined ? d.audit_status : undefined,
+    is_finished: d.is_finished !== undefined ? d.is_finished : undefined,
+    customer_group_id: d.customer_group_id !== undefined ? d.customer_group_id : undefined,
+    channel_group_id: d.channel_group_id !== undefined ? d.channel_group_id : undefined,
+    salesperson_id: d.salesperson_id !== undefined ? d.salesperson_id : undefined,
+    order_info: d.order_info !== undefined ? safeMaybeObj(d.order_info) : undefined,
   });
 
   return http.put(`/orders/${oid}`, payload);
@@ -342,15 +397,16 @@ export function updateOrder(id, data = {}) {
 // 单独更新状态（列表页用）
 export function updateOrderStatus(id, data = {}) {
   const oid = toValidId(id);
+  const d = safeObj(data);
 
   const payload = cleanUndefined({
-    is_finished: data.is_finished !== undefined ? data.is_finished : undefined,
+    is_finished: d.is_finished !== undefined ? d.is_finished : undefined,
   });
 
   return http.patch(`/orders/${oid}/status`, payload);
 }
 
-// 客户群 / 渠道群 / 业务员 / 团队 下拉（订单模块用）
+// 客户群 / 渠道群 / 业务员 / 团队 下拉（订单模块）
 export function getCustomerGroups() {
   return http.get("/orders/customer-groups");
 }
@@ -359,10 +415,6 @@ export function getChannelGroups() {
   return http.get("/orders/channel-groups");
 }
 
-/**
- * ✅ 团队下拉：后端 /orders/teams
- * 返回：{ items: [{ team_name: "xxx" }, ...] }
- */
 export function getTeams() {
   return http.get("/orders/teams");
 }
@@ -370,16 +422,18 @@ export function getTeams() {
 /**
  * ✅ 业务员下拉：后端 /orders/salespersons
  * - 支持 team_name
- * - 支持 status（默认 1）
+ * - 默认显式传 status=1（启用）
  */
 export function listSalespersons(params = {}) {
   const p0 = params && typeof params === "object" ? params : {};
   const team_name = typeof p0.team_name === "string" ? p0.team_name.trim() : "";
-  const status = p0.status !== undefined && p0.status !== null ? Number(p0.status) : undefined;
+
+  const statusRaw = p0.status !== undefined && p0.status !== null ? Number(p0.status) : 1;
+  const status = Number.isFinite(statusRaw) ? statusRaw : 1;
 
   const p = cleanUndefined({
-    status: Number.isFinite(status) ? status : undefined,
-    team_name: team_name ? team_name : undefined,
+    status,
+    team_name: team_name || undefined,
   });
 
   return http.get("/orders/salespersons", { params: p });

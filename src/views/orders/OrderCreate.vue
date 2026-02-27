@@ -5,7 +5,6 @@
       <h2>手动创建订单</h2>
 
       <div class="header-actions">
-        <!-- ✅ 上传模式：与导入/详情页统一同一 key -->
         <div class="upload-mode">
           <span class="upload-mode-label">上传模式</span>
           <el-select v-model="uploadMode" size="small" style="width: 150px" @change="persistUploadMode">
@@ -17,7 +16,6 @@
 
         <el-button size="small" @click="goBack">返回</el-button>
 
-        <!-- ✅ 客户/渠道必选：未选直接禁用，点击保存也会 Toast 阻断 -->
         <el-button
           size="small"
           type="primary"
@@ -31,7 +29,6 @@
     </div>
 
     <div class="page-body">
-      <!-- 上传中的明显提示条（复刻导入页） -->
       <el-alert
         v-if="uploadingCount > 0"
         class="upload-alert"
@@ -42,7 +39,7 @@
         :description="`正在上传 ${uploadingCount} 个文件…（全部上传完成后才能保存）`"
       />
 
-      <!-- ① 渠道、客户（宽度对齐字段区，不延伸到图片区） -->
+      <!-- ① 渠道、客户 -->
       <el-card shadow="never" class="section-card">
         <template #header>
           <div class="section-header">
@@ -99,7 +96,7 @@
         </div>
       </el-card>
 
-      <!-- ✅ ①.5 订单信息（order_info） -->
+      <!-- ①.5 订单信息（order_info） -->
       <el-card shadow="never" class="section-card">
         <template #header>
           <div class="section-header">
@@ -107,7 +104,6 @@
           </div>
         </template>
 
-        <!-- Row1：保险到期日｜车主电话 -->
         <div class="info-block">
           <div class="kv-grid kv-grid-2 info-grid">
             <div class="kv-item">
@@ -125,7 +121,6 @@
             </div>
           </div>
 
-          <!-- Row1：商业/交强/车船税/非车（4个一行，仅正数） -->
           <div class="kv-grid kv-grid-4 info-grid info-grid-compact">
             <div class="kv-item">
               <div class="kv-label">商业金额</div>
@@ -156,7 +151,6 @@
             </div>
           </div>
 
-          <!-- 保费金额=四项和（只读） -->
           <div class="kv-grid kv-grid-2 info-grid">
             <div class="kv-item">
               <div class="kv-label">保费金额</div>
@@ -167,7 +161,6 @@
           </div>
         </div>
 
-        <!-- Row2：渠道点位（4个百分比+出单奖励金额，允许负数）；渠道合计只读 -->
         <div class="split-title">渠道</div>
         <div class="kv-grid kv-grid-5 info-grid info-grid-compact">
           <div class="kv-item">
@@ -211,7 +204,6 @@
           </div>
         </div>
 
-        <!-- Row3：客户点位（逻辑同渠道，允许负数）；客户合计只读 -->
         <div class="split-title">客户</div>
         <div class="kv-grid kv-grid-5 info-grid info-grid-compact">
           <div class="kv-item">
@@ -255,7 +247,6 @@
           </div>
         </div>
 
-        <!-- Row4：利润=渠道合计-客户合计（只读） -->
         <div class="kv-grid kv-grid-2 info-grid">
           <div class="kv-item">
             <div class="kv-label">利润</div>
@@ -271,7 +262,6 @@
         <template #header>
           <div class="section-header">
             <div class="section-title">车辆合格证</div>
-
             <el-button class="icon-btn" circle size="small" @click="certExpanded = !certExpanded">
               <el-icon>
                 <CaretTop v-if="certExpanded" />
@@ -282,9 +272,7 @@
         </template>
 
         <div class="two-col">
-          <!-- 字段区 -->
           <div class="left">
-            <!-- 默认字段 -->
             <div v-if="!certExpanded" class="kv-grid kv-grid-2">
               <div class="kv-item">
                 <div class="kv-label">车辆型号</div>
@@ -308,7 +296,7 @@
               </div>
 
               <div class="kv-item">
-                <div class="kv-label">额定载客(人 )</div>
+                <div class="kv-label">额定载客(人)</div>
                 <div class="kv-value">
                   <FieldValue
                     v-model="editData.approved_passenger_count"
@@ -319,13 +307,11 @@
               </div>
             </div>
 
-            <!-- ✅ 合格证全字段：统一复用 VehicleCertTable -->
             <div v-else>
               <VehicleCertTable :data="editData" :readonly="false" />
             </div>
           </div>
 
-          <!-- 图片区（右侧：合格证） -->
           <div class="right">
             <SlotUploadCard slot-key="vehicle_cert" label="合格证" :multiple="false" />
           </div>
@@ -337,7 +323,6 @@
         <template #header>
           <div class="section-header">
             <div class="section-title">身份证正面/身份证背面</div>
-
             <el-button class="icon-btn" circle size="small" @click="idExpanded = !idExpanded">
               <el-icon>
                 <CaretTop v-if="idExpanded" />
@@ -348,7 +333,6 @@
         </template>
 
         <div class="stack">
-          <!-- 正面 -->
           <div class="sub-block">
             <div class="sub-title">身份证正面</div>
             <div class="two-col">
@@ -387,7 +371,6 @@
             </div>
           </div>
 
-          <!-- 背面 -->
           <div class="sub-block">
             <div class="sub-title">身份证背面</div>
             <div class="two-col">
@@ -417,7 +400,6 @@
         <template #header>
           <div class="section-header">
             <div class="section-title">行驶证/行驶证副件</div>
-
             <el-button class="icon-btn" circle size="small" @click="dlExpanded = !dlExpanded">
               <el-icon>
                 <CaretTop v-if="dlExpanded" />
@@ -428,12 +410,10 @@
         </template>
 
         <div class="stack">
-          <!-- 行驶证 -->
           <div class="sub-block">
             <div class="sub-title">行驶证</div>
             <div class="two-col">
               <div class="left">
-                <!-- ✅ 默认字段：与 OrderDetail.vue 对齐（动态 key 映射 + 条件渲染） -->
                 <div v-if="!dlExpanded" class="kv-grid kv-grid-2">
                   <div v-if="dlKey('plate')" class="kv-item">
                     <div class="kv-label">号牌号码</div>
@@ -497,7 +477,6 @@
                   </div>
                 </div>
 
-                <!-- 全字段 -->
                 <div v-else class="kv-grid kv-grid-2">
                   <template v-for="f in dlMainFields" :key="f.key">
                     <div class="kv-item">
@@ -516,12 +495,10 @@
             </div>
           </div>
 
-          <!-- 行驶证副件 -->
           <div class="sub-block">
             <div class="sub-title">行驶证副件</div>
             <div class="two-col">
               <div class="left">
-                <!-- ✅ 默认字段：与 OrderDetail.vue 对齐（核定载人数） -->
                 <div v-if="!dlExpanded" class="kv-grid kv-grid-2">
                   <div v-if="dlAttachPassengerKey" class="kv-item">
                     <div class="kv-label">核定载人数</div>
@@ -535,7 +512,6 @@
                   </div>
                 </div>
 
-                <!-- 全字段 -->
                 <div v-else class="kv-grid kv-grid-2">
                   <template v-for="f in dlAttachFields" :key="f.key">
                     <div class="kv-item">
@@ -691,7 +667,6 @@ function isLikelyNetworkBlocked(err) {
   );
 }
 
-/** ✅ 本轮修复：智能模式的“切稳定模式”提示只弹一次，避免多文件失败时刷屏 */
 let _stableSuggestShown = false;
 
 async function suggestSwitchToStableOnce() {
@@ -718,7 +693,7 @@ async function suggestSwitchToStableOnce() {
   }
 }
 
-/** ====================== 回退逻辑（带 from，支持 encode） ====================== */
+/** ====================== 回退逻辑 ====================== */
 function goBack() {
   const from = route.query?.from;
   if (typeof from === "string" && from) {
@@ -751,15 +726,10 @@ const editMeta = reactive({
   customer_group_id: null,
 });
 
-// ✅ 客户/渠道必选（用于按钮禁用 + save 内阻断）
 const canSubmitCreate = computed(() => {
   return Boolean(editMeta.customer_group_id) && Boolean(editMeta.channel_group_id) && uploadingCount.value === 0;
 });
 
-/**
- * ✅ 下拉展示：同时展示【代码】【名称】，并让 filterable 的模糊搜索同时命中两者
- * 兼容后端字段：group_code/code/... 以及 group_name/name/...
- */
 function _pickFirst(obj, keys) {
   for (const k of keys) {
     const v = obj?.[k];
@@ -769,7 +739,15 @@ function _pickFirst(obj, keys) {
 }
 
 function formatGroupLabel(op) {
-  const code = _pickFirst(op, ["channel_code", "customer_code", "group_code", "code", "groupCode", "group_code_str", "groupCodeStr"]);
+  const code = _pickFirst(op, [
+    "channel_code",
+    "customer_code",
+    "group_code",
+    "code",
+    "groupCode",
+    "group_code_str",
+    "groupCodeStr",
+  ]);
   const name = _pickFirst(op, ["channel_name", "customer_name", "group_name", "name", "groupName"]);
   const id = op?.id !== null && op?.id !== undefined ? String(op.id) : "";
 
@@ -779,13 +757,23 @@ function formatGroupLabel(op) {
   return id || "-";
 }
 
+function _extractItems(resp) {
+  // 以后端当前返回为准（优先 items）；同时容错数组直返，避免页面空下拉
+  const d = resp?.data;
+  if (Array.isArray(d?.items)) return d.items;
+  if (Array.isArray(d)) return d;
+  if (Array.isArray(d?.data?.items)) return d.data.items;
+  if (Array.isArray(d?.data)) return d.data;
+  return [];
+}
+
 async function loadGroupOptions() {
   channelLoading.value = true;
   customerLoading.value = true;
   try {
     const [c1, c2] = await Promise.all([http.get("/orders/channel-groups"), http.get("/orders/customer-groups")]);
-    channelOptions.value = Array.isArray(c1?.data?.items) ? c1.data.items : [];
-    customerOptions.value = Array.isArray(c2?.data?.items) ? c2.data.items : [];
+    channelOptions.value = _extractItems(c1);
+    customerOptions.value = _extractItems(c2);
   } catch (e) {
     console.error(e);
     ElMessage.error("加载渠道/客户选项失败");
@@ -813,7 +801,6 @@ function labelOf(field) {
   return field?.label || field?.key || "";
 }
 
-// 仅在本页面做 YYYYMMDD → YYYY-MM-DD
 function normalizeCompactYmd(val) {
   if (val === null || val === undefined || val === "") return val;
   const s = String(val);
@@ -831,7 +818,6 @@ function formatForView(val, field) {
 
 const editData = reactive({});
 
-// 展开字段集合（按 seed 的分组）
 const dlMainGroup = computed(() => (groups.value || []).find((g) => g.group_key === "driving_license"));
 const dlAttachGroup = computed(() => (groups.value || []).find((g) => g.group_key === "driving_attach"));
 
@@ -850,7 +836,6 @@ const idBackFields = computed(() => ID_BACK_KEYS.map((k) => meta(k)));
 const dlMainFields = computed(() => groupFields(dlMainGroup.value));
 const dlAttachFields = computed(() => groupFields(dlAttachGroup.value));
 
-/** ====================== ✅ 行驶证字段：与 OrderDetail.vue 对齐（默认展示 key 映射） ====================== */
 function _pickKeyFromFields(fields, { preferKeys = [], labelIncludes = [], keyIncludes = [] } = {}) {
   const arr = Array.isArray(fields) ? fields : [];
   for (const k of preferKeys) {
@@ -910,7 +895,7 @@ const dlAttachPassengerKey = computed(() => {
   });
 });
 
-/** ====================== ✅ 订单信息（order_info） ====================== */
+/** ====================== 订单信息（order_info） ====================== */
 function _numOrZero(v) {
   if (v === null || v === undefined || v === "") return 0;
   const n = Number(v);
@@ -956,7 +941,6 @@ const editOrderInfo = reactive({
   profit: 0,
 });
 
-// ✅ 前端派生计算：保费合计 / 渠道合计 / 客户合计 / 利润
 function recalcOrderInfoDerived() {
   const commercial = Math.max(0, _numOrZero(editOrderInfo.commercial_amount));
   const compulsory = Math.max(0, _numOrZero(editOrderInfo.compulsory_amount));
@@ -1053,7 +1037,7 @@ function _sanitizeOrderInfoPayload() {
   };
 }
 
-/** ====================== ✅ 卡槽上传 ====================== */
+/** ====================== 卡槽上传 ====================== */
 const IMAGE_SLOTS = [
   { key: "vehicle_cert", label: "合格证", multiple: false },
   { key: "idcard_front", label: "身份证正面", multiple: false },
@@ -1070,13 +1054,10 @@ const slotFiles = reactive(
   }, {})
 );
 
-// uid -> uploaded meta（用于 finalize）
 const uploadedMap = reactive({});
-// uid -> {status:'uploading'|'done'|'error', msg?}
 const uploadState = reactive({});
 const uploadingCount = ref(0);
 
-// 本地预览 URL 记录（用于 revoke）
 const localPreviewUrlMap = reactive({});
 
 /** ====================== STS 缓存（直传用） ====================== */
@@ -1165,7 +1146,6 @@ function clearSlot(slotKey) {
 }
 
 function onFileChange(slotKey, file) {
-  // 单图槽：替换旧图
   if (!isMultipleSlot(slotKey)) {
     clearSlot(slotKey);
     _ensureLocalPreview(file);
@@ -1182,7 +1162,7 @@ function onFileChange(slotKey, file) {
     return;
   }
 
-  const list = slotFiles[slotKey] || [];
+  const list = Array.isArray(slotFiles[slotKey]) ? [...slotFiles[slotKey]] : [];
   if (!list.find((x) => x.uid === file.uid)) list.push(file);
   slotFiles[slotKey] = list;
 
@@ -1248,7 +1228,6 @@ async function startUpload(slotKey, file) {
   uploadState[file.uid] = { status: "uploading" };
 
   try {
-    // ✅ 稳定模式：页面侧预处理（>2MB 触发）后走后端代传 BOS
     if (uploadMode.value === "stable") {
       const raw = await _preprocessForStable(slotKey, file, raw0);
 
@@ -1275,7 +1254,6 @@ async function startUpload(slotKey, file) {
       return;
     }
 
-    // ✅ 直传 / 智能：由 uploadOrReuseByMd5 内部统一做预处理（避免重复预处理）
     const sts = await ensureSts();
     if (!bosHost.value) throw new Error("bosHost missing");
 
@@ -1310,7 +1288,6 @@ async function startUpload(slotKey, file) {
       duration: 2000,
     });
   } catch (e) {
-    // ✅ 智能模式：网络拦截 -> 引导切稳定并自动重试一次（重试也做预处理）
     if (uploadMode.value === "smart" && isLikelyNetworkBlocked(e)) {
       const switched = await suggestSwitchToStableOnce();
       if (switched) {
@@ -1513,7 +1490,7 @@ const InfoValue = defineComponent({
   name: "InfoValue",
   props: {
     modelValue: { type: [String, Number], default: "" },
-    type: { type: String, default: "text" }, // text|date|money|point
+    type: { type: String, default: "text" },
     editable: { type: Boolean, default: false },
     min: { type: Number, default: undefined },
     max: { type: Number, default: undefined },
@@ -1668,7 +1645,6 @@ const SlotUploadCard = defineComponent({
 </script>
 
 <style scoped>
-/* ====== 复刻详情页整体 ====== */
 .order-detail {
   width: 100%;
 }
@@ -1736,9 +1712,8 @@ const SlotUploadCard = defineComponent({
   min-width: 0;
 }
 
-/* ====== 渠道/客户不延伸到图片区 ====== */
 .meta-narrow {
-  max-width: calc(100% - 334px); /* 320 + 14 gap */
+  max-width: calc(100% - 334px);
 }
 
 @media (max-width: 980px) {
@@ -1747,7 +1722,6 @@ const SlotUploadCard = defineComponent({
   }
 }
 
-/* ====== 字段和值更区分 + 小格子更紧凑 ====== */
 .kv-grid {
   display: grid;
   gap: 8px 12px;
@@ -1797,7 +1771,6 @@ const SlotUploadCard = defineComponent({
   white-space: nowrap;
 }
 
-/* 订单信息 */
 .info-block {
   display: flex;
   flex-direction: column;
@@ -1820,7 +1793,6 @@ const SlotUploadCard = defineComponent({
   color: rgba(31, 42, 68, 0.9);
 }
 
-/* 身份证/行驶证内部块 */
 .stack {
   display: flex;
   flex-direction: column;
@@ -1840,7 +1812,6 @@ const SlotUploadCard = defineComponent({
   margin-bottom: 10px;
 }
 
-/* FieldValue / InfoValue 内部控件 */
 .fv :deep(.el-input__wrapper) {
   border-radius: 10px;
 }
@@ -1857,12 +1828,10 @@ const SlotUploadCard = defineComponent({
   width: 100%;
 }
 
-/* 上传中的提示条 */
 .upload-alert {
   margin-bottom: 2px;
 }
 
-/* ✅ 上传模式控件 */
 .upload-mode {
   display: flex;
   align-items: center;
@@ -1876,7 +1845,6 @@ const SlotUploadCard = defineComponent({
   font-weight: 600;
 }
 
-/* ✅ 卡槽样式 */
 .slot-card {
   border: 1px solid rgba(60, 60, 60, 0.1);
   border-radius: 12px;
@@ -1905,13 +1873,11 @@ const SlotUploadCard = defineComponent({
   color: #999;
 }
 
-/* Upload box base */
 .upload-box :deep(.el-upload-dragger) {
   border-radius: 12px;
   min-height: 170px;
 }
 
-/* 单图槽：空态提示强制居中 */
 .upload-one :deep(.el-upload-dragger) {
   padding: 0 !important;
   display: flex;
@@ -1919,12 +1885,10 @@ const SlotUploadCard = defineComponent({
   justify-content: center;
 }
 
-/* 多图槽：保留稍微舒展的 padding */
 .upload-multi :deep(.el-upload-dragger) {
   padding: 12px;
 }
 
-/* 空态居中文案 */
 .upload-empty {
   width: 100%;
   height: 170px;
@@ -1950,7 +1914,6 @@ const SlotUploadCard = defineComponent({
   color: rgba(31, 42, 68, 0.55);
 }
 
-/* 单图槽：居中预览 */
 .one-wrap {
   position: relative;
   width: 100%;
@@ -1988,7 +1951,6 @@ const SlotUploadCard = defineComponent({
   pointer-events: auto;
 }
 
-/* 多图预览墙 */
 .preview-wall {
   margin-top: 10px;
   display: grid;
@@ -2030,7 +1992,6 @@ const SlotUploadCard = defineComponent({
   white-space: nowrap;
 }
 
-/* 响应式 */
 @media (max-width: 980px) {
   .two-col {
     grid-template-columns: 1fr;

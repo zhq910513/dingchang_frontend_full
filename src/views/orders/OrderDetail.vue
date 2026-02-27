@@ -7,7 +7,7 @@
       <div class="header-actions">
         <el-button size="small" @click="goBack">返回</el-button>
 
-        <!-- ✅ 财务视图：只允许编辑备用图 related（顶部按钮与非财务统一：编辑/取消 + 保存） -->
+        <!-- ✅ 财务视图：只允许编辑备用图 related -->
         <template v-if="canFinanceOps && order">
           <el-button
             v-if="!financeEditMode"
@@ -22,10 +22,10 @@
 
           <template v-else>
             <el-button size="small" plain :disabled="loading || saving || slotUploading.related" @click="cancelFinanceEdit">
-              取消编辑
+              退出编辑
             </el-button>
             <el-button size="small" type="primary" :disabled="loading || saving || slotUploading.related" @click="saveFinanceEdit">
-              保存
+              完成编辑
             </el-button>
           </template>
         </template>
@@ -50,6 +50,75 @@
     </div>
 
     <div v-loading="loading" class="page-body">
+      <!-- 0. 基础信息（来自 base） -->
+      <el-card shadow="never" class="section-card meta-card">
+        <template #header>
+          <div class="section-header">
+            <div class="section-title">基础信息</div>
+          </div>
+        </template>
+
+        <div class="kv-grid kv-grid-2">
+          <div class="kv-item">
+            <div class="kv-label">订单ID</div>
+            <div class="kv-value">
+              <span class="plain-value">{{ order?.id ?? "-" }}</span>
+            </div>
+          </div>
+
+          <div class="kv-item">
+            <div class="kv-label">完成状态</div>
+            <div class="kv-value">
+              <span class="plain-value">{{ order?.is_finished === true ? "已完成" : "未完成" }}</span>
+            </div>
+          </div>
+
+          <div class="kv-item">
+            <div class="kv-label">业务员</div>
+            <div class="kv-value">
+              <span class="plain-value" :title="order?.salesperson_name || '-'">{{ order?.salesperson_name || "-" }}</span>
+            </div>
+          </div>
+
+          <div class="kv-item">
+            <div class="kv-label">所属经理</div>
+            <div class="kv-value">
+              <span class="plain-value" :title="order?.manager_name || '-'">{{ order?.manager_name || "-" }}</span>
+            </div>
+          </div>
+
+          <div class="kv-item">
+            <div class="kv-label">所属团队</div>
+            <div class="kv-value">
+              <span class="plain-value" :title="teamDisplay || '-'">{{ teamDisplay || "-" }}</span>
+            </div>
+          </div>
+
+          <div class="kv-item">
+            <div class="kv-label">回款/返点</div>
+            <div class="kv-value">
+              <span class="plain-value">
+                回款：{{ order?.is_paid === true ? "是" : "否" }}，返点：{{ order?.is_rebate === true ? "是" : "否" }}
+              </span>
+            </div>
+          </div>
+
+          <div class="kv-item">
+            <div class="kv-label">创建时间</div>
+            <div class="kv-value">
+              <span class="plain-value">{{ fmtYmdSafe(order?.created_at) }}</span>
+            </div>
+          </div>
+
+          <div class="kv-item">
+            <div class="kv-label">更新时间</div>
+            <div class="kv-value">
+              <span class="plain-value">{{ fmtYmdSafe(order?.updated_at) }}</span>
+            </div>
+          </div>
+        </div>
+      </el-card>
+
       <!-- ① 渠道、客户 -->
       <el-card shadow="never" class="section-card meta-card">
         <template #header>
@@ -129,9 +198,7 @@
           </div>
         </template>
 
-        <!-- ✅ 仅“可编辑备用图”时出现（非财务：canEdit；财务：financeEditMode） -->
         <div v-if="canEditRelated" class="image-actions image-actions-wide">
-          <!-- ✅ 拖拽多图导入 -->
           <el-upload
             drag
             :auto-upload="false"
@@ -160,7 +227,6 @@
           </el-button>
         </div>
 
-        <!-- ✅ 非编辑态且没图：不渲染图片墙（第二块不显示） -->
         <div v-if="canEditRelated || imagesBySlot.related.length" class="image-wall image-wall-wide">
           <div v-for="(url, idx) in imagesBySlot.related" :key="url + ':' + idx" class="thumb-wrap">
             <el-image :src="url" :preview-src-list="imagesBySlot.related" :initial-index="idx" fit="cover" class="thumb" />
@@ -173,7 +239,7 @@
         </div>
       </el-card>
 
-      <!-- ✅ ①.5 订单信息（order_info） -->
+      <!-- ✅ 订单信息（来自 sections.order_info.fields） -->
       <el-card shadow="never" class="section-card">
         <template #header>
           <div class="section-header">
@@ -198,7 +264,6 @@
             </div>
           </div>
 
-          <!-- ✅ 新增：订单备注（remark） -->
           <div class="kv-grid kv-grid-2 info-grid">
             <div class="kv-item kv-item-remark">
               <div class="kv-label">订单备注</div>
@@ -257,7 +322,6 @@
             </div>
           </div>
 
-          <!-- ✅ 新增：商业后补（渠道） -->
           <div class="kv-item">
             <div class="kv-label">商业后补%</div>
             <div class="kv-value">
@@ -284,7 +348,7 @@
             </div>
           </div>
           <div class="kv-item">
-            <div class="kv-label">出单奖励</div>
+            <div class="kv-label">渠道奖励</div>
             <div class="kv-value">
               <InfoValue v-model="editOrderInfo.channel_reward" type="money" :editable="canEdit" />
             </div>
@@ -293,7 +357,7 @@
 
         <div class="kv-grid kv-grid-2 info-grid">
           <div class="kv-item">
-            <div class="kv-label">渠道合计</div>
+            <div class="kv-label">渠道应收</div>
             <div class="kv-value value-red">
               <InfoValue v-model="editOrderInfo.channel_total" type="money" :editable="false" />
             </div>
@@ -309,7 +373,6 @@
             </div>
           </div>
 
-          <!-- ✅ 新增：商业后补（客户） -->
           <div class="kv-item">
             <div class="kv-label">商业后补%</div>
             <div class="kv-value">
@@ -336,7 +399,7 @@
             </div>
           </div>
           <div class="kv-item">
-            <div class="kv-label">出单奖励</div>
+            <div class="kv-label">客户奖励</div>
             <div class="kv-value">
               <InfoValue v-model="editOrderInfo.customer_reward" type="money" :editable="canEdit" />
             </div>
@@ -345,7 +408,7 @@
 
         <div class="kv-grid kv-grid-2 info-grid">
           <div class="kv-item">
-            <div class="kv-label">客户合计</div>
+            <div class="kv-label">客户应付</div>
             <div class="kv-value value-red">
               <InfoValue v-model="editOrderInfo.customer_total" type="money" :editable="false" />
             </div>
@@ -362,7 +425,7 @@
         </div>
       </el-card>
 
-      <!-- ② 车辆合格证 -->
+      <!-- ② 车辆合格证（来自 slots.vehicle_cert.fields） -->
       <el-card shadow="never" class="section-card">
         <template #header>
           <div class="section-header">
@@ -388,7 +451,7 @@
               </div>
 
               <div class="kv-item">
-                <div class="kv-label">车辆识别代号/车架号</div>
+                <div class="kv-label">车架号</div>
                 <div class="kv-value">
                   <FieldValue v-model="editData.vin" :field="meta('vin')" :editable="canEdit" />
                 </div>
@@ -402,13 +465,9 @@
               </div>
 
               <div class="kv-item">
-                <div class="kv-label">额定载客(人 )</div>
+                <div class="kv-label">初登日期</div>
                 <div class="kv-value">
-                  <FieldValue
-                    v-model="editData.approved_passenger_count"
-                    :field="meta('approved_passenger_count')"
-                    :editable="canEdit"
-                  />
+                  <FieldValue v-model="editData.first_register_date" :field="meta('first_register_date')" :editable="canEdit" />
                 </div>
               </div>
             </div>
@@ -447,7 +506,7 @@
         </div>
       </el-card>
 
-      <!-- ③ 身份证正面/身份证背面 -->
+      <!-- ③ 身份证正面/身份证背面（来自 slots.idcard_*.fields） -->
       <el-card shadow="never" class="section-card">
         <template #header>
           <div class="section-header">
@@ -476,7 +535,7 @@
                   </div>
 
                   <div class="kv-item">
-                    <div class="kv-label">公民身份号码</div>
+                    <div class="kv-label">身份证号</div>
                     <div class="kv-value">
                       <FieldValue v-model="editData.id_number" :field="meta('id_number')" :editable="canEdit" />
                     </div>
@@ -506,12 +565,6 @@
                   >
                     <el-button size="small" type="primary" plain :loading="slotUploading.idcard_front">替换图片</el-button>
                   </el-upload>
-
-                  <el-tooltip content="当前后端 finalize 协议不支持把单图槽清空为 0 张" placement="top">
-                    <span>
-                      <el-button size="small" disabled>清空</el-button>
-                    </span>
-                  </el-tooltip>
                 </div>
 
                 <div class="image-wall">
@@ -551,12 +604,6 @@
                   >
                     <el-button size="small" type="primary" plain :loading="slotUploading.idcard_back">替换图片</el-button>
                   </el-upload>
-
-                  <el-tooltip content="当前后端 finalize 协议不支持把单图槽清空为 0 张" placement="top">
-                    <span>
-                      <el-button size="small" disabled>清空</el-button>
-                    </span>
-                  </el-tooltip>
                 </div>
 
                 <div class="image-wall">
@@ -571,7 +618,7 @@
         </div>
       </el-card>
 
-      <!-- ④ 行驶证/行驶证副件 -->
+      <!-- ④ 行驶证/行驶证副件（来自 slots.driving_license_*.fields） -->
       <el-card shadow="never" class="section-card">
         <template #header>
           <div class="section-header">
@@ -588,60 +635,63 @@
 
         <div class="stack">
           <div class="sub-block">
-            <div class="sub-title">行驶证</div>
+            <div class="sub-title">行驶证主页</div>
             <div class="two-col">
               <div class="left">
                 <div v-if="!dlExpanded" class="kv-grid kv-grid-2">
-                  <div v-if="dlKey('plate')" class="kv-item">
-                    <div class="kv-label">号牌号码</div>
+                  <div class="kv-item">
+                    <div class="kv-label">车牌号</div>
                     <div class="kv-value">
-                      <FieldValue v-model="editData[dlKey('plate')]" :field="meta(dlKey('plate'))" :editable="canEdit" />
+                      <FieldValue v-model="editData.dl_plate_no" :field="meta('dl_plate_no')" :editable="canEdit" />
                     </div>
                   </div>
 
-                  <div v-if="dlKey('owner')" class="kv-item">
-                    <div class="kv-label">所有人</div>
+                  <div class="kv-item">
+                    <div class="kv-label">车主</div>
                     <div class="kv-value" :ref="bindDlOwnerValueRef">
-                      <FieldValue v-model="editData[dlKey('owner')]" :field="meta(dlKey('owner'))" :editable="canEdit" />
+                      <FieldValue v-model="editData.dl_owner" :field="meta('dl_owner')" :editable="canEdit" />
                     </div>
                   </div>
 
-                  <div v-if="dlKey('use_nature')" class="kv-item">
+                  <div class="kv-item">
                     <div class="kv-label">使用性质</div>
                     <div class="kv-value">
-                      <FieldValue v-model="editData[dlKey('use_nature')]" :field="meta(dlKey('use_nature'))" :editable="canEdit" />
+                      <FieldValue v-model="editData.dl_use_nature" :field="meta('dl_use_nature')" :editable="canEdit" />
                     </div>
                   </div>
 
-                  <div v-if="dlKey('brand_model')" class="kv-item">
-                    <div class="kv-label">品牌型号</div>
+                  <div class="kv-item">
+                    <div class="kv-label">车型</div>
                     <div class="kv-value">
-                      <FieldValue v-model="editData[dlKey('brand_model')]" :field="meta(dlKey('brand_model'))" :editable="canEdit" />
+                      <FieldValue v-model="editData.dl_vehicle_model" :field="meta('dl_vehicle_model')" :editable="canEdit" />
                     </div>
                   </div>
 
-                  <div v-if="dlKey('vin')" class="kv-item">
-                    <div class="kv-label">车辆识别代码</div>
+                  <div class="kv-item">
+                    <div class="kv-label">车架号</div>
                     <div class="kv-value">
-                      <FieldValue v-model="editData[dlKey('vin')]" :field="meta(dlKey('vin'))" :editable="canEdit" />
+                      <FieldValue v-model="editData.dl_vin" :field="meta('dl_vin')" :editable="canEdit" />
                     </div>
                   </div>
 
-                  <div v-if="dlKey('engine')" class="kv-item">
-                    <div class="kv-label">发动机号码</div>
+                  <div class="kv-item">
+                    <div class="kv-label">发动机号</div>
                     <div class="kv-value">
-                      <FieldValue v-model="editData[dlKey('engine')]" :field="meta(dlKey('engine'))" :editable="canEdit" />
+                      <FieldValue v-model="editData.dl_engine_no" :field="meta('dl_engine_no')" :editable="canEdit" />
                     </div>
                   </div>
 
-                  <div v-if="dlKey('register_date')" class="kv-item">
+                  <div class="kv-item">
                     <div class="kv-label">注册日期</div>
                     <div class="kv-value">
-                      <FieldValue
-                        v-model="editData[dlKey('register_date')]"
-                        :field="meta(dlKey('register_date'))"
-                        :editable="canEdit"
-                      />
+                      <FieldValue v-model="editData.dl_register_date" :field="meta('dl_register_date')" :editable="canEdit" />
+                    </div>
+                  </div>
+
+                  <div class="kv-item">
+                    <div class="kv-label">发证日期</div>
+                    <div class="kv-value">
+                      <FieldValue v-model="editData.dl_issue_date" :field="meta('dl_issue_date')" :editable="canEdit" />
                     </div>
                   </div>
                 </div>
@@ -669,23 +719,11 @@
                   >
                     <el-button size="small" type="primary" plain :loading="slotUploading.driving_license_main">替换图片</el-button>
                   </el-upload>
-
-                  <el-tooltip content="当前后端 finalize 协议不支持把单图槽清空为 0 张" placement="top">
-                    <span>
-                      <el-button size="small" disabled>清空</el-button>
-                    </span>
-                  </el-tooltip>
                 </div>
 
                 <div class="image-wall">
                   <div v-for="(url, idx) in imagesBySlot.driving_license_main" :key="url + ':' + idx" class="thumb-wrap">
-                    <el-image
-                      :src="url"
-                      :preview-src-list="imagesBySlot.driving_license_main"
-                      :initial-index="idx"
-                      fit="cover"
-                      class="thumb"
-                    />
+                    <el-image :src="url" :preview-src-list="imagesBySlot.driving_license_main" :initial-index="idx" fit="cover" class="thumb" />
                   </div>
                   <div v-if="!imagesBySlot.driving_license_main.length" class="thumb-empty" />
                 </div>
@@ -694,14 +732,18 @@
           </div>
 
           <div class="sub-block">
-            <div class="sub-title">行驶证副件</div>
+            <div class="sub-title">行驶证副页</div>
             <div class="two-col">
               <div class="left">
                 <div v-if="!dlExpanded" class="kv-grid kv-grid-2">
-                  <div v-if="dlAttachPassengerKey" class="kv-item">
+                  <div class="kv-item">
                     <div class="kv-label">核定载人数</div>
                     <div class="kv-value">
-                      <FieldValue v-model="editData[dlAttachPassengerKey]" :field="meta(dlAttachPassengerKey)" :editable="canEdit" />
+                      <FieldValue
+                        v-model="editData.dl_approved_passenger_count"
+                        :field="meta('dl_approved_passenger_count')"
+                        :editable="canEdit"
+                      />
                     </div>
                   </div>
                 </div>
@@ -729,12 +771,6 @@
                   >
                     <el-button size="small" type="primary" plain :loading="slotUploading.driving_license_sub">替换图片</el-button>
                   </el-upload>
-
-                  <el-tooltip content="当前后端 finalize 协议不支持把单图槽清空为 0 张" placement="top">
-                    <span>
-                      <el-button size="small" disabled>清空</el-button>
-                    </span>
-                  </el-tooltip>
                 </div>
 
                 <div class="image-wall">
@@ -762,7 +798,7 @@ import VehicleCertTable from "./VehicleCertTable.vue";
 
 import http from "../../api/http";
 import { finalizeOrderUpload, getOrder, updateOrder, updateOrderStatus, uploadOrderImageProxy } from "../../api/orders";
-import { getFinanceOrderDetail } from "../../api/finance";
+import { finalizeFinanceUpload, getFinanceOrderDetail, uploadFinanceBosProxy } from "../../api/finance";
 import { useSessionStore } from "../../store/session";
 import { useOrderFieldConfig } from "../../composables/useOrderFieldConfig";
 import { formatDynamicValue } from "../../utils/fieldFormat";
@@ -772,7 +808,21 @@ const router = useRouter();
 const route = useRoute();
 const session = useSessionStore();
 
-const orderId = Number(route.params.id);
+function toValidOrderId(v) {
+  const n = typeof v === "string" ? Number(v.trim()) : Number(v);
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) {
+    throw new Error("invalid order id");
+  }
+  return n;
+}
+
+let orderId = 0;
+try {
+  orderId = toValidOrderId(route.params.id);
+} catch {
+  ElMessage.error("订单ID无效");
+  router.replace("/orders/all");
+}
 
 const isFinanceView = computed(() => {
   const q = String(route.query?.source || "");
@@ -795,7 +845,7 @@ const canFinanceRoleOps = computed(() => {
   return rn === "finance" || rn === "manager" || rn === "super_admin";
 });
 
-/** ✅ 财务视图：只允许 related 编辑（而不是“按角色放开整单编辑”） */
+/** ✅ 财务视图：只允许 related 编辑 */
 const canFinanceOps = computed(() => isFinanceView.value && canFinanceRoleOps.value);
 
 const order = ref(null);
@@ -818,7 +868,6 @@ function cancelFinanceEdit() {
   if (!canFinanceOps.value) return;
   if (slotUploading.related) return;
 
-  // ✅ 退出编辑时清空 pending 队列，避免“取消编辑”后还继续上传/回填
   relatedPendingFiles.value = [];
   relatedRetryOnce.value = false;
 
@@ -830,7 +879,7 @@ async function saveFinanceEdit() {
   if (slotUploading.related) return;
 
   financeEditMode.value = false;
-  ElMessage.success("已保存");
+  ElMessage.success("已完成编辑");
   await load({ preserveEditDraft: true });
 }
 watch(
@@ -868,9 +917,7 @@ function bindDlOwnerValueRef(el) {
 }
 
 function bindDlOwnerValueRefForField(field) {
-  const wantKey = dlKey("owner");
-  if (!wantKey) return null;
-  if (field?.key !== wantKey) return null;
+  if (field?.key !== "dl_owner") return null;
   return (el) => {
     if (el) dlOwnerValueRef.value = el;
   };
@@ -881,7 +928,6 @@ function _closestKvItem(el) {
   return el.closest?.(".kv-item") || el;
 }
 
-/** ✅ 闪烁：更窄、更快 */
 const FLASH_DURATION_MS = 3500;
 
 function _restartFlashOnEl(el) {
@@ -955,7 +1001,77 @@ async function _scrollCenterAndFlashThenConfirm({
   }
 }
 
-/** ====================== ✅ order_info：默认空，不默认 0.00 ====================== */
+/** ====================== ✅ 关键：把新结构 {base, sections} 归一化 ====================== */
+function _toObjFields(fields) {
+  const out = {};
+  for (const it of Array.isArray(fields) ? fields : []) {
+    const k = String(it?.key || "").trim();
+    if (!k) continue;
+    out[k] = it?.value ?? null;
+  }
+  return out;
+}
+
+function normalizeDetailPayload(payload) {
+  const raw = payload && typeof payload === "object" ? payload : {};
+  const base = raw?.base && typeof raw.base === "object" ? raw.base : {};
+  const sections = raw?.sections && typeof raw.sections === "object" ? raw.sections : {};
+
+  const out = {
+    id: raw?.id ?? base?.id ?? null,
+    ...base,
+    dynamic_data: {},
+    order_info: {},
+    images: [],
+    _sections_raw: sections,
+  };
+
+  // order_info：从 sections.order_info.fields 拉成对象
+  const oiSec = sections?.order_info && typeof sections.order_info === "object" ? sections.order_info : null;
+  if (oiSec) out.order_info = _toObjFields(oiSec.fields);
+
+  // slots：每个 slot 的 fields 汇总进 dynamic_data；images 打平成旧结构 images[]
+  const slots = sections?.slots && typeof sections.slots === "object" ? sections.slots : {};
+  const dyn = {};
+  const images = [];
+
+  for (const [slotKey, slotObj] of Object.entries(slots || {})) {
+    if (!slotObj || typeof slotObj !== "object") continue;
+
+    // fields -> dynamic_data
+    const ff = Array.isArray(slotObj.fields) ? slotObj.fields : [];
+    for (const f of ff) {
+      const k = String(f?.key || "").trim();
+      if (!k) continue;
+      dyn[k] = f?.value ?? null;
+    }
+
+    // images -> order.images[]
+    const imgs = Array.isArray(slotObj.images) ? slotObj.images : [];
+    for (const im of imgs) {
+      const url = String(im?.image_url || im?.image_file?.url || "").trim();
+      if (!url) continue;
+
+      images.push({
+        id: im?.id ?? null,
+        order_id: out.id,
+        slot_key: slotKey,
+        storage_key: im?.storage_key || im?.image_file?.storage_key || "",
+        image_url: url,
+        image_file_id: im?.image_file_id ?? im?.image_file?.id ?? null,
+        image_file: im?.image_file ?? null,
+        created_at: im?.created_at ?? null,
+      });
+    }
+  }
+
+  out.dynamic_data = dyn;
+  out.images = images;
+
+  return out;
+}
+
+/** ====================== ✅ order_info（保持 0 也显示） ====================== */
 const editOrderInfo = reactive({
   insurance_expire_date: "",
   owner_phone: "",
@@ -992,12 +1108,6 @@ function _numOrNull(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-function _numOrNullZeroAsEmpty(v) {
-  const n = _numOrNull(v);
-  if (n === 0) return null;
-  return n;
-}
-
 function _numOrZero(v) {
   const n = _numOrNull(v);
   return n === null ? 0 : n;
@@ -1024,36 +1134,37 @@ function _fillOrderInfoFromOrder(o) {
   editOrderInfo.owner_phone = _trimOrEmpty(oi.owner_phone);
   editOrderInfo.remark = _trimOrEmpty(oi.remark);
 
-  editOrderInfo.commercial_amount = _numOrNullZeroAsEmpty(oi.commercial_amount);
-  editOrderInfo.compulsory_amount = _numOrNullZeroAsEmpty(oi.compulsory_amount);
-  editOrderInfo.vehicle_tax_amount = _numOrNullZeroAsEmpty(oi.vehicle_tax_amount);
-  editOrderInfo.non_vehicle_amount = _numOrNullZeroAsEmpty(oi.non_vehicle_amount);
+  editOrderInfo.commercial_amount = _numOrNull(oi.commercial_amount);
+  editOrderInfo.compulsory_amount = _numOrNull(oi.compulsory_amount);
+  editOrderInfo.vehicle_tax_amount = _numOrNull(oi.vehicle_tax_amount);
+  editOrderInfo.non_vehicle_amount = _numOrNull(oi.non_vehicle_amount);
 
-  editOrderInfo.premium_total = _numOrNullZeroAsEmpty(oi.premium_total);
+  editOrderInfo.premium_total = _numOrNull(oi.premium_total);
 
-  editOrderInfo.channel_commercial_point = _numOrNullZeroAsEmpty(oi.channel_commercial_point);
-  editOrderInfo.channel_commercial_supplement_point = _numOrNullZeroAsEmpty(oi.channel_commercial_supplement_point);
-  editOrderInfo.channel_compulsory_point = _numOrNullZeroAsEmpty(oi.channel_compulsory_point);
-  editOrderInfo.channel_vehicle_tax_point = _numOrNullZeroAsEmpty(oi.channel_vehicle_tax_point);
-  editOrderInfo.channel_non_vehicle_point = _numOrNullZeroAsEmpty(oi.channel_non_vehicle_point);
+  editOrderInfo.channel_commercial_point = _numOrNull(oi.channel_commercial_point);
+  editOrderInfo.channel_commercial_supplement_point = _numOrNull(oi.channel_commercial_supplement_point);
+  editOrderInfo.channel_compulsory_point = _numOrNull(oi.channel_compulsory_point);
+  editOrderInfo.channel_vehicle_tax_point = _numOrNull(oi.channel_vehicle_tax_point);
+  editOrderInfo.channel_non_vehicle_point = _numOrNull(oi.channel_non_vehicle_point);
+  editOrderInfo.channel_reward = _numOrNull(oi.channel_reward);
+  editOrderInfo.channel_total = _numOrNull(oi.channel_total);
 
-  editOrderInfo.channel_reward = _numOrNullZeroAsEmpty(oi.channel_reward);
-  editOrderInfo.channel_total = _numOrNullZeroAsEmpty(oi.channel_total);
+  editOrderInfo.customer_commercial_point = _numOrNull(oi.customer_commercial_point);
+  editOrderInfo.customer_commercial_supplement_point = _numOrNull(oi.customer_commercial_supplement_point);
+  editOrderInfo.customer_compulsory_point = _numOrNull(oi.customer_compulsory_point);
+  editOrderInfo.customer_vehicle_tax_point = _numOrNull(oi.customer_vehicle_tax_point);
+  editOrderInfo.customer_non_vehicle_point = _numOrNull(oi.customer_non_vehicle_point);
+  editOrderInfo.customer_reward = _numOrNull(oi.customer_reward);
+  editOrderInfo.customer_total = _numOrNull(oi.customer_total);
 
-  editOrderInfo.customer_commercial_point = _numOrNullZeroAsEmpty(oi.customer_commercial_point);
-  editOrderInfo.customer_commercial_supplement_point = _numOrNullZeroAsEmpty(oi.customer_commercial_supplement_point);
-  editOrderInfo.customer_compulsory_point = _numOrNullZeroAsEmpty(oi.customer_compulsory_point);
-  editOrderInfo.customer_vehicle_tax_point = _numOrNullZeroAsEmpty(oi.customer_vehicle_tax_point);
-  editOrderInfo.customer_non_vehicle_point = _numOrNullZeroAsEmpty(oi.customer_non_vehicle_point);
-
-  editOrderInfo.customer_reward = _numOrNullZeroAsEmpty(oi.customer_reward);
-  editOrderInfo.customer_total = _numOrNullZeroAsEmpty(oi.customer_total);
-
-  editOrderInfo.profit = _numOrNullZeroAsEmpty(oi.profit);
+  editOrderInfo.profit = _numOrNull(oi.profit);
 
   recalcOrderInfoDerived();
 }
 
+/**
+ * ✅ 只上传“输入字段”
+ */
 function _sanitizeOrderInfoPayload() {
   const phone = String(editOrderInfo.owner_phone || "").trim();
   const remark = String(editOrderInfo.remark || "").trim();
@@ -1067,7 +1178,6 @@ function _sanitizeOrderInfoPayload() {
     compulsory_amount: _numOrNull(editOrderInfo.compulsory_amount),
     vehicle_tax_amount: _numOrNull(editOrderInfo.vehicle_tax_amount),
     non_vehicle_amount: _numOrNull(editOrderInfo.non_vehicle_amount),
-    premium_total: _numOrNull(editOrderInfo.premium_total),
 
     channel_commercial_point: _numOrNull(editOrderInfo.channel_commercial_point),
     channel_commercial_supplement_point: _numOrNull(editOrderInfo.channel_commercial_supplement_point),
@@ -1075,7 +1185,6 @@ function _sanitizeOrderInfoPayload() {
     channel_vehicle_tax_point: _numOrNull(editOrderInfo.channel_vehicle_tax_point),
     channel_non_vehicle_point: _numOrNull(editOrderInfo.channel_non_vehicle_point),
     channel_reward: _numOrNull(editOrderInfo.channel_reward),
-    channel_total: _numOrNull(editOrderInfo.channel_total),
 
     customer_commercial_point: _numOrNull(editOrderInfo.customer_commercial_point),
     customer_commercial_supplement_point: _numOrNull(editOrderInfo.customer_commercial_supplement_point),
@@ -1083,30 +1192,16 @@ function _sanitizeOrderInfoPayload() {
     customer_vehicle_tax_point: _numOrNull(editOrderInfo.customer_vehicle_tax_point),
     customer_non_vehicle_point: _numOrNull(editOrderInfo.customer_non_vehicle_point),
     customer_reward: _numOrNull(editOrderInfo.customer_reward),
-    customer_total: _numOrNull(editOrderInfo.customer_total),
-
-    profit: _numOrNull(editOrderInfo.profit),
   };
 }
 
 function recalcOrderInfoDerived() {
-  const cRaw = _numOrNull(editOrderInfo.commercial_amount);
-  const jRaw = _numOrNull(editOrderInfo.compulsory_amount);
-  const tRaw = _numOrNull(editOrderInfo.vehicle_tax_amount);
-  const nRaw = _numOrNull(editOrderInfo.non_vehicle_amount);
-
-  const commercial = cRaw === null ? null : Math.max(0, cRaw);
-  const compulsory = jRaw === null ? null : Math.max(0, jRaw);
-  const vehicleTax = tRaw === null ? null : Math.max(0, tRaw);
-  const nonVehicle = nRaw === null ? null : Math.max(0, nRaw);
-
-  editOrderInfo.commercial_amount = commercial;
-  editOrderInfo.compulsory_amount = compulsory;
-  editOrderInfo.vehicle_tax_amount = vehicleTax;
-  editOrderInfo.non_vehicle_amount = nonVehicle;
+  const commercial = _numOrNull(editOrderInfo.commercial_amount);
+  const compulsory = _numOrNull(editOrderInfo.compulsory_amount);
+  const vehicleTax = _numOrNull(editOrderInfo.vehicle_tax_amount);
+  const nonVehicle = _numOrNull(editOrderInfo.non_vehicle_amount);
 
   const hasAnyMoney = [commercial, compulsory, vehicleTax, nonVehicle].some((x) => typeof x === "number");
-
   const premiumTotal = _numOrZero(commercial) + _numOrZero(compulsory) + _numOrZero(vehicleTax) + _numOrZero(nonVehicle);
   editOrderInfo.premium_total = hasAnyMoney ? premiumTotal : null;
 
@@ -1124,24 +1219,6 @@ function recalcOrderInfoDerived() {
   const cuNonVehiclePoint = _numOrNull(editOrderInfo.customer_non_vehicle_point);
   const cuReward = _numOrNull(editOrderInfo.customer_reward);
 
-  const hasAnyChannelCfg = [
-    chCommercialPoint,
-    chCommercialSupplementPoint,
-    chCompulsoryPoint,
-    chVehicleTaxPoint,
-    chNonVehiclePoint,
-    chReward,
-  ].some((x) => typeof x === "number");
-
-  const hasAnyCustomerCfg = [
-    cuCommercialPoint,
-    cuCommercialSupplementPoint,
-    cuCompulsoryPoint,
-    cuVehicleTaxPoint,
-    cuNonVehiclePoint,
-    cuReward,
-  ].some((x) => typeof x === "number");
-
   const channelTotal =
     _numOrZero(commercial) * (_numOrZero(chCommercialPoint) / 100) +
     _numOrZero(commercial) * (_numOrZero(chCommercialSupplementPoint) / 100) +
@@ -1158,8 +1235,8 @@ function recalcOrderInfoDerived() {
     _numOrZero(nonVehicle) * (_numOrZero(cuNonVehiclePoint) / 100) +
     _numOrZero(cuReward);
 
-  editOrderInfo.channel_total = hasAnyMoney || hasAnyChannelCfg ? channelTotal : null;
-  editOrderInfo.customer_total = hasAnyMoney || hasAnyCustomerCfg ? customerTotal : null;
+  editOrderInfo.channel_total = hasAnyMoney ? channelTotal : null;
+  editOrderInfo.customer_total = hasAnyMoney ? customerTotal : null;
 
   if (editOrderInfo.channel_total === null || editOrderInfo.customer_total === null) {
     editOrderInfo.profit = null;
@@ -1220,7 +1297,7 @@ const customerSelectOptions = computed(() => {
 });
 
 /** ====================== 字段配置（原逻辑） ====================== */
-const { groups, allFields, loadConfig } = useOrderFieldConfig();
+const { allFields, loadConfig } = useOrderFieldConfig();
 
 const fieldByKey = computed(() => {
   const m = new Map();
@@ -1229,11 +1306,12 @@ const fieldByKey = computed(() => {
 });
 
 function meta(key) {
-  return fieldByKey.value.get(key) || { key, label: key, type: "text", options: [] };
+  const k = String(key || "").trim();
+  return fieldByKey.value.get(k) || { key: k, label: k, type: "text", options: [] };
 }
 
 function labelOf(field) {
-  if (field?.key === "id_number") return "公民身份号码";
+  if (field?.key === "id_number") return "身份证号";
   return field?.label || field?.key || "";
 }
 
@@ -1255,17 +1333,12 @@ function formatForView(val, field) {
 /** ====================== 编辑数据（dynamic_data） ====================== */
 const editData = reactive({});
 
-/**
- * ✅ 关键收口：
- * - 只要是“财务视图”，就禁止整单编辑（无论 super_admin / manager / finance）
- * - 财务视图仅通过 canEditRelated 打开 related 备用图编辑
- */
+/** ✅ 财务视图禁止整单编辑 */
 const canEditPermission = computed(() => {
   if (!order.value) return false;
   if (isFinanceView.value) return false;
 
   if (order.value.is_finished === true) return isPrivileged.value;
-
   if (isPrivileged.value) return true;
   return isSales.value && order.value.is_finished === false;
 });
@@ -1284,9 +1357,15 @@ const canReopen = computed(() => {
   return isPrivileged.value;
 });
 
-/** ====================== 图片按 slot 分组（原逻辑） ====================== */
-const imagesBySlot = computed(() => {
-  const slots = {
+/** ====================== 图片按 slot 分组（来自 sections.slots.*.images，已归一化到 order.images） ====================== */
+function normalizeSlotKey(slot) {
+  const s = String(slot || "").trim();
+  if (!s) return "";
+  return s;
+}
+
+function _createEmptySlots() {
+  return {
     vehicle_cert: [],
     idcard_front: [],
     idcard_back: [],
@@ -1294,146 +1373,102 @@ const imagesBySlot = computed(() => {
     driving_license_sub: [],
     related: [],
   };
+}
+
+function _dedupeSlotUrls(slots) {
+  const out = _createEmptySlots();
+  for (const [k, arr] of Object.entries(slots || {})) {
+    const seen = new Set();
+    const list = [];
+    for (const u of Array.isArray(arr) ? arr : []) {
+      const s = String(u || "").trim();
+      if (!s || seen.has(s)) continue;
+      seen.add(s);
+      list.push(s);
+    }
+    out[k] = list;
+  }
+  return out;
+}
+
+const imagesBySlot = computed(() => {
+  const slots = _createEmptySlots();
 
   for (const it of order.value?.images || []) {
-    if (!it?.slot_key) continue;
-    const url = (it?.image_url || it?.url || "").trim();
-    if (!url) continue;
-    if (!slots[it.slot_key]) slots[it.slot_key] = [];
-    slots[it.slot_key].push(url);
+    const slotKey = normalizeSlotKey(it?.slot_key);
+    const url = String(it?.image_url || "").trim();
+    if (!slotKey || !url) continue;
+    if (!slots[slotKey]) slots[slotKey] = [];
+    slots[slotKey].push(url);
   }
-  return slots;
+
+  return _dedupeSlotUrls(slots);
 });
 
 const imageItemsBySlot = computed(() => {
-  const slots = {
-    vehicle_cert: [],
-    idcard_front: [],
-    idcard_back: [],
-    driving_license_main: [],
-    driving_license_sub: [],
-    related: [],
-  };
+  const slots = _createEmptySlots();
+
   for (const it of order.value?.images || []) {
-    if (!it?.slot_key) continue;
-    if (!slots[it.slot_key]) slots[it.slot_key] = [];
-    slots[it.slot_key].push(it);
+    const slotKey = normalizeSlotKey(it?.slot_key);
+    if (!slotKey) continue;
+    if (!slots[slotKey]) slots[slotKey] = [];
+    slots[slotKey].push(it);
   }
+
   return slots;
 });
 
-/** ====================== 身份证字段 ====================== */
-const ID_FRONT_KEYS = Object.freeze(["id_name", "id_gender", "id_ethnicity", "id_birth_date", "id_address", "id_number"]);
-const ID_BACK_KEYS = Object.freeze(["id_issuer", "id_validity"]);
+/** ====================== 身份证字段（按你新接口 slots.idcard_front fields key） ====================== */
+const ID_FRONT_KEYS = Object.freeze(["id_name", "id_number", "id_address", "id_nation", "id_gender", "id_birth"]);
+const ID_BACK_KEYS = Object.freeze(["id_issue_authority", "id_valid_from", "id_valid_to", "id_valid_period"]);
 const idFrontFields = computed(() => ID_FRONT_KEYS.map((k) => meta(k)));
 const idBackFields = computed(() => ID_BACK_KEYS.map((k) => meta(k)));
 
-/** ====================== 行驶证字段：按 seed 分组 ====================== */
-const dlMainGroup = computed(() => (groups.value || []).find((g) => g.group_key === "driving_license"));
-const dlAttachGroup = computed(() => (groups.value || []).find((g) => g.group_key === "driving_attach"));
-
-function groupFields(g) {
-  if (!g) return [];
-  const keys = (g.fields || []).map((x) => x.field_name).filter(Boolean);
-  return keys.map((k) => meta(k));
-}
-
-/** ✅ 兜底：确保“行驶证主页”至少 7 个字段都有（避免 seed 组少字段导致只显示 5 个） */
-const DL_MAIN_FALLBACK_KEYS = Object.freeze([
-  "dl_plate_no",
+/** ====================== 行驶证字段（按 slots.driving_license_* fields key） ====================== */
+const DL_MAIN_FIXED_KEYS = Object.freeze([
   "dl_owner",
-  "dl_use_nature",
-  "dl_brand_model",
+  "dl_plate_no",
   "dl_vin",
   "dl_engine_no",
+  "dl_vehicle_model",
   "dl_register_date",
+  "dl_issue_date",
+  "dl_use_nature",
+  "dl_id_number",
 ]);
+
+const DL_ATTACH_FIXED_KEYS = Object.freeze(["dl_approved_passenger_count"]);
+
+function _fieldExistsOrHasValue(key) {
+  if (!key) return false;
+  if (fieldByKey.value.has(key)) return true;
+  const v = editData?.[key];
+  return !(v === undefined || v === null || v === "");
+}
 
 function _uniqueFieldsByKey(arr) {
   const out = [];
   const seen = new Set();
   for (const f of Array.isArray(arr) ? arr : []) {
     const k = String(f?.key || "");
-    if (!k) continue;
-    if (seen.has(k)) continue;
+    if (!k || seen.has(k)) continue;
     seen.add(k);
     out.push(f);
   }
   return out;
 }
 
-function _mergeFieldsWithFallback(baseFields, fallbackKeys) {
-  const base = Array.isArray(baseFields) ? baseFields : [];
-  const set = new Set(base.map((x) => String(x?.key || "")).filter(Boolean));
-  const extra = (Array.isArray(fallbackKeys) ? fallbackKeys : [])
-    .filter((k) => k && !set.has(String(k)))
-    .map((k) => meta(k));
-  return _uniqueFieldsByKey([...base, ...extra]);
-}
-
-const dlMainFields = computed(() => _mergeFieldsWithFallback(groupFields(dlMainGroup.value), DL_MAIN_FALLBACK_KEYS));
-const dlAttachFields = computed(() => groupFields(dlAttachGroup.value));
-
-function _pickKeyFromFields(fields, { preferKeys = [], labelIncludes = [], keyIncludes = [] } = {}) {
-  const arr = Array.isArray(fields) ? fields : [];
-  for (const k of preferKeys) {
-    const f = arr.find((x) => x?.key === k);
-    if (f?.key) return f.key;
-  }
-  for (const inc of keyIncludes) {
-    const f = arr.find((x) => String(x?.key || "").toLowerCase().includes(String(inc).toLowerCase()));
-    if (f?.key) return f.key;
-  }
-  for (const inc of labelIncludes) {
-    const f = arr.find((x) => String(x?.label || "").includes(String(inc)));
-    if (f?.key) return f.key;
-  }
-  return null;
-}
-
-const dlDefaultKeyMap = computed(() => {
-  const fields = dlMainFields.value || [];
-  return {
-    plate: _pickKeyFromFields(fields, { preferKeys: ["dl_plate_no"], keyIncludes: ["plate"], labelIncludes: ["号牌"] }),
-    owner: _pickKeyFromFields(fields, { preferKeys: ["dl_owner"], keyIncludes: ["owner"], labelIncludes: ["所有人"] }),
-    use_nature: _pickKeyFromFields(fields, {
-      preferKeys: ["dl_use_nature"],
-      keyIncludes: ["use_nature", "use"],
-      labelIncludes: ["使用性质"],
-    }),
-    brand_model: _pickKeyFromFields(fields, {
-      preferKeys: ["dl_brand_model"],
-      keyIncludes: ["brand", "model"],
-      labelIncludes: ["品牌型号", "品牌", "型号"],
-    }),
-    vin: _pickKeyFromFields(fields, { preferKeys: ["dl_vin", "vin"], keyIncludes: ["vin"], labelIncludes: ["识别", "车架"] }),
-    engine: _pickKeyFromFields(fields, {
-      preferKeys: ["dl_engine_no", "engine_no", "dl_engine", "engine"],
-      keyIncludes: ["engine"],
-      labelIncludes: ["发动机"],
-    }),
-    register_date: _pickKeyFromFields(fields, {
-      preferKeys: ["dl_register_date", "register_date", "dl_reg_date", "dl_register_dt"],
-      keyIncludes: ["register", "reg_date", "reg"],
-      labelIncludes: ["注册日期"],
-    }),
-  };
+const dlMainFields = computed(() => {
+  const arr = DL_MAIN_FIXED_KEYS.filter((k) => _fieldExistsOrHasValue(k)).map((k) => meta(k));
+  return _uniqueFieldsByKey(arr);
 });
 
-function dlKey(name) {
-  return dlDefaultKeyMap.value?.[name] || null;
-}
-
-const dlAttachPassengerKey = computed(() => {
-  const fields = dlAttachFields.value || [];
-  return _pickKeyFromFields(fields, {
-    preferKeys: ["dl_approved_passenger_count", "approved_passenger_count", "dl_passenger_count"],
-    keyIncludes: ["passenger", "approved"],
-    labelIncludes: ["核定载", "载人数", "载客"],
-  });
+const dlAttachFields = computed(() => {
+  const arr = DL_ATTACH_FIXED_KEYS.filter((k) => _fieldExistsOrHasValue(k)).map((k) => meta(k));
+  return _uniqueFieldsByKey(arr);
 });
 
-/** ====================== 返回（原逻辑） ====================== */
+/** ====================== 返回/团队显示 ====================== */
 function goBack() {
   const from = route.query?.from;
 
@@ -1457,6 +1492,31 @@ function goBack() {
   }
 
   router.push({ path: isFinanceView.value ? "/finance" : "/orders/all" });
+}
+
+function _joinTeams(v) {
+  const arr = Array.isArray(v) ? v : [];
+  const cleaned = [...new Set(arr.map((x) => String(x || "").trim()).filter(Boolean))];
+  return cleaned.length ? cleaned.join("、") : "";
+}
+
+const teamDisplay = computed(() => {
+  const teams = _joinTeams(order.value?.team_names);
+  if (teams) return teams;
+  return String(order.value?.team_name ?? "").trim() || "";
+});
+
+function fmtYmdSafe(anyVal) {
+  if (anyVal === null || anyVal === undefined || anyVal === "") return "-";
+  const raw = String(anyVal).trim();
+  if (!raw) return "-";
+
+  const m = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (m && m[1]) return m[1];
+
+  if (/^\d{8}$/.test(raw)) return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
+
+  return "-";
 }
 
 function fillEditDataFromOrder(o) {
@@ -1503,15 +1563,18 @@ async function loadGroupOptions() {
 }
 
 function shouldUseFinanceDetailApi() {
-  // ✅ 只有在“财务视图 + 有财务操作权限”的角色，才走 finance detail API
   return canFinanceOps.value;
 }
 
 async function load({ preserveEditDraft = false } = {}) {
+  if (!orderId) return;
+
   loading.value = true;
   try {
     const resp = shouldUseFinanceDetailApi() ? await getFinanceOrderDetail(orderId) : await getOrder(orderId);
-    order.value = resp.data;
+    // ✅ 新结构：{id, base, sections}
+    const normalized = normalizeDetailPayload(resp?.data ?? resp ?? {});
+    order.value = normalized;
 
     if (!preserveEditDraft) {
       editMode.value = false;
@@ -1527,7 +1590,7 @@ async function load({ preserveEditDraft = false } = {}) {
   }
 }
 
-/** ====================== ✅ 校验：电话 + 姓名不一致（先定位居中→稳定→闪烁→弹框） ====================== */
+/** ====================== ✅ 校验：电话 + 姓名不一致（保持原逻辑） ====================== */
 function _normalizePhone(s) {
   return String(s || "").replace(/\s+/g, "").replace(/-/g, "");
 }
@@ -1543,9 +1606,7 @@ function _getIdName() {
 }
 
 function _getDlOwnerName() {
-  const k = dlKey("owner");
-  if (!k) return "";
-  return String(editData?.[k] || "").trim();
+  return String(editData?.dl_owner || "").trim();
 }
 
 async function _validateBeforeSave() {
@@ -1573,7 +1634,7 @@ async function _validateBeforeSave() {
       targetEl: idNameValueRef.value || dlOwnerValueRef.value,
       flashEls: [idNameValueRef.value, dlOwnerValueRef.value].filter(Boolean),
       title: "姓名不一致",
-      message: `检测到证件姓名不一致：\n身份证姓名【${idName}】\n行驶证所有人【${dlOwner}】\n是否仍要继续保存？`,
+      message: `检测到证件姓名不一致：\n身份证姓名【${idName}】\n行驶证车主【${dlOwner}】\n是否仍要继续保存？`,
       confirmText: "继续保存",
       cancelText: "取消保存",
     });
@@ -1643,13 +1704,12 @@ async function reopenToUnfinished() {
 
 /** ====================== 图片编辑：BOS + finalize（原逻辑保留） ====================== */
 const UPLOAD_MODE_KEY = "order_import_upload_mode";
-const uploadMode = ref("smart"); // smart/direct/stable
+const uploadMode = ref("smart");
 
 function loadUploadMode() {
   const v = localStorage.getItem(UPLOAD_MODE_KEY);
   if (v === "smart" || v === "direct" || v === "stable") uploadMode.value = v;
 }
-
 loadUploadMode();
 
 const slotUploading = reactive({
@@ -1661,11 +1721,9 @@ const slotUploading = reactive({
   related: false,
 });
 
-// ✅ related 多图队列：防止并发 finalize 覆盖（只剩最后一张）
-const relatedPendingFiles = ref([]); // File[]
+const relatedPendingFiles = ref([]);
 const relatedRetryOnce = ref(false);
 
-// STS 缓存（直传用）
 const bosHost = ref("");
 let cachedSts = null;
 let cachedStsExpireAt = 0;
@@ -1700,15 +1758,7 @@ function _errMsg(e) {
 
 function isLikelyNetworkBlocked(err) {
   const m = _errMsg(err).toLowerCase();
-  return (
-    m.includes("failed to fetch") ||
-    m.includes("network error") ||
-    m.includes("err_") ||
-    m.includes("cors") ||
-    m.includes("代理") ||
-    m.includes("vpn") ||
-    m.includes("127.0.0.1:7890")
-  );
+  return m.includes("failed to fetch") || m.includes("network error") || m.includes("cors") || m.includes("代理") || m.includes("vpn");
 }
 
 async function suggestSwitchToStableOnce(err) {
@@ -1739,13 +1789,6 @@ function _getStorageKeyFromUrl(url) {
     const u = new URL(String(url));
     return (u.pathname || "").replace(/^\/+/, "");
   } catch {
-    const s = String(url || "");
-    const i = s.indexOf("://");
-    if (i >= 0) {
-      const p = s.slice(i + 3);
-      const j = p.indexOf("/");
-      if (j >= 0) return p.slice(j + 1).replace(/^\/+/, "");
-    }
     return "";
   }
 }
@@ -1753,7 +1796,6 @@ function _getStorageKeyFromUrl(url) {
 function _extractStorageKeyFromImageItem(it) {
   const sk = (it?.storage_key || it?.image_file?.storage_key || "").trim().replace(/^\/+/, "");
   if (sk) return sk;
-
   const url = (it?.image_url || it?.url || "").trim();
   if (url) return _getStorageKeyFromUrl(url);
   return "";
@@ -1768,19 +1810,13 @@ function _md5FromStorageKey(storageKey) {
 function _finalizeItemFromExistingImage(it, slotKey) {
   const storage_key = _extractStorageKeyFromImageItem(it);
   if (!storage_key) return null;
-
   const md5 = _md5FromStorageKey(storage_key) || "";
-
   return { slot_key: slotKey, storage_key, md5, size: 0 };
 }
 
-/**
- * ✅ 财务视图编辑备用图：强制走“稳定模式（后端代传）”，避免 /orders/bos-sts 权限问题
- * ✅ 同时后端也应限制 finance/manager/super_admin 在 finance 入口仅允许 related
- */
 async function _uploadOne(slotKey, rawFile) {
   if (canFinanceOps.value) {
-    const resp = await uploadOrderImageProxy({ slot_key: slotKey, file: rawFile });
+    const resp = await uploadFinanceBosProxy({ order_id: orderId, slot_key: slotKey, file: rawFile });
     const meta = resp?.data;
     return {
       slot_key: slotKey,
@@ -1834,14 +1870,21 @@ async function _uploadOne(slotKey, rawFile) {
 async function _finalizeSlot(slotKey, items, { clear = false } = {}) {
   const clear_slots = clear ? [slotKey] : [];
 
-  await finalizeOrderUpload({
-    order_id: orderId,
-    images: items,
-    clear_slots,
-  });
+  if (canFinanceOps.value) {
+    await finalizeFinanceUpload({
+      order_id: orderId,
+      images: items,
+      clear_slots,
+    });
+  } else {
+    await finalizeOrderUpload({
+      order_id: orderId,
+      images: items,
+      clear_slots,
+    });
+  }
 
   await load({ preserveEditDraft: true });
-
   ElMessage.success("图片已更新（如涉及证件将触发 OCR 任务）");
 }
 
@@ -1854,25 +1897,17 @@ async function onReplaceSingleImage(slotKey, uploadFile) {
   try {
     const meta = await _uploadOne(slotKey, raw);
     if (!meta?.storage_key) throw new Error("upload meta invalid");
-
     await _finalizeSlot(slotKey, [meta]);
   } catch (e) {
-    if (uploadMode.value === "smart" && isLikelyNetworkBlocked(e)) {
+    if (!canFinanceOps.value && uploadMode.value === "smart" && isLikelyNetworkBlocked(e)) {
       const switched = await suggestSwitchToStableOnce(e);
       if (switched) {
-        try {
-          const meta = await _uploadOne(slotKey, raw);
-          if (!meta?.storage_key) throw new Error("upload meta invalid");
-          await _finalizeSlot(slotKey, [meta]);
-          return;
-        } catch (e2) {
-          console.error(e2);
-          ElMessage.error(_errMsg(e2) || "上传失败");
-          return;
-        }
+        const meta = await _uploadOne(slotKey, raw);
+        if (!meta?.storage_key) throw new Error("upload meta invalid");
+        await _finalizeSlot(slotKey, [meta]);
+        return;
       }
     }
-
     console.error(e);
     ElMessage.error(_errMsg(e) || "上传失败");
   } finally {
@@ -1880,20 +1915,13 @@ async function onReplaceSingleImage(slotKey, uploadFile) {
   }
 }
 
-/**
- * ✅ related 多图追加：队列串行上传，最后一次 finalize，避免并发覆盖
- * - el-upload 多选会触发多次 on-change，这里统一入队
- */
 async function onAppendRelated(uploadFile) {
   if (!canEditRelated.value) return;
   const raw = uploadFile?.raw;
   if (!raw) return;
 
   relatedPendingFiles.value.push(raw);
-
-  // 已在处理就只入队，交给尾部继续跑
   if (slotUploading.related) return;
-
   await _drainRelatedQueue();
 }
 
@@ -1906,7 +1934,6 @@ async function _drainRelatedQueue() {
   slotUploading.related = true;
 
   try {
-    // ✅ 先取一次“当前已存在”的 related（以 finalize 需要的引用为准）
     const existing = (imageItemsBySlot.value.related || [])
       .map((it) => _finalizeItemFromExistingImage(it, "related"))
       .filter(Boolean);
@@ -1918,50 +1945,14 @@ async function _drainRelatedQueue() {
       metas.push(meta);
     }
 
-    if (metas.length) {
-      await _finalizeSlot("related", [...existing, ...metas]);
-    }
+    await _finalizeSlot("related", [...existing, ...metas]);
     relatedRetryOnce.value = false;
   } catch (e) {
-    // ✅ 非财务 + smart 网络拦截：提示切换稳定模式，并对“本批次文件”重试一次
-    if (!canFinanceOps.value && uploadMode.value === "smart" && isLikelyNetworkBlocked(e) && !relatedRetryOnce.value) {
-      const switched = await suggestSwitchToStableOnce(e);
-      if (switched) {
-        relatedRetryOnce.value = true;
-        try {
-          const existing = (imageItemsBySlot.value.related || [])
-            .map((it) => _finalizeItemFromExistingImage(it, "related"))
-            .filter(Boolean);
-
-          const metas = [];
-          for (const f of files) {
-            const meta = await _uploadOne("related", f);
-            if (!meta?.storage_key) throw new Error("upload meta invalid");
-            metas.push(meta);
-          }
-
-          if (metas.length) {
-            await _finalizeSlot("related", [...existing, ...metas]);
-          }
-          relatedRetryOnce.value = false;
-        } catch (e2) {
-          console.error(e2);
-          ElMessage.error(_errMsg(e2) || "上传失败");
-        }
-        return;
-      }
-    }
-
     console.error(e);
     ElMessage.error(_errMsg(e) || "上传失败");
   } finally {
     slotUploading.related = false;
-
-    // ✅ 如果处理期间又进队了新文件，继续处理下一批
-    if (relatedPendingFiles.value.length) {
-      // 不 await，避免阻塞 UI；但仍保证串行（因为 slotUploading.related 已释放）
-      void _drainRelatedQueue();
-    }
+    if (relatedPendingFiles.value.length) void _drainRelatedQueue();
   }
 }
 
@@ -2007,7 +1998,6 @@ async function clearRelatedAll() {
     return;
   }
 
-  // 清空时顺手把队列也清掉，避免用户刚选的图随后又被上传回去
   relatedPendingFiles.value = [];
   relatedRetryOnce.value = false;
 
@@ -2023,16 +2013,17 @@ async function clearRelatedAll() {
 }
 
 onMounted(async () => {
+  if (!orderId) return;
+
   await loadConfig("order");
+  await load();
 
   if (canEditPermission.value) {
     await loadGroupOptions();
   }
-
-  await load();
 });
 
-// ——内置组件：不使用 JSX——
+/** ——内置组件：不使用 JSX—— */
 const FieldValue = defineComponent({
   name: "FieldValue",
   props: {
@@ -2101,7 +2092,6 @@ const FieldValue = defineComponent({
   },
 });
 
-// ✅ 订单信息字段控件（order_info）
 const InfoValue = defineComponent({
   name: "InfoValue",
   props: {
@@ -2121,7 +2111,6 @@ const InfoValue = defineComponent({
 
     function _toStr(v) {
       if (v === null || v === undefined || v === "") return "";
-      if ((props.type === "money" || props.type === "point") && Number(v) === 0) return "";
       return String(v);
     }
 
@@ -2253,7 +2242,7 @@ watch(
 </script>
 
 <style scoped>
-/* 原样保留 */
+/* 原样保留你的样式（不改） */
 .order-detail {
   width: 100%;
   --preview-w: 320px;
@@ -2339,7 +2328,6 @@ watch(
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
-/* ✅ 新增：6 列（用于“商业点位 + 商业后补 + 其它 4 项”） */
 .kv-grid-6 {
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }
@@ -2404,7 +2392,6 @@ watch(
   padding: 8px 10px;
 }
 
-/* ✅ 备注行更适配一点（可选增强） */
 .kv-item-remark {
   grid-template-columns: 84px 1fr;
 }
@@ -2522,7 +2509,6 @@ watch(
   width: 100%;
 }
 
-/* ✅ related 拖拽区 */
 .related-dragger {
   flex: 1;
   min-width: 260px;

@@ -37,12 +37,11 @@
       </div>
     </div>
 
-    <el-card shadow="never" class="toolbar-card" :body-style="{ padding: '10px 12px' }">
+    <el-card shadow="never" class="toolbar-card" :body-style="{ padding: '12px 14px' }">
       <div class="toolbar-row">
-        <div class="toolbar-label">搜索：</div>
+        <div class="toolbar-label">搜索条件</div>
 
         <div class="toolbar-content">
-          <!-- 第一行：条件（可换行） -->
           <div class="toolbar-fields">
             <el-input
               v-model="filters.channel_code"
@@ -86,7 +85,6 @@
             />
           </div>
 
-          <!-- 第二行：操作（统一右侧同一行） -->
           <div class="toolbar-actions">
             <el-button size="small" :disabled="loading" @click="resetFilter">重置</el-button>
             <el-button type="primary" size="small" :loading="loading" @click="applyFilter">搜索</el-button>
@@ -178,7 +176,6 @@
           <el-input v-model="form.region" clearable />
         </el-form-item>
 
-        <!-- ✅ 优化后的联系方式：仅允许 手机号 / 座机 -->
         <el-form-item label="联系方式" prop="contacts">
           <div class="contacts-wrap">
             <div class="contacts-toolbar">
@@ -264,8 +261,6 @@ const roleName = computed(() => String(sessionStore.roleName || "").trim().toLow
 
 const canModify = computed(() => roleName.value !== ROLE.FINANCE);
 const canViewDeleted = computed(() => roleName.value === ROLE.SUPER_ADMIN);
-
-// ✅ 编辑权限：manager / super_admin / market
 const canEdit = computed(
   () => roleName.value === ROLE.SUPER_ADMIN || roleName.value === ROLE.MANAGER || roleName.value === ROLE.MARKET
 );
@@ -278,7 +273,6 @@ const pageSize = ref(20);
 const total = ref(0);
 const rawItems = ref([]);
 
-// ✅ 防并发乱序：仅最后一次请求可以落数据/收 loading
 let _reqSeq = 0;
 
 const filters = ref({
@@ -384,12 +378,11 @@ function toggleShowDeleted() {
   loadList();
 }
 
-// ---- 新增/编辑（共用一个弹窗）----
 const dialogVisible = ref(false);
 const saving = ref(false);
 const formRef = ref(null);
 
-const dialogMode = ref("create"); // 'create' | 'edit'
+const dialogMode = ref("create");
 const editId = ref(null);
 
 const dialogTitle = computed(() => (dialogMode.value === "edit" ? "编辑渠道" : "新增渠道"));
@@ -598,7 +591,6 @@ async function submit() {
   }
 }
 
-// ---- 删除确认弹框 ----
 const deleteDialogVisible = ref(false);
 const deleting = ref(false);
 const deleteTarget = ref(null);
@@ -660,28 +652,31 @@ onMounted(() => loadList());
 .toggle-btn--active { border-color: rgba(64, 158, 255, 0.45); background: rgba(64, 158, 255, 0.06); }
 .btn-ico { margin-right: 6px; }
 
-/* ✅ 搜索栏吸顶，避免被表格渲染后顶掉/覆盖 */
+/* ✅ 搜索栏：更稳、更好看 */
 .toolbar-card {
   margin-bottom: 10px;
   position: sticky;
   top: 0;
   z-index: 20;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: 12px;
+  border: 1px solid rgba(60, 60, 60, 0.08);
+  backdrop-filter: blur(6px);
 }
 
-/* ✅ 专业布局：条件一行（可换行），按钮单独一行右对齐 */
 .toolbar-row {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 12px;
 }
 
 .toolbar-label {
-  width: 60px;
+  width: 72px;
   flex-shrink: 0;
-  font-size: 13px;
-  color: #666;
-  line-height: 28px;
+  font-size: 12px;
+  color: rgba(31, 42, 68, 0.72);
+  line-height: 30px;
+  font-weight: 700;
   padding-top: 2px;
 }
 
@@ -694,15 +689,19 @@ onMounted(() => loadList());
 }
 
 .toolbar-fields {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
 }
 
 .toolbar-input {
-  width: 240px;
-  max-width: 100%;
+  width: 100%;
+  min-width: 0;
+}
+
+.toolbar-input :deep(.el-input__wrapper) {
+  border-radius: 10px;
+  min-height: 32px;
 }
 
 .toolbar-actions {
@@ -713,7 +712,6 @@ onMounted(() => loadList());
   flex-wrap: nowrap;
 }
 
-/* ✅ 表格区域滚动容器，避免撑爆布局把上方顶走 */
 .table-scroll { flex: 1; min-height: 0; overflow: auto; }
 
 .main-table { width: 100%; }

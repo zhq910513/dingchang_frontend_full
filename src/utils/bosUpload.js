@@ -7,7 +7,7 @@
 
 import { preprocessImageForUpload } from "./imagePreprocess";
 
-// ✅ slotKey -> BOS prefix
+// ✅ slotKey -> BOS prefix（以后端当前口径为准）
 const SLOT_PREFIX_MAP = {
   vehicle_cert: "cert",
   idcard_front: "idcard",
@@ -19,7 +19,13 @@ const SLOT_PREFIX_MAP = {
 
 function _makeErr(messageZh, debug) {
   const err = new Error(String(messageZh || "上传失败"));
-  if (debug) err.__debug = typeof debug === "string" ? debug : JSON.stringify(debug);
+  if (debug) {
+    try {
+      err.__debug = typeof debug === "string" ? debug : JSON.stringify(debug);
+    } catch {
+      err.__debug = String(debug);
+    }
+  }
   return err;
 }
 
@@ -30,6 +36,24 @@ function _prefixFromSlot(slotKey) {
     throw _makeErr("上传失败：图片类型不支持或参数异常", { slotKey: k });
   }
   return p;
+}
+
+function _assertUploadInputs({ bosHost, slotKey, file, sts }) {
+  const host = String(bosHost || "").trim();
+  if (!host) throw _makeErr("上传失败：存储配置缺失（bosHost）");
+
+  _prefixFromSlot(slotKey); // 顺便校验 slotKey
+
+  if (!file || typeof file.arrayBuffer !== "function") {
+    throw _makeErr("上传失败：文件对象无效");
+  }
+
+  if (!sts || typeof sts !== "object") {
+    throw _makeErr("上传失败：上传凭证缺失");
+  }
+  if (!sts.accessKeyId || !sts.secretAccessKey || !sts.sessionToken) {
+    throw _makeErr("上传失败：上传凭证不完整");
+  }
 }
 
 // -------------------------
@@ -66,8 +90,9 @@ function _md5ArrayBuffer(buffer) {
     return cmn(c ^ (b | ~d), a, b, x, s, t);
   }
 
-  const n = ((len + 8) >>> 6 << 4) + 16;
+  const n = ((((len + 8) >>> 6) << 4) + 16) >>> 0;
   const x = new Uint32Array(n);
+
   let i;
   for (i = 0; i < len; i++) {
     x[i >> 2] |= bytes[i] << ((i % 4) * 8);
@@ -82,10 +107,10 @@ function _md5ArrayBuffer(buffer) {
   let d = 271733878;
 
   for (i = 0; i < x.length; i += 16) {
-    const oa = a,
-      ob = b,
-      oc = c,
-      od = d;
+    const oa = a;
+    const ob = b;
+    const oc = c;
+    const od = d;
 
     a = ff(a, b, c, d, x[i + 0], 7, -680876936);
     d = ff(d, a, b, c, x[i + 1], 12, -389564586);
@@ -174,6 +199,9 @@ function _md5ArrayBuffer(buffer) {
 }
 
 export async function computeFileMd5(file) {
+  if (!file || typeof file.arrayBuffer !== "function") {
+    throw _makeErr("上传失败：文件读取异常");
+  }
   const buf = await file.arrayBuffer();
   return _md5ArrayBuffer(buf);
 }
@@ -193,9 +221,10 @@ function _uriEncode(s, encodeSlash = true) {
 
 function _canonicalHeaders(headers, signedHeaders) {
   const lines = [];
-  const keys = Array.from(new Set(signedHeaders.map((h) => String(h).trim().toLowerCase()))).sort();
+  const keys = Array.from(new Set((signedHeaders || []).map((h) => String(h).trim().toLowerCase()))).sort();
+
   for (const k of keys) {
-    const v = (headers[k] ?? "").toString().trim();
+    const v = (headers?.[k] ?? "").toString().trim();
     if (!v) continue;
     lines.push(`${_uriEncode(k)}:${_uriEncode(v)}`);
   }
@@ -205,11 +234,22 @@ function _canonicalHeaders(headers, signedHeaders) {
 function _toU8(v) {
   if (v instanceof Uint8Array) return v;
   if (v instanceof ArrayBuffer) return new Uint8Array(v);
-  if (ArrayBuffer.isView(v)) return new Uint8Array(v.buffer);
+  if (ArrayBuffer.isView(v)) {
+    // ✅ 修复：保留 byteOffset/byteLength，避免把整个底层 buffer 都吃进去
+    return new Uint8Array(v.buffer, v.byteOffset, v.byteLength);
+  }
   return null;
 }
 
 async function _hmacSha256Raw(keyInput, msgText) {
+  if (!globalThis.crypto?.subtle) {
+    throw _makeErr("当前浏览器环境不支持安全签名，请更换现代浏览器后重试", {
+      hasCrypto: !!globalThis.crypto,
+      hasSubtle: !!globalThis.crypto?.subtle,
+      isSecureContext: globalThis.isSecureContext,
+    });
+  }
+
   const enc = new TextEncoder();
   const msgBytes = enc.encode(String(msgText));
 
@@ -236,14 +276,15 @@ async function bceAuthV1({ ak, sk, method, path, timestamp, expireSeconds = 1800
   const canonicalQuery = "";
   const canonicalHdrs = _canonicalHeaders(headers, headersToSign);
 
-  const canonicalRequest = [method.toUpperCase(), canonicalUri, canonicalQuery, canonicalHdrs].join("\n");
+  const canonicalRequest = [String(method || "GET").toUpperCase(), canonicalUri, canonicalQuery, canonicalHdrs].join("\n");
 
   // ✅ signature = HMAC-SHA256(signingKeyBytes, canonicalRequest)
   const signature = await _hmacSha256Hex(signingKeyBytes, canonicalRequest);
 
-  const signedHeadersStr = Array.from(new Set(headersToSign.map((h) => String(h).toLowerCase())))
+  const signedHeadersStr = Array.from(new Set((headersToSign || []).map((h) => String(h).toLowerCase())))
     .sort()
     .join(";");
+
   return `${authPrefix}/${signedHeadersStr}/${signature}`;
 }
 
@@ -254,15 +295,17 @@ function _guessExt(file) {
   if (name.endsWith(".webp")) return ".webp";
   if (name.endsWith(".bmp")) return ".bmp";
   if (name.endsWith(".heic")) return ".heic";
+
   const t = (file?.type || "").toLowerCase();
   if (t.includes("jpeg")) return ".jpg";
   if (t.includes("png")) return ".png";
   if (t.includes("webp")) return ".webp";
+
   return ".bin";
 }
 
 export function buildB1Key({ slotKey, md5, file }) {
-  const m = (md5 || "").toLowerCase();
+  const m = String(md5 || "").toLowerCase();
   if (!/^[a-f0-9]{32}$/.test(m)) {
     throw _makeErr("上传失败：文件校验异常，请重试", { md5: m });
   }
@@ -272,7 +315,13 @@ export function buildB1Key({ slotKey, md5, file }) {
 }
 
 function _pickHeader(resp, name) {
-  return resp.headers.get(name) || resp.headers.get(String(name).toLowerCase()) || resp.headers.get(String(name).toUpperCase()) || "";
+  if (!resp?.headers) return "";
+  return (
+    resp.headers.get(name) ||
+    resp.headers.get(String(name).toLowerCase()) ||
+    resp.headers.get(String(name).toUpperCase()) ||
+    ""
+  );
 }
 
 async function _readTextSafe(resp) {
@@ -284,22 +333,38 @@ async function _readTextSafe(resp) {
 }
 
 function _publicPreviewUrl(bosHost, key) {
+  const host = String(bosHost || "").trim();
   const path = `/${String(key || "").replace(/^\/+/, "")}`;
-  return `https://${bosHost}${path}`;
+  return `https://${host}${path}`;
 }
 
 // ✅ 先走 public HEAD（不带任何自定义头，不触发预检）
 async function headObjectPublic({ bosHost, key }) {
   const path = `/${String(key || "").replace(/^\/+/, "")}`;
   const url = `https://${bosHost}${path}`;
-  const resp = await fetch(url, {
-    method: "HEAD",
-    mode: "cors",
-    credentials: "omit",
-    cache: "no-store",
-  });
-  if (resp.status === 200) return { exists: true, etag: _pickHeader(resp, "ETag"), mode: "public" };
-  if (resp.status === 404) return { exists: false, mode: "public" };
+
+  let resp;
+  try {
+    resp = await fetch(url, {
+      method: "HEAD",
+      mode: "cors",
+      credentials: "omit",
+      cache: "no-store",
+    });
+  } catch (e) {
+    // public HEAD 网络失败不直接报错，交给 signed HEAD 再试一次
+    return {
+      exists: false,
+      mode: "public",
+      fallback: true,
+      error: e?.message || String(e),
+    };
+  }
+
+  if (resp.status === 200) return { exists: true, etag: _pickHeader(resp, "ETag"), mode: "public", status: 200 };
+  if (resp.status === 404) return { exists: false, mode: "public", status: 404 };
+
+  // 其他状态（403/5xx 等）走签名 HEAD 再判
   return { exists: false, mode: "public", fallback: true, status: resp.status };
 }
 
@@ -320,7 +385,6 @@ async function headObjectSigned({ bosHost, key, sts }) {
     sk: sts.secretAccessKey,
     method: "HEAD",
     path,
-    host: bosHost,
     timestamp,
     expireSeconds: 1800,
     headersToSign,
@@ -351,8 +415,8 @@ async function headObjectSigned({ bosHost, key, sts }) {
     });
   }
 
-  if (resp.status === 200) return { exists: true, etag: _pickHeader(resp, "ETag"), mode: "signed" };
-  if (resp.status === 404) return { exists: false, mode: "signed" };
+  if (resp.status === 200) return { exists: true, etag: _pickHeader(resp, "ETag"), mode: "signed", status: 200 };
+  if (resp.status === 404) return { exists: false, mode: "signed", status: 404 };
 
   const rid = _pickHeader(resp, "x-bce-request-id");
   const dbg = _pickHeader(resp, "x-bce-debug-id");
@@ -390,13 +454,13 @@ async function headObjectSigned({ bosHost, key, sts }) {
 
 async function headObjectWithSts({ bosHost, key, sts }) {
   const pub = await headObjectPublic({ bosHost, key });
-  if (pub.exists || (pub.mode === "public" && pub.status === 404)) return pub;
 
-  if (pub.fallback) {
-    return await headObjectSigned({ bosHost, key, sts });
-  }
+  // public 可直接判断
+  if (pub?.status === 200) return pub;
+  if (pub?.status === 404) return pub;
 
-  return pub;
+  // 其余情况走签名 HEAD
+  return await headObjectSigned({ bosHost, key, sts });
 }
 
 async function putObjectWithSts({ bosHost, key, file, sts }) {
@@ -419,7 +483,6 @@ async function putObjectWithSts({ bosHost, key, file, sts }) {
     sk: sts.secretAccessKey,
     method: "PUT",
     path,
-    host: bosHost,
     timestamp,
     expireSeconds: 1800,
     headersToSign,
@@ -473,9 +536,21 @@ async function putObjectWithSts({ bosHost, key, file, sts }) {
  * @returns {Promise<{md5:string, storage_key:string, etag:string, size:number, content_type:string, original_name:string, preview_url:string, preprocess_note?:string, before_bytes?:number, after_bytes?:number}>}
  */
 export async function uploadOrReuseByMd5({ bosHost, slotKey, file, sts }) {
+  _assertUploadInputs({ bosHost, slotKey, file, sts });
+
   // ✅ 统一 >2MB 开始压缩（但有护栏：不糊字）
-  const pre = await preprocessImageForUpload({ file, slotKey });
-  const file2 = pre?.file || file;
+  // ✅ 预处理失败不阻断上传，回退原图（业务优先）
+  let pre = null;
+  let file2 = file;
+  try {
+    pre = await preprocessImageForUpload({ file, slotKey });
+    file2 = pre?.file || file;
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn("[BOS 上传诊断] preprocessImageForUpload failed, fallback to original file", e);
+    pre = null;
+    file2 = file;
+  }
 
   const md5 = await computeFileMd5(file2);
   const storage_key = buildB1Key({ slotKey, md5, file: file2 });
@@ -491,9 +566,9 @@ export async function uploadOrReuseByMd5({ bosHost, slotKey, file, sts }) {
     throw e;
   }
 
-  let etag = head.etag || "";
+  let etag = head?.etag || "";
 
-  if (!head.exists) {
+  if (!head?.exists) {
     try {
       const put = await putObjectWithSts({ bosHost, key: storage_key, file: file2, sts });
       etag = put.etag || "";
