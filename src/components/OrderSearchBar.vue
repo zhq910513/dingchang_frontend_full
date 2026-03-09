@@ -342,13 +342,14 @@ const props = defineProps({
 
   // ["A","B"] 或 [{team_name:"A"}] / [{label:"A", value:"A"}]
   teamOptions: { type: Array, default: () => [] },
-
-  // super_admin | manager | finance | market | sales
-  roleName: { type: String, default: "" },
+  // ✅ 权限/能力开关：以后端 meta.capabilities 为准
+  capabilities: { type: Object, default: () => ({}) },
 
   // teamOptions 未传时兜底
   userTeamNames: { type: Array, default: () => [] },
 });
+
+const caps = computed(() => (props.capabilities && typeof props.capabilities === 'object') ? props.capabilities : {});
 
 const emit = defineEmits(["update:modelValue", "search", "reset", "team-change"]);
 
@@ -360,7 +361,11 @@ const isManager = computed(() => roleNorm.value === "manager");
 const isFinanceRole = computed(() => roleNorm.value === "finance");
 const isMarketRole = computed(() => roleNorm.value === "market");
 
-const financeTeamMultiple = computed(() => props.variant === "finance" && (isSuperAdmin.value || isManager.value));
+const financeTeamMultiple = computed(() => {
+  if (variant.value !== "finance") return false;
+  // ✅ 不靠角色推断；需要多选时由页面/后端过滤兜底
+  return true;
+});
 
 function cloneObj(v) {
   try {

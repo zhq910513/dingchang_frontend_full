@@ -817,7 +817,7 @@ function fmtMoney(x) {
 function fmtPoint(x) {
   const n = toNum(x);
   if (n === null) return "-";
-  return String(x);
+  return String(n);
 }
 
 function fmtYmdSafe(anyVal) {
@@ -1434,32 +1434,7 @@ async function downloadFinanceExcel() {
   }
 }
 
-/** ===================== 字段读取（严格按后端当前字段） ===================== */
-
-const FINANCE_MONEY_COL = {
-  commercial_amount: "col_14_commercial_amount",
-  compulsory_amount: "col_15_compulsory_amount",
-  vehicle_tax_amount: "col_16_tax_amount",
-  noncar_amount: "col_17_noncar_amount",
-
-  receivable: "col_28_receivable",
-  payable: "col_29_payable",
-  profit: "col_30_profit",
-};
-
-const FINANCE_POINT_COL = {
-  channel_commercial_point: "col_18_ch_commercial_point",
-  channel_commercial_supplement_point: "col_19_ch_commercial_supplement_point",
-  channel_compulsory_point: "col_20_ch_compulsory_point",
-  channel_vehicle_tax_point: "col_21_ch_tax_point",
-  channel_noncar_point: "col_22_ch_noncar_point",
-
-  customer_commercial_point: "col_23_cu_commercial_point",
-  customer_commercial_supplement_point: "col_24_cu_commercial_supplement_point",
-  customer_compulsory_point: "col_25_cu_compulsory_point",
-  customer_vehicle_tax_point: "col_26_cu_tax_point",
-  customer_noncar_point: "col_27_cu_noncar_point",
-};
+/** ===================== 字段读取（统一口径：财务列表已与订单列表同构） ===================== */
 
 const ORDER_INFO_MONEY_KEY = {
   commercial_amount: "commercial_amount",
@@ -1483,7 +1458,7 @@ const ORDER_INFO_POINT_KEY = {
 };
 
 function pickCreatedAt(row) {
-  return isFinance.value ? row?.col_01_date || null : row?.created_at || null;
+  return row?.created_at || null;
 }
 
 function pickFinished(row) {
@@ -1491,15 +1466,15 @@ function pickFinished(row) {
 }
 
 function pickChannelName(row) {
-  return String(isFinance.value ? row?.col_02_channel || "" : row?.channel_group_name || "").trim() || "-";
+  return String(row?.channel_group_name || "").trim() || "-";
 }
 
 function pickCustomerName(row) {
-  return String(isFinance.value ? row?.col_03_customer || "" : row?.customer_group_name || "").trim() || "-";
+  return String(row?.customer_group_name || "").trim() || "-";
 }
 
 function pickMarket(row) {
-  const v = isFinance.value ? row?.col_04_market : row?.customer_group_market;
+  const v = row?.customer_group_market;
   return String(v ?? "").trim() || "-";
 }
 
@@ -1511,69 +1486,61 @@ function pickSalespersonName(row) {
   return String(sp?.real_name || sp?.username || "-");
 }
 
+function _dynFirst(row, keys = []) {
+  for (const k of keys) {
+    const v = dyn(row, k);
+    const s = String(v ?? "").trim();
+    if (s) return s;
+  }
+  return "";
+}
+
 function pickOwner(row) {
-  const v = isFinance.value ? row?.col_05_owner : dyn(row, "dl_owner");
-  return String(v ?? "").trim() || "-";
+  const v = _dynFirst(row, ["id_name", "dl_owner", "owner_name"]);
+  return v || "-";
 }
 
 function pickPlate(row) {
-  const v = isFinance.value ? row?.col_06_plate_no : dyn(row, "dl_plate_no");
-  return String(v ?? "").trim() || "-";
+  const v = _dynFirst(row, ["dl_plate_no", "plate_no"]);
+  return v || "-";
 }
 
 function pickInsuranceExpire(row) {
-  const v = isFinance.value ? row?.col_07_insurance_expire_date : orderInfo(row)?.insurance_expire_date;
+  const v = orderInfo(row)?.insurance_expire_date;
   return normalizeCompactYmd(v) || "-";
 }
 
 function pickVin(row) {
-  const v = isFinance.value ? row?.col_08_vin : dyn(row, "dl_vin");
-  return String(v ?? "").trim() || "-";
+  const v = _dynFirst(row, ["dl_vin", "vin"]);
+  return v || "-";
 }
 
 function pickEngine(row) {
-  const v = isFinance.value ? row?.col_09_engine_no : dyn(row, "dl_engine_no");
-  return String(v ?? "").trim() || "-";
+  const v = _dynFirst(row, ["dl_engine_no", "engine_no"]);
+  return v || "-";
 }
 
 function pickVehicleModel(row) {
-  // ✅ 严格：财务只读后端 col_10_vehicle_model
-  if (isFinance.value) {
-    const v0 = String(row?.col_10_vehicle_model ?? "").trim();
-    return v0 || "-";
-  }
-
-  // 订单：保持原逻辑（避免回退你已确认“订单列表已有数据”）
-  const v = dyn(row, "dl_brand_model");
-  return String(v ?? "").trim() || "-";
+  const v = _dynFirst(row, ["dl_brand_model", "dl_vehicle_model", "vehicle_model", "brand_model"]);
+  return v || "-";
 }
 
 function pickFirstRegister(row) {
-  const v = isFinance.value ? row?.col_11_first_register_date : dyn(row, "dl_register_date");
+  const v = _dynFirst(row, ["dl_register_date", "first_register_date", "register_date", "dl_first_register_date"]);
   return normalizeCompactYmd(v) || "-";
 }
 
 function pickIdNumber(row) {
-  // ✅ 严格：财务只读后端 col_12_id_number
-  if (isFinance.value) {
-    const v0 = String(row?.col_12_id_number ?? "").trim();
-    return v0 || "-";
-  }
-
-  const v = dyn(row, "id_number");
-  return String(v ?? "").trim() || "-";
+  const v = _dynFirst(row, ["id_number", "dl_id_number"]);
+  return v || "-";
 }
 
 function pickPhone(row) {
-  const v = isFinance.value ? row?.col_13_owner_phone : orderInfo(row)?.owner_phone;
+  const v = orderInfo(row)?.owner_phone;
   return String(v ?? "").trim() || "-";
 }
 
 function pickRemark(row) {
-  if (isFinance.value) {
-    const v = String(row?.remark ?? "").trim();
-    return v || "-";
-  }
   const v = String(orderInfo(row)?.remark ?? "").trim();
   return v || "-";
 }
@@ -1589,34 +1556,30 @@ function pickTeamName(row) {
 }
 
 function pickPaid(row) {
-  return isFinance.value ? Boolean(row?.col_31_is_paid) : Boolean(row?.is_paid);
+  return Boolean(row?.is_paid);
 }
 
 function pickRebate(row) {
-  return isFinance.value ? Boolean(row?.col_32_is_rebate) : Boolean(row?.is_rebate);
+  return Boolean(row?.is_rebate);
 }
 
 function setPaid(row, val) {
   if (!row || typeof row !== "object") return;
-  if (isFinance.value) row.col_31_is_paid = Boolean(val);
   row.is_paid = Boolean(val);
 }
 
 function setRebate(row, val) {
   if (!row || typeof row !== "object") return;
-  if (isFinance.value) row.col_32_is_rebate = Boolean(val);
   row.is_rebate = Boolean(val);
 }
 
 function _moneyRaw(row, logicalKey) {
-  if (isFinance.value) return row?.[FINANCE_MONEY_COL[logicalKey] || logicalKey];
   const oi = orderInfo(row);
   const key = ORDER_INFO_MONEY_KEY[logicalKey] || logicalKey;
   return oi ? oi[key] : null;
 }
 
 function _pointRaw(row, logicalKey) {
-  if (isFinance.value) return row?.[FINANCE_POINT_COL[logicalKey] || logicalKey];
   const oi = orderInfo(row);
   const key = ORDER_INFO_POINT_KEY[logicalKey] || logicalKey;
   return oi ? oi[key] : null;
@@ -1631,11 +1594,6 @@ function pickPoint(row, logicalKey) {
 }
 
 function _rewardRaw(row, key) {
-  if (isFinance.value) {
-    if (key === "channel_reward") return row?.col_33_channel_reward ?? null;
-    if (key === "customer_reward") return row?.col_34_customer_reward ?? null;
-    return null;
-  }
   const oi = orderInfo(row);
   return oi ? oi[key] ?? null : null;
 }
@@ -1645,17 +1603,14 @@ function pickRewardMoney(row, key) {
 }
 
 function pickReceivable(row) {
-  if (isFinance.value) return fmtMoney(_moneyRaw(row, "receivable"));
   return fmtMoney(orderInfo(row)?.channel_total ?? null);
 }
 
 function pickPayable(row) {
-  if (isFinance.value) return fmtMoney(_moneyRaw(row, "payable"));
   return fmtMoney(orderInfo(row)?.customer_total ?? null);
 }
 
 function pickProfit(row) {
-  if (isFinance.value) return fmtMoney(_moneyRaw(row, "profit"));
   return fmtMoney(orderInfo(row)?.profit ?? null);
 }
 
@@ -1768,20 +1723,25 @@ function buildSummaryRow(sum) {
     return Number.isFinite(x) ? x : 0;
   };
 
-  // ✅ summary 接口字段：noncar_amount（不是 non_vehicle_amount）
+  // ✅ summary 接口字段：noncar_amount
   return {
     id: -1,
     _is_summary: true,
-    col_01_date: "汇总",
-    col_14_commercial_amount: n(sum?.commercial_amount),
-    col_15_compulsory_amount: n(sum?.compulsory_amount),
-    col_16_tax_amount: n(sum?.vehicle_tax_amount),
-    col_17_noncar_amount: n(sum?.noncar_amount),
-    col_33_channel_reward: n(sum?.channel_reward),
-    col_34_customer_reward: n(sum?.customer_reward),
-    col_28_receivable: n(sum?.receivable),
-    col_29_payable: n(sum?.payable),
-    col_30_profit: n(sum?.profit),
+    created_at: "汇总",
+    is_finished: true,
+    is_paid: false,
+    is_rebate: false,
+    order_info: {
+      commercial_amount: n(sum?.commercial_amount),
+      compulsory_amount: n(sum?.compulsory_amount),
+      vehicle_tax_amount: n(sum?.vehicle_tax_amount),
+      non_vehicle_amount: n(sum?.noncar_amount),
+      channel_reward: n(sum?.channel_reward),
+      customer_reward: n(sum?.customer_reward),
+      channel_total: n(sum?.receivable),
+      customer_total: n(sum?.payable),
+      profit: n(sum?.profit),
+    },
   };
 }
 

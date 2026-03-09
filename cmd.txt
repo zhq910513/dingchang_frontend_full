@@ -1,0 +1,6 @@
+# 构建文件树
+tree /A /F > tree-src.txt
+
+# 本地打包
+npm run build
+

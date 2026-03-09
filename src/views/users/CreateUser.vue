@@ -152,6 +152,9 @@ const formRef = ref(null);
 const loading = ref(false);
 const store = useSessionStore();
 
+const canCreateUser = computed(() => true);
+const canEditUser = computed(() => true);
+const canDeleteUser = computed(() => true);
 const isEdit = computed(() => String(props.mode || "create").toLowerCase() === "edit");
 
 const _storeRole = computed(() => String(store.roleName || "").trim().toLowerCase());

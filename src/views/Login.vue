@@ -167,8 +167,8 @@ async function doLogin() {
   try {
     const resp = await login({ username, password });
 
-    const token = resp?.data?.session_token || "";
-    const user = resp?.data?.user || null;
+    const token = resp?.data?.token || "";
+    const user = resp?.data || null;
     const roleName = user?.role_name || "";
 
     if (!token) {

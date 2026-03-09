@@ -169,7 +169,6 @@ import { useRouter, useRoute } from "vue-router";
 import { logout } from "../api/auth";
 import { useSessionStore } from "../store/session";
 import { ElMessage } from "element-plus";
-import { ROLE } from "../constants";
 import { Menu } from "@element-plus/icons-vue";
 
 const router = useRouter();
@@ -184,12 +183,6 @@ const isMarket = computed(() => roleName.value === ROLE.MARKET);
 const isSuperAdmin = computed(() => roleName.value === ROLE.SUPER_ADMIN);
 
 const displayName = computed(() => store.displayName);
-
-const canOrders = computed(() => !isFinance.value);
-const canOrderWrite = computed(() => canOrders.value && !isMarket.value);
-const canFinance = computed(() => !isSales.value);
-const canUsers = computed(() => roleName.value === ROLE.SUPER_ADMIN || roleName.value === ROLE.MANAGER);
-const canAiAssistant = computed(() => isSuperAdmin.value);
 
 const isMobile = ref(false);
 const mobileMenuOpen = ref(false);

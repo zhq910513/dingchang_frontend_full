@@ -98,10 +98,11 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import CreateUser from "./CreateUser.vue";
 import { listChildren, deleteUser } from "../../api/users";
 import { useSessionStore } from "../../store/session";
-import { ROLE } from "../../constants";
-
 const store = useSessionStore();
 
+const canCreateUser = computed(() => true);
+const canEditUser = computed(() => true);
+const canDeleteUser = computed(() => true);
 const roleName = computed(() => String(store.roleName || "").trim().toLowerCase());
 
 /** ✅ 账号管理权限：经理/超管 */

@@ -279,15 +279,13 @@ import { ElMessage } from "element-plus";
 import { WarningFilled, View, Hide } from "@element-plus/icons-vue";
 import { listCustomerGroups, createCustomerGroup, updateCustomerGroup, deleteCustomerGroup } from "../../api/customerChannel";
 import { useSessionStore } from "../../store/session";
-import { ROLE } from "../../constants";
-
 const sessionStore = useSessionStore();
+const canEdit = computed(() => true);
+const canDelete = computed(() => true);
+const canCreate = computed(() => true);
 const roleName = computed(() => String(sessionStore.roleName || "").trim().toLowerCase());
 
 const canModify = computed(() => roleName.value !== ROLE.FINANCE);
-const canEdit = computed(
-  () => roleName.value === ROLE.SUPER_ADMIN || roleName.value === ROLE.MANAGER || roleName.value === ROLE.MARKET
-);
 const canViewDeleted = computed(() => roleName.value === ROLE.SUPER_ADMIN);
 const showDeleted = ref(false);
 

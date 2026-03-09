@@ -283,7 +283,7 @@ function sanitizeClearSlots(clear_slots) {
 
 export function listFinanceOrders(params = {}) {
   const p = normalizeFinanceListParams(params);
-  return http.get("/finance/orders", { params: p });
+  return http.get("/orders", { params: p });
 }
 
 export function getFinanceOrdersSummary(params = {}) {
@@ -352,7 +352,7 @@ export function listFinanceSalespersons(params = {}) {
  * 主路径：/finance/bos-sts
  */
 export function getFinanceBosSts() {
-  return http.get("/finance/bos-sts");
+  return http.get("/orders/bos-sts");
 }
 
 /**
@@ -375,7 +375,7 @@ export function uploadFinanceBosProxy({ order_id, slot_key = "related", file }) 
   fd.append("slot_key", sk);
   fd.append("file", file);
 
-  return http.post("/finance/bos-upload", fd);
+  return http.post("/orders/bos-upload", fd);
 }
 
 /**

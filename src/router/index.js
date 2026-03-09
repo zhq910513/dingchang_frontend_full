@@ -1,67 +1,6 @@
 // src/router/index.js
 import { createRouter, createWebHistory } from "vue-router";
 import { useSessionStore } from "../store/session";
-import { ROLE } from "../constants";
-
-function _normRole(r) {
-  return String(r ?? "").trim().toLowerCase();
-}
-
-function defaultHomeByRole(roleName) {
-  const rn = _normRole(roleName);
-  if (rn === ROLE.MARKET) return "/channels";
-  if (rn === ROLE.FINANCE) return "/finance";
-  return "/orders/all";
-}
-
-function safeGetHomeOrDefault() {
-  try {
-    const store = useSessionStore();
-    if (store?.isLoggedIn) return defaultHomeByRole(store.roleName);
-  } catch (e) {
-    // ignore
-  }
-  return "/orders/all";
-}
-
-function hasAccess(roleName, path) {
-  const rn = _normRole(roleName);
-  const p = String(path || "");
-
-  if (p === "/" || p === "") return true;
-
-  // 报价助手：当前仅 super_admin
-  if (p.startsWith("/ai-assistant")) {
-    return rn === ROLE.SUPER_ADMIN;
-  }
-
-  // 账号管理：仅 super_admin/manager
-  if (p.startsWith("/users")) {
-    return rn === ROLE.SUPER_ADMIN || rn === ROLE.MANAGER;
-  }
-
-  // 财务不能看订单（含 /orders 下所有入口）
-  if (rn === ROLE.FINANCE && p.startsWith("/orders")) return false;
-
-  // 业务员不能看财务
-  if (rn === ROLE.SALES && p.startsWith("/finance")) return false;
-
-  // 市场账号：允许看订单列表/详情、财务（只读）、客户、渠道；禁止订单写入口
-  if (rn === ROLE.MARKET) {
-    if (p.startsWith("/orders/create")) return false;
-    if (p.startsWith("/orders/import")) return false;
-
-    if (p.startsWith("/orders")) return true;
-    if (p.startsWith("/finance")) return true;
-    if (p.startsWith("/customers")) return true;
-    if (p.startsWith("/channels")) return true;
-
-    // 其他新增模块默认拒绝（/login 已在守卫前面处理）
-    if (p.startsWith("/")) return false;
-  }
-
-  return true;
-}
 
 // 全部懒加载
 const Login = () => import("../views/Login.vue");
@@ -88,6 +27,17 @@ const ChannelList = () => import("../views/channels/ChannelList.vue");
 // 报价助手（新模块）
 const AiAssistantWorkbench = () => import("../views/ai-assistant/AiAssistantWorkbench.vue");
 
+/**
+ * ✅ 冻结硬规则：
+ * - 路由层不做基于 role 的访问控制、不做 route.meta.roles 之类硬编码权限
+ * - 页面内所有按钮/入口/上传槽位/导出能力统一由后端 meta.capabilities 驱动
+ *
+ * 路由层仅保留：
+ * - 登录态守卫（未登录跳转 /login）
+ * - 已登录访问 /login 时回到默认首页
+ */
+const DEFAULT_HOME = "/orders/all";
+
 const routes = [
   { path: "/login", name: "login", component: Login },
 
@@ -95,9 +45,9 @@ const routes = [
     path: "/",
     name: "dashboard",
     component: Dashboard,
-    redirect: () => safeGetHomeOrDefault(),
+    redirect: () => DEFAULT_HOME,
     children: [
-      { path: "orders", redirect: "/orders/all" },
+      { path: "orders", redirect: DEFAULT_HOME },
       { path: "orders/import", name: "orders-import", component: OrderImport },
       { path: "orders/all", name: "orders-all", component: OrderList },
       { path: "orders/finished", name: "orders-finished", component: OrderFinished },
@@ -105,18 +55,17 @@ const routes = [
       { path: "orders/create", name: "orders-create", component: OrderCreate },
       { path: "orders/:id", name: "orders-detail", component: OrderDetail },
 
-      // 报价助手入口（当前仅 super_admin）
+      // 报价助手入口（不在路由层做角色限制，页面内按 meta.capabilities 控制入口与能力）
       { path: "ai-assistant", name: "ai-assistant", component: AiAssistantWorkbench },
 
       { path: "users", name: "users", component: UserList },
 
-      // 财务页与财务详情：由页面按 meta 只读控制（市场账号可进但不可写）
-      { path: "finance", name: "finance", component: FinanceList, meta: { financeReadOnly: true } },
+      // 财务页与财务详情：不在路由层做权限，页面按 meta.capabilities 控制只读/可写
+      { path: "finance", name: "finance", component: FinanceList },
       {
         path: "finance/orders/:id",
         name: "finance-order-detail",
         component: OrderDetail,
-        meta: { financeReadOnly: true },
       },
 
       { path: "customers", name: "customers", component: CustomerList },
@@ -132,7 +81,7 @@ const router = createRouter({
   routes,
 });
 
-// 登录守卫 + 权限守卫
+// 登录守卫（仅校验登录态，不做 role/route.meta 权限推断）
 router.beforeEach((to) => {
   let store;
   try {
@@ -149,15 +98,7 @@ router.beforeEach((to) => {
   }
 
   if (isLoginPage && loggedIn) {
-    return { path: defaultHomeByRole(store.roleName), replace: true };
-  }
-
-  if (loggedIn) {
-    const roleName = store?.roleName;
-    if (!hasAccess(roleName, to.path)) {
-      const fallback = defaultHomeByRole(roleName);
-      return { path: fallback, query: { noauth: "1", from: to.fullPath }, replace: true };
-    }
+    return { path: DEFAULT_HOME, replace: true };
   }
 
   return true;
