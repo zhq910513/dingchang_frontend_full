@@ -8,22 +8,27 @@
       </div>
 
       <el-menu :default-active="route.path" @select="handleSelect">
+        <!-- 1) 账号管理：可见，但无权限则禁用 -->
         <el-menu-item index="/users" :disabled="!canUsers">
           <span>账号管理</span>
         </el-menu-item>
 
+        <!-- 2) 报价助手：保留 new 能力，不回退 -->
         <el-menu-item index="/ai-assistant" :disabled="!canAiAssistant">
           <span>报价助手</span>
         </el-menu-item>
 
+        <!-- 3) 渠道管理 -->
         <el-menu-item index="/channels">
           <span>渠道管理</span>
         </el-menu-item>
 
+        <!-- 4) 客户管理 -->
         <el-menu-item index="/customers">
           <span>客户管理</span>
         </el-menu-item>
 
+        <!-- 5) 订单管理：财务不可看；市场只读 -->
         <el-sub-menu index="orders" :disabled="!canOrders">
           <template #title>
             <span>订单管理</span>
@@ -35,10 +40,12 @@
           <el-menu-item index="/orders/unfinished" :disabled="!canOrders">未完成订单</el-menu-item>
         </el-sub-menu>
 
+        <!-- 6) 财务管理：业务员不可看；市场可看 -->
         <el-menu-item index="/finance" :disabled="!canFinance">
           <span>财务管理</span>
         </el-menu-item>
 
+        <!-- 7) 退出登录 -->
         <el-menu-item index="__logout">
           <span>退出登录</span>
         </el-menu-item>
@@ -95,7 +102,8 @@
       </el-menu>
     </el-drawer>
 
-    <el-container class="right-shell">
+    <!-- 右侧区域 -->
+    <el-container>
       <el-header class="header">
         <div class="header-left">
           <el-button v-if="isMobile" text class="menu-btn" @click="mobileMenuOpen = true" aria-label="打开菜单">
@@ -105,6 +113,7 @@
           <span class="header-title">{{ isMobile ? "订单管理系统" : "欢迎使用系统" }}</span>
         </div>
 
+        <!-- ✅ 右侧当前账号信息（不展示角色） -->
         <div class="header-right">
           <span class="who">当前账号：{{ displayName || "-" }}</span>
         </div>
@@ -114,6 +123,7 @@
         <router-view />
       </el-main>
 
+      <!-- ✅ 手机端：底部快捷导航（不替代菜单，不影响权限控制） -->
       <div v-if="isMobile" class="mobile-bottom-nav">
         <el-button
           text
@@ -169,6 +179,7 @@ import { useRouter, useRoute } from "vue-router";
 import { logout } from "../api/auth";
 import { useSessionStore } from "../store/session";
 import { ElMessage } from "element-plus";
+import { ROLE } from "../constants";
 import { Menu } from "@element-plus/icons-vue";
 
 const router = useRouter();
@@ -181,13 +192,41 @@ const isFinance = computed(() => roleName.value === ROLE.FINANCE);
 const isSales = computed(() => roleName.value === ROLE.SALES);
 const isMarket = computed(() => roleName.value === ROLE.MARKET);
 const isSuperAdmin = computed(() => roleName.value === ROLE.SUPER_ADMIN);
+const isManager = computed(() => roleName.value === ROLE.MANAGER);
 
 const displayName = computed(() => store.displayName);
 
+// ✅ 权限：
+// - 财务不能看订单
+const canOrders = computed(() => !isFinance.value);
+
+// - 市场只能查看订单：禁用导入/创建
+const canOrderWrite = computed(() => canOrders.value && !isMarket.value);
+
+// - 业务员不能看财务；市场可看财务
+const canFinance = computed(() => !isSales.value);
+
+// - 账号管理仅 super_admin / manager；其他可见但禁用
+const canUsers = computed(() => isSuperAdmin.value || isManager.value);
+
+// - 报价助手：按 new 保留入口；业务上与财务一致口径，业务员可进，财务可进，市场可进，管理可进
+//   这里只做前端菜单阀门，不碰后端真实鉴权
+const canAiAssistant = computed(() => {
+  return (
+    isSuperAdmin.value ||
+    isManager.value ||
+    isFinance.value ||
+    isMarket.value ||
+    isSales.value
+  );
+});
+
+// ✅ 移动端：抽屉菜单
 const isMobile = ref(false);
 const mobileMenuOpen = ref(false);
 
 function updateIsMobile() {
+  // 768：Element Plus 的 xs/sm 分界习惯值
   isMobile.value = typeof window !== "undefined" && window.innerWidth <= 768;
   if (!isMobile.value) {
     mobileMenuOpen.value = false;
@@ -197,14 +236,10 @@ function updateIsMobile() {
 onMounted(() => {
   updateIsMobile();
   window.addEventListener("resize", updateIsMobile, { passive: true });
-
-  // ✅ 只在主壳子页面锁 body 滚动，不影响登录页
-  document.body.classList.add("app-shell-lock");
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener("resize", updateIsMobile);
-  document.body.classList.remove("app-shell-lock");
 });
 
 function denyNav() {
@@ -216,7 +251,9 @@ function canNavigateTo(path) {
   if (!p.startsWith("/")) return true;
 
   if (p.startsWith("/users")) return canUsers.value;
+
   if (p.startsWith("/ai-assistant")) return canAiAssistant.value;
+
   if (p.startsWith("/finance")) return canFinance.value;
 
   if (p.startsWith("/orders")) {
@@ -225,9 +262,11 @@ function canNavigateTo(path) {
     return true;
   }
 
+  // customers/channels：菜单里允许进入；具体写权限靠页面按钮和后端兜底
   return true;
 }
 
+// ✅ 路由守卫重定向时带的提示参数：显示一次“无权限”
 watch(
   () => route.query?.noauth,
   (v) => {
@@ -246,6 +285,7 @@ async function handleSelect(key) {
     return;
   }
 
+  // ✅ 兜底：即使某些版本 disabled 仍触发 select，也要拦住
   if (!canNavigateTo(key)) {
     denyNav();
     return;
@@ -262,6 +302,7 @@ async function handleSelect(key) {
 
 async function handleSelectMobile(key) {
   await handleSelect(key);
+  // ✅ 只有真正导航/动作后才关闭抽屉（无权限会拦住）
   if (isMobile.value) {
     mobileMenuOpen.value = false;
   }
@@ -299,13 +340,6 @@ async function doLogout() {
 <style scoped>
 .layout {
   height: 100vh;
-  height: 100dvh;
-  overflow: hidden;
-}
-
-.right-shell {
-  min-width: 0;
-  min-height: 0;
 }
 
 .aside-header {
@@ -331,7 +365,6 @@ async function doLogout() {
   padding: 0 20px;
   border-bottom: 1px solid #e5e5e5;
   background: #fff;
-  flex-shrink: 0;
 }
 
 .header-left {
@@ -362,8 +395,6 @@ async function doLogout() {
 
 .main {
   background: #f5f5f5;
-  min-height: 0;
-  overflow: auto; /* ✅ 统一主滚动在这里 */
 }
 
 @media (max-width: 768px) {
@@ -372,7 +403,7 @@ async function doLogout() {
   }
 
   .main {
-    padding: 12px 12px 76px;
+    padding: 12px 12px 76px; /* 给底部导航留空间 */
   }
 
   .mobile-bottom-nav {

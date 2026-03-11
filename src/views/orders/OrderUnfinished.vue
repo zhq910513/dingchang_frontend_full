@@ -1,6 +1,6 @@
 <!-- src/views/orders/OrderUnfinished.vue -->
 <template>
-  <OrderListBase title="未完成订单" mode="unfinished" />
+  <OrderListBase title="未完成订单" mode="unfinished" pageMode="orders" />
 </template>
 
 <script setup>

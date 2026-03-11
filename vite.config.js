@@ -1,8 +1,14 @@
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
+import path from "path";
 
 export default defineConfig({
   plugins: [vue()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
   server: {
     port: 5173,
     proxy: {
@@ -13,11 +19,9 @@ export default defineConfig({
     },
   },
   build: {
-    // ✅ 只是不想被 500kb 的“提醒”刷屏的话可以调大；不影响拆包
     chunkSizeWarningLimit: 800,
     rollupOptions: {
       output: {
-        // ✅ 稳定拆 vendor：按库分组（你日志里那些 vendor-xxx 就会更可控）
         manualChunks(id) {
           if (!id.includes("node_modules")) return;
 

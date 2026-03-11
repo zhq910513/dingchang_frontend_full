@@ -5,41 +5,9 @@
       <h2>{{ title }}</h2>
     </div>
 
-    <!-- ✅ 移动端：筛选折叠开关 + 关键动作（不减少功能） -->
-    <div v-if="isMobile" class="mobile-topbar">
-      <el-button native-type="button" @click="toggleFilters" plain>
-        {{ showFilters ? "收起筛选" : "展开筛选" }}
-      </el-button>
-
-      <div class="mobile-topbar-right">
-        <template v-if="isFinance && canFinanceDownload">
-          <el-button
-            native-type="button"
-            :disabled="loading || downloading || (Number(total) || 0) <= 0"
-            :loading="downloading"
-            @click.stop.prevent="downloadFinanceExcel"
-          >
-            下载
-          </el-button>
-          <span v-if="selectedRows.length" class="selected-hint">已选 {{ selectedRows.length }}</span>
-        </template>
-
-        <el-button native-type="button" type="primary" :loading="loading" @click="search">搜索</el-button>
-        <el-button native-type="button" :loading="loading" @click="resetFilters">重置</el-button>
-        <el-button native-type="button" :loading="loading" @click="loadList">刷新</el-button>
-      </div>
-    </div>
-
-    <el-collapse-transition>
-      <el-card
-        v-show="!isMobile || showFilters"
-        shadow="never"
-        class="toolbar-card"
-        :body-style="{ padding: '10px 12px' }"
-      >
-        <el-form :model="filters" class="filters-form" label-width="88px">
+    <el-card shadow="never" class="toolbar-card" :body-style="{ padding: '10px 12px' }">
+      <el-form :model="filters" class="filters-form" label-width="88px">
         <template v-if="isFinance">
-          <!-- ✅ finance：仅保留 日期/渠道/客户/市场/车主/保险到期日/初登日期/是否回款/是否返点 + 团队 -->
           <el-row :gutter="12">
             <el-col :span="6">
               <el-form-item label="日期">
@@ -67,7 +35,12 @@
                   :loading="groupsLoading"
                   :disabled="groupsLoading"
                 >
-                  <el-option v-for="g in channelGroups" :key="String(g.id)" :label="formatGroupLabel(g)" :value="g.id" />
+                  <el-option
+                    v-for="g in channelGroups"
+                    :key="String(g.id)"
+                    :label="formatGroupLabel(g)"
+                    :value="g.id"
+                  />
                 </el-select>
               </el-form-item>
             </el-col>
@@ -83,61 +56,28 @@
                   :loading="groupsLoading"
                   :disabled="groupsLoading"
                 >
-                  <el-option v-for="g in customerGroups" :key="String(g.id)" :label="formatGroupLabel(g)" :value="g.id" />
+                  <el-option
+                    v-for="g in customerGroups"
+                    :key="String(g.id)"
+                    :label="formatGroupLabel(g)"
+                    :value="g.id"
+                  />
                 </el-select>
               </el-form-item>
             </el-col>
 
             <el-col :span="6">
-              <el-form-item label="业务员">
-                <el-select
-                  v-model="filters.salesperson_id"
-                  clearable
-                  filterable
-                  placeholder="选择业务员"
-                  style="width: 100%"
-                  :loading="salesLoading"
-                  :disabled="salesLoading"
-                >
-                  <el-option
-                    v-for="u in filteredSalespersons"
-                    :key="String(u.id)"
-                    :label="u.real_name || u.username"
-                    :value="u.id"
-                  />
-                </el-select>
+              <el-form-item label="市场">
+                <el-input v-model="filters.market" clearable placeholder="市场（模糊）" @keyup.enter="search" />
               </el-form-item>
             </el-col>
           </el-row>
 
           <el-row :gutter="12">
             <el-col :span="6">
-              <el-form-item label="市场">
-                <el-input v-model="filters.market" clearable placeholder="市场（模糊）" @keyup.enter="search" />
-              </el-form-item>
-            </el-col>
-
-            <el-col :span="6">
               <el-form-item label="团队">
                 <el-select
-                  v-if="financeTeamMultiple"
-                  v-model="filters.team_names"
-                  multiple
-                  collapse-tags
-                  collapse-tags-tooltip
-                  clearable
-                  filterable
-                  placeholder="选择团队（可多选）"
-                  style="width: 100%"
-                  :loading="teamsLoading"
-                  :disabled="teamsLoading || !canChooseTeam"
-                >
-                  <el-option v-for="t in teamOptions" :key="t" :label="t" :value="t" />
-                </el-select>
-
-                <el-select
-                  v-else
-                  v-model="financeTeamSingle"
+                  v-model="filters.team_name"
                   clearable
                   filterable
                   placeholder="选择团队"
@@ -150,7 +90,7 @@
               </el-form-item>
             </el-col>
 
-            <el-col :span="12"></el-col>
+            <el-col :span="18"></el-col>
           </el-row>
 
           <el-row :gutter="12">
@@ -208,7 +148,6 @@
               </el-form-item>
             </el-col>
 
-            <!-- ✅ 四个按钮靠右：搜索/重置/刷新/下载 -->
             <el-col :span="18" class="finance-actions-col">
               <div class="finance-actions">
                 <el-button native-type="button" type="primary" :loading="loading" @click="search">搜索</el-button>
@@ -260,7 +199,12 @@
                   :loading="groupsLoading"
                   :disabled="groupsLoading"
                 >
-                  <el-option v-for="g in channelGroups" :key="String(g.id)" :label="formatGroupLabel(g)" :value="g.id" />
+                  <el-option
+                    v-for="g in channelGroups"
+                    :key="String(g.id)"
+                    :label="formatGroupLabel(g)"
+                    :value="g.id"
+                  />
                 </el-select>
               </el-form-item>
             </el-col>
@@ -276,7 +220,12 @@
                   :loading="groupsLoading"
                   :disabled="groupsLoading"
                 >
-                  <el-option v-for="g in customerGroups" :key="String(g.id)" :label="formatGroupLabel(g)" :value="g.id" />
+                  <el-option
+                    v-for="g in customerGroups"
+                    :key="String(g.id)"
+                    :label="formatGroupLabel(g)"
+                    :value="g.id"
+                  />
                 </el-select>
               </el-form-item>
             </el-col>
@@ -290,7 +239,7 @@
                   placeholder="选择业务员"
                   style="width: 100%"
                   :loading="salesLoading"
-                  :disabled="salesLoading || isSales"
+                  :disabled="salesLoading"
                 >
                   <el-option
                     v-for="u in filteredSalespersons"
@@ -320,413 +269,304 @@
               </el-form-item>
             </el-col>
 
+            <el-col :span="18"></el-col>
+          </el-row>
+
+          <el-row :gutter="12">
             <el-col :span="6">
               <el-form-item label="车主">
                 <el-input v-model="filters.owner_name" clearable placeholder="车主（模糊）" @keyup.enter="search" />
               </el-form-item>
             </el-col>
-
             <el-col :span="6">
               <el-form-item label="身份证号">
                 <el-input v-model="filters.id_number" clearable placeholder="身份证号（模糊）" @keyup.enter="search" />
               </el-form-item>
             </el-col>
-
-            <el-col :span="6">
-              <el-form-item label="车架号">
-                <el-input v-model="filters.vin" clearable placeholder="车架号（模糊）" @keyup.enter="search" />
-              </el-form-item>
-            </el-col>
-          </el-row>
-
-          <el-row :gutter="12">
-            <el-col :span="6">
-              <el-form-item label="发动机号">
-                <el-input v-model="filters.engine_no" clearable placeholder="发动机号（模糊）" @keyup.enter="search" />
-              </el-form-item>
-            </el-col>
-
             <el-col :span="6">
               <el-form-item label="车牌">
                 <el-input v-model="filters.plate_no" clearable placeholder="车牌（模糊）" @keyup.enter="search" />
               </el-form-item>
             </el-col>
-
             <el-col :span="6">
-              <el-form-item label="车型">
-                <el-input v-model="filters.vehicle_model" clearable placeholder="车型（模糊）" @keyup.enter="search" />
-              </el-form-item>
-            </el-col>
-
-            <el-col :span="6">
-              <el-form-item label="备注">
-                <el-input v-model="filters.remark" clearable placeholder="备注（模糊）" @keyup.enter="search" />
+              <el-form-item label="发动机号">
+                <el-input v-model="filters.engine_no" clearable placeholder="发动机号（模糊）" @keyup.enter="search" />
               </el-form-item>
             </el-col>
           </el-row>
 
           <el-row :gutter="12">
-            <el-col :span="24">
-              <div class="toolbar-actions">
-                <el-button native-type="button" type="primary" :loading="loading" @click="search">搜索</el-button>
-                <el-button native-type="button" :loading="loading" @click="resetFilters">重置</el-button>
-                <el-button native-type="button" :loading="loading" @click="loadList">刷新</el-button>
-              </div>
+            <el-col :span="6">
+              <el-form-item label="车架号">
+                <el-input v-model="filters.vin" clearable placeholder="车架号（模糊）" @keyup.enter="search" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="6">
+              <el-form-item label="车型">
+                <el-input v-model="filters.vehicle_model" clearable placeholder="车型（模糊）" @keyup.enter="search" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="6">
+              <el-form-item label="备注">
+                <el-input v-model="filters.remark" clearable placeholder="备注（模糊）" @keyup.enter="search" />
+              </el-form-item>
+            </el-col>
+
+            <el-col :span="6" class="toolbar-actions">
+              <el-button native-type="button" type="primary" :loading="loading" @click="search">搜索</el-button>
+              <el-button native-type="button" :loading="loading" @click="resetFilters">重置</el-button>
+              <el-button native-type="button" :loading="loading" @click="loadList">刷新</el-button>
             </el-col>
           </el-row>
         </template>
       </el-form>
-      </el-card>
-    </el-collapse-transition>
+    </el-card>
 
-    <!-- ✅ PC：表格；✅ 手机：卡片列表（保留所有字段/操作入口） -->
-    <template v-if="!isMobile">
-      <div class="table-scroll">
-        <el-table
-          ref="tableRef"
-          v-loading="loading"
-          :data="tableData"
-          border
-          stripe
-          class="main-table"
-          :row-class-name="tableRowClassName"
-          @selection-change="onSelectionChange"
+    <div class="table-scroll">
+      <el-table
+        ref="tableRef"
+        v-loading="loading"
+        :data="tableData"
+        border
+        stripe
+        class="main-table"
+        :row-class-name="tableRowClassName"
+        @selection-change="onSelectionChange"
+      >
+        <el-table-column
+          v-if="isFinance && canFinanceDownload"
+          type="selection"
+          width="44"
+          fixed="left"
+          align="center"
+          header-align="center"
+          :selectable="selectableRow"
+        />
+
+        <el-table-column label="日期" min-width="110" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ isSummaryRow(row) ? "汇总" : fmtYmdSafe(pickCreatedAt(row)) }}
+          </template>
+        </el-table-column>
+
+        <el-table-column
+          v-if="showFinishedColumn"
+          label="完成状态"
+          min-width="92"
+          align="center"
+          header-align="center"
+          show-overflow-tooltip
         >
-      <!-- ✅ 财务：可勾选（有权限才出现） -->
-      <el-table-column
-        v-if="isFinance && canFinanceDownload"
-        type="selection"
-        width="44"
-        fixed="left"
-        align="center"
-        header-align="center"
-        :selectable="selectableRow"
-      />
+          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickFinished(row) ? "是" : "否" }}</template>
+        </el-table-column>
 
-      <el-table-column label="日期" min-width="110" show-overflow-tooltip>
-        <template #default="{ row }">
-          {{ isSummaryRow(row) ? "汇总" : fmtYmdSafe(pickCreatedAt(row)) }}
-        </template>
-      </el-table-column>
+        <el-table-column label="渠道" min-width="140" show-overflow-tooltip>
+          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickChannelName(row) }}</template>
+        </el-table-column>
 
-      <el-table-column
-        v-if="showFinishedColumn"
-        label="完成状态"
-        min-width="92"
-        align="center"
-        header-align="center"
-        show-overflow-tooltip
-      >
-        <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickFinished(row) ? "是" : "否" }}</template>
-      </el-table-column>
+        <el-table-column label="客户" min-width="140" show-overflow-tooltip>
+          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickCustomerName(row) }}</template>
+        </el-table-column>
 
-      <el-table-column label="渠道" min-width="140" show-overflow-tooltip>
-        <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickChannelName(row) }}</template>
-      </el-table-column>
+        <el-table-column label="市场" min-width="110" show-overflow-tooltip>
+          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickMarket(row) }}</template>
+        </el-table-column>
 
-      <el-table-column label="客户" min-width="140" show-overflow-tooltip>
-        <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickCustomerName(row) }}</template>
-      </el-table-column>
+        <el-table-column v-if="isFinance" label="业务员" min-width="120" show-overflow-tooltip>
+          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickSalespersonName(row) }}</template>
+        </el-table-column>
 
-      <el-table-column label="市场" min-width="110" show-overflow-tooltip>
-        <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickMarket(row) }}</template>
-      </el-table-column>
+        <el-table-column label="车主" min-width="120" show-overflow-tooltip>
+          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickOwner(row) }}</template>
+        </el-table-column>
 
-      <!-- ✅ 财务列表：市场后面增加“业务员” -->
-      <el-table-column v-if="isFinance" label="业务员" min-width="120" show-overflow-tooltip>
-        <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickSalespersonName(row) }}</template>
-      </el-table-column>
+        <el-table-column label="车牌" min-width="120" show-overflow-tooltip>
+          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPlate(row) }}</template>
+        </el-table-column>
 
-      <el-table-column label="车主" min-width="120" show-overflow-tooltip>
-        <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickOwner(row) }}</template>
-      </el-table-column>
+        <el-table-column label="保险到期日" min-width="120" show-overflow-tooltip>
+          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickInsuranceExpire(row) }}</template>
+        </el-table-column>
 
-      <el-table-column label="车牌" min-width="120" show-overflow-tooltip>
-        <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPlate(row) }}</template>
-      </el-table-column>
+        <el-table-column label="车架号" min-width="160" show-overflow-tooltip>
+          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickVin(row) }}</template>
+        </el-table-column>
 
-      <el-table-column label="保险到期日" min-width="120" show-overflow-tooltip>
-        <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickInsuranceExpire(row) }}</template>
-      </el-table-column>
+        <el-table-column label="发动机号" min-width="150" show-overflow-tooltip>
+          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickEngine(row) }}</template>
+        </el-table-column>
 
-      <el-table-column label="车架号" min-width="160" show-overflow-tooltip>
-        <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickVin(row) }}</template>
-      </el-table-column>
+        <el-table-column label="车型" min-width="160" show-overflow-tooltip>
+          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickVehicleModel(row) }}</template>
+        </el-table-column>
 
-      <el-table-column label="发动机号" min-width="150" show-overflow-tooltip>
-        <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickEngine(row) }}</template>
-      </el-table-column>
+        <el-table-column label="初登日期" min-width="120" show-overflow-tooltip>
+          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickFirstRegister(row) }}</template>
+        </el-table-column>
 
-      <el-table-column label="车型" min-width="160" show-overflow-tooltip>
-        <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickVehicleModel(row) }}</template>
-      </el-table-column>
+        <el-table-column label="身份证号" min-width="170" show-overflow-tooltip>
+          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickIdNumber(row) }}</template>
+        </el-table-column>
 
-      <el-table-column label="初登日期" min-width="120" show-overflow-tooltip>
-        <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickFirstRegister(row) }}</template>
-      </el-table-column>
+        <el-table-column label="电话" min-width="130" show-overflow-tooltip>
+          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPhone(row) }}</template>
+        </el-table-column>
 
-      <el-table-column label="身份证号" min-width="170" show-overflow-tooltip>
-        <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickIdNumber(row) }}</template>
-      </el-table-column>
+        <el-table-column label="商业金额" min-width="110" show-overflow-tooltip>
+          <template #default="{ row }">{{ pickMoney(row, "commercial_amount") }}</template>
+        </el-table-column>
 
-      <el-table-column label="电话" min-width="130" show-overflow-tooltip>
-        <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPhone(row) }}</template>
-      </el-table-column>
+        <el-table-column label="交强金额" min-width="110" show-overflow-tooltip>
+          <template #default="{ row }">{{ pickMoney(row, "compulsory_amount") }}</template>
+        </el-table-column>
 
-      <!-- ✅ 7个汇总字段之一 -->
-      <el-table-column label="商业金额" min-width="110" show-overflow-tooltip>
-        <template #default="{ row }">{{ pickMoney(row, "commercial_amount") }}</template>
-      </el-table-column>
+        <el-table-column label="车船税金额" min-width="120" show-overflow-tooltip>
+          <template #default="{ row }">{{ pickMoney(row, "vehicle_tax_amount") }}</template>
+        </el-table-column>
 
-      <!-- ✅ 7个汇总字段之一 -->
-      <el-table-column label="交强金额" min-width="110" show-overflow-tooltip>
-        <template #default="{ row }">{{ pickMoney(row, "compulsory_amount") }}</template>
-      </el-table-column>
+        <el-table-column label="非车金额" min-width="110" show-overflow-tooltip>
+          <template #default="{ row }">{{ pickMoney(row, "noncar_amount") }}</template>
+        </el-table-column>
 
-      <!-- ✅ 7个汇总字段之一 -->
-      <el-table-column label="车船税金额" min-width="120" show-overflow-tooltip>
-        <template #default="{ row }">{{ pickMoney(row, "vehicle_tax_amount") }}</template>
-      </el-table-column>
+        <el-table-column label="渠道商业点位" min-width="120" show-overflow-tooltip>
+          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPoint(row, "channel_commercial_point") }}</template>
+        </el-table-column>
 
-      <!-- ✅ 7个汇总字段之一 -->
-      <el-table-column label="非车金额" min-width="110" show-overflow-tooltip>
-        <template #default="{ row }">{{ pickMoney(row, "noncar_amount") }}</template>
-      </el-table-column>
-
-      <el-table-column label="渠道商业点位" min-width="120" show-overflow-tooltip>
-        <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPoint(row, "channel_commercial_point") }}</template>
-      </el-table-column>
-
-      <el-table-column label="渠道商业后补点位" min-width="140" show-overflow-tooltip>
-        <template #default="{ row }">
-          {{ isSummaryRow(row) ? "" : pickPoint(row, "channel_commercial_supplement_point") }}
-        </template>
-      </el-table-column>
-
-      <el-table-column label="渠道交强点位" min-width="120" show-overflow-tooltip>
-        <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPoint(row, "channel_compulsory_point") }}</template>
-      </el-table-column>
-      <el-table-column label="渠道车船税点位" min-width="130" show-overflow-tooltip>
-        <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPoint(row, "channel_vehicle_tax_point") }}</template>
-      </el-table-column>
-      <el-table-column label="渠道非车点位" min-width="120" show-overflow-tooltip>
-        <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPoint(row, "channel_noncar_point") }}</template>
-      </el-table-column>
-
-      <!-- ✅ 渠道奖励 -->
-      <el-table-column v-if="isFinance" label="渠道奖励" min-width="110" show-overflow-tooltip>
-        <template #default="{ row }">{{ pickRewardMoney(row, "channel_reward") }}</template>
-      </el-table-column>
-
-      <el-table-column label="客户商业点位" min-width="120" show-overflow-tooltip>
-        <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPoint(row, "customer_commercial_point") }}</template>
-      </el-table-column>
-
-      <el-table-column label="客户商业后补点位" min-width="140" show-overflow-tooltip>
-        <template #default="{ row }">
-          {{ isSummaryRow(row) ? "" : pickPoint(row, "customer_commercial_supplement_point") }}
-        </template>
-      </el-table-column>
-
-      <el-table-column label="客户交强点位" min-width="120" show-overflow-tooltip>
-        <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPoint(row, "customer_compulsory_point") }}</template>
-      </el-table-column>
-      <el-table-column label="客户车船税点位" min-width="130" show-overflow-tooltip>
-        <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPoint(row, "customer_vehicle_tax_point") }}</template>
-      </el-table-column>
-      <el-table-column label="客户非车点位" min-width="120" show-overflow-tooltip>
-        <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPoint(row, "customer_noncar_point") }}</template>
-      </el-table-column>
-
-      <!-- ✅ 客户奖励 -->
-      <el-table-column v-if="isFinance" label="客户奖励" min-width="110" show-overflow-tooltip>
-        <template #default="{ row }">{{ pickRewardMoney(row, "customer_reward") }}</template>
-      </el-table-column>
-
-      <!-- ✅ 7个汇总字段之一 -->
-      <el-table-column label="应收" min-width="110" show-overflow-tooltip>
-        <template #default="{ row }">{{ pickReceivable(row) }}</template>
-      </el-table-column>
-
-      <!-- ✅ 7个汇总字段之一 -->
-      <el-table-column label="应付" min-width="110" show-overflow-tooltip>
-        <template #default="{ row }">{{ pickPayable(row) }}</template>
-      </el-table-column>
-
-      <!-- ✅ 7个汇总字段之一 -->
-      <el-table-column label="利润" min-width="110" show-overflow-tooltip>
-        <template #default="{ row }">{{ pickProfit(row) }}</template>
-      </el-table-column>
-
-      <el-table-column label="所属经理" min-width="130" show-overflow-tooltip>
-        <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickManagerName(row) }}</template>
-      </el-table-column>
-
-      <el-table-column label="所属团队" min-width="120" show-overflow-tooltip>
-        <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickTeamName(row) }}</template>
-      </el-table-column>
-
-      <!-- ✅ 财务：回款/返点 固定右侧；市场账号可看但不能改 -->
-      <el-table-column
-        v-if="isFinance"
-        label="是否回款"
-        width="108"
-        fixed="right"
-        align="center"
-        header-align="center"
-        class-name="col-switch"
-      >
-        <template #default="{ row }">
-          <div class="switch-cell" v-if="!isSummaryRow(row)">
-            <el-switch
-              size="medium"
-              inline-prompt
-              inactive-text="否"
-              active-text="是"
-              :model-value="pickPaid(row)"
-              :loading="Boolean(row?._saving_paid)"
-              :disabled="!canFinanceEdit"
-              @change="(val) => onPaidSwitch(row, val)"
-            />
-          </div>
-          <span v-else></span>
-        </template>
-      </el-table-column>
-
-      <el-table-column
-        v-if="isFinance"
-        label="是否返点"
-        width="108"
-        fixed="right"
-        align="center"
-        header-align="center"
-        class-name="col-switch"
-      >
-        <template #default="{ row }">
-          <div class="switch-cell" v-if="!isSummaryRow(row)">
-            <el-switch
-              size="medium"
-              inline-prompt
-              inactive-text="否"
-              active-text="是"
-              :model-value="pickRebate(row)"
-              :loading="Boolean(row?._saving_rebate)"
-              :disabled="!canFinanceEdit"
-              @change="(val) => onRebateSwitch(row, val)"
-            />
-          </div>
-          <span v-else></span>
-        </template>
-      </el-table-column>
-
-      <el-table-column
-        label="操作"
-        :width="isFinance ? 110 : 130"
-        fixed="right"
-        align="center"
-        header-align="center"
-        class-name="col-actions"
-      >
-        <template #default="{ row }">
-          <template v-if="isSummaryRow(row)">
-            <span></span>
+        <el-table-column label="渠道商业后补点位" min-width="140" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ isSummaryRow(row) ? "" : pickPoint(row, "channel_commercial_supplement_point") }}
           </template>
+        </el-table-column>
 
-          <template v-else-if="isFinance">
-            <div class="actions">
-              <!-- ✅ 详情直达：即使下拉层被浏览器/样式影响，也保证能进入详情（不减少功能） -->
-              <el-button native-type="button" size="small" link @click.stop="goDetail(row.id)">详情</el-button>
+        <el-table-column label="渠道交强点位" min-width="120" show-overflow-tooltip>
+          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPoint(row, "channel_compulsory_point") }}</template>
+        </el-table-column>
 
-              <el-dropdown
-                trigger="click"
-                :teleported="true"
-                placement="bottom-end"
-                popper-class="order-actions-popper"
-                @command="(cmd) => onFinanceAction(cmd, row)"
-              >
-                <el-button native-type="button" size="small" circle @click.stop>
-                  <el-icon><MoreFilled /></el-icon>
-                </el-button>
+        <el-table-column label="渠道车船税点位" min-width="130" show-overflow-tooltip>
+          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPoint(row, "channel_vehicle_tax_point") }}</template>
+        </el-table-column>
 
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item command="detail">详情</el-dropdown-item>
-                    <el-dropdown-item v-if="canFinanceEdit" command="return" divided>退回未完成</el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-            </div>
+        <el-table-column label="渠道非车点位" min-width="120" show-overflow-tooltip>
+          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPoint(row, "channel_noncar_point") }}</template>
+        </el-table-column>
+
+        <el-table-column v-if="isFinance" label="渠道奖励" min-width="110" show-overflow-tooltip>
+          <template #default="{ row }">{{ pickRewardMoney(row, "channel_reward") }}</template>
+        </el-table-column>
+
+        <el-table-column label="客户商业点位" min-width="120" show-overflow-tooltip>
+          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPoint(row, "customer_commercial_point") }}</template>
+        </el-table-column>
+
+        <el-table-column label="客户商业后补点位" min-width="140" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ isSummaryRow(row) ? "" : pickPoint(row, "customer_commercial_supplement_point") }}
           </template>
+        </el-table-column>
 
-          <template v-else>
-            <div class="actions">
-              <!-- ✅ 详情直达：保证可点（不减少功能） -->
-              <el-button native-type="button" size="small" link @click.stop="goDetail(row.id)">详情</el-button>
+        <el-table-column label="客户交强点位" min-width="120" show-overflow-tooltip>
+          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPoint(row, "customer_compulsory_point") }}</template>
+        </el-table-column>
 
-              <el-dropdown
-                trigger="click"
-                :teleported="true"
-                placement="bottom-end"
-                popper-class="order-actions-popper"
-                @command="(cmd) => onAction(cmd, row)"
-              >
-                <el-button native-type="button" size="small" circle @click.stop>
-                  <el-icon><MoreFilled /></el-icon>
-                </el-button>
+        <el-table-column label="客户车船税点位" min-width="130" show-overflow-tooltip>
+          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPoint(row, "customer_vehicle_tax_point") }}</template>
+        </el-table-column>
 
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item command="detail">详情</el-dropdown-item>
-                    <el-dropdown-item v-if="canMarkFinished(row)" command="markFinished" divided>标记完成</el-dropdown-item>
-                    <el-dropdown-item v-if="canReopen(row)" command="reopen" divided>退回未完成</el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
+        <el-table-column label="客户非车点位" min-width="120" show-overflow-tooltip>
+          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPoint(row, "customer_noncar_point") }}</template>
+        </el-table-column>
+
+        <el-table-column v-if="isFinance" label="客户奖励" min-width="110" show-overflow-tooltip>
+          <template #default="{ row }">{{ pickRewardMoney(row, "customer_reward") }}</template>
+        </el-table-column>
+
+        <el-table-column label="应收" min-width="110" show-overflow-tooltip>
+          <template #default="{ row }">{{ pickReceivable(row) }}</template>
+        </el-table-column>
+
+        <el-table-column label="应付" min-width="110" show-overflow-tooltip>
+          <template #default="{ row }">{{ pickPayable(row) }}</template>
+        </el-table-column>
+
+        <el-table-column label="利润" min-width="110" show-overflow-tooltip>
+          <template #default="{ row }">{{ pickProfit(row) }}</template>
+        </el-table-column>
+
+        <el-table-column label="所属经理" min-width="130" show-overflow-tooltip>
+          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickManagerName(row) }}</template>
+        </el-table-column>
+
+        <el-table-column label="所属团队" min-width="120" show-overflow-tooltip>
+          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickTeamName(row) }}</template>
+        </el-table-column>
+
+        <el-table-column
+          v-if="isFinance"
+          label="是否回款"
+          width="108"
+          fixed="right"
+          align="center"
+          header-align="center"
+          class-name="col-switch"
+        >
+          <template #default="{ row }">
+            <div class="switch-cell" v-if="!isSummaryRow(row)">
+              <el-switch
+                size="medium"
+                inline-prompt
+                inactive-text="否"
+                active-text="是"
+                :model-value="pickPaid(row)"
+                :loading="Boolean(row?._saving_paid)"
+                :disabled="!canFinanceEdit"
+                @change="(val) => onPaidSwitch(row, val)"
+              />
             </div>
+            <span v-else></span>
           </template>
-        </template>
-      </el-table-column>
-        </el-table>
-      </div>
-    </template>
+        </el-table-column>
 
-    <template v-else>
-      <div class="mobile-cards" v-loading="loading">
-        <template v-for="row in tableData" :key="String(row?._is_summary ? 'summary' : row?.id)">
-          <!-- 汇总卡片（财务） -->
-          <el-card v-if="isSummaryRow(row)" shadow="never" class="order-card summary-card">
-            <div class="card-header">
-              <div class="card-title">汇总</div>
+        <el-table-column
+          v-if="isFinance"
+          label="是否返点"
+          width="108"
+          fixed="right"
+          align="center"
+          header-align="center"
+          class-name="col-switch"
+        >
+          <template #default="{ row }">
+            <div class="switch-cell" v-if="!isSummaryRow(row)">
+              <el-switch
+                size="medium"
+                inline-prompt
+                inactive-text="否"
+                active-text="是"
+                :model-value="pickRebate(row)"
+                :loading="Boolean(row?._saving_rebate)"
+                :disabled="!canFinanceEdit"
+                @change="(val) => onRebateSwitch(row, val)"
+              />
             </div>
+            <span v-else></span>
+          </template>
+        </el-table-column>
 
-            <div class="card-grid">
-              <div class="kv"><span class="k">商业金额</span><span class="v">{{ pickMoney(row, "commercial_amount") }}</span></div>
-              <div class="kv"><span class="k">交强金额</span><span class="v">{{ pickMoney(row, "compulsory_amount") }}</span></div>
-              <div class="kv"><span class="k">车船税金额</span><span class="v">{{ pickMoney(row, "vehicle_tax_amount") }}</span></div>
-              <div class="kv"><span class="k">非车金额</span><span class="v">{{ pickMoney(row, "noncar_amount") }}</span></div>
-              <div class="kv"><span class="k">应收</span><span class="v">{{ pickReceivable(row) }}</span></div>
-              <div class="kv"><span class="k">应付</span><span class="v">{{ pickPayable(row) }}</span></div>
-              <div class="kv"><span class="k">利润</span><span class="v">{{ pickProfit(row) }}</span></div>
-            </div>
-          </el-card>
+        <el-table-column
+          label="操作"
+          :width="isFinance ? 110 : 130"
+          fixed="right"
+          align="center"
+          header-align="center"
+          class-name="col-actions"
+        >
+          <template #default="{ row }">
+            <template v-if="isSummaryRow(row)">
+              <span></span>
+            </template>
 
-          <!-- 普通订单卡片 -->
-          <el-card v-else shadow="never" class="order-card" :body-style="{ padding: '10px 12px' }">
-            <div class="card-header">
-              <div class="card-title">
-                {{ fmtYmdSafe(pickCreatedAt(row)) }}
-                <span v-if="showFinishedColumn" class="badge">{{ pickFinished(row) ? "已完成" : "未完成" }}</span>
-              </div>
-
-              <div class="card-actions">
-                <el-checkbox
-                  v-if="isFinance && canFinanceDownload"
-                  :model-value="isMobileSelected(row)"
-                  :disabled="!selectableRow(row)"
-                  @change="(val) => toggleMobileSelected(row, val)"
-                />
-
-                <!-- ✅ 详情直达：保证可点（不减少功能） -->
+            <template v-else-if="isFinance">
+              <div class="actions">
                 <el-button native-type="button" size="small" link @click.stop="goDetail(row.id)">详情</el-button>
 
                 <el-dropdown
@@ -734,7 +574,7 @@
                   :teleported="true"
                   placement="bottom-end"
                   popper-class="order-actions-popper"
-                  @command="(cmd) => (isFinance ? onFinanceAction(cmd, row) : onAction(cmd, row))"
+                  @command="(cmd) => onFinanceAction(cmd, row)"
                 >
                   <el-button native-type="button" size="small" circle @click.stop>
                     <el-icon><MoreFilled /></el-icon>
@@ -743,151 +583,68 @@
                   <template #dropdown>
                     <el-dropdown-menu>
                       <el-dropdown-item command="detail">详情</el-dropdown-item>
-                      <template v-if="isFinance">
-                        <el-dropdown-item v-if="canFinanceEdit" command="return" divided>退回未完成</el-dropdown-item>
-                      </template>
-                      <template v-else>
-                        <el-dropdown-item v-if="canMarkFinished(row)" command="markFinished" divided>标记完成</el-dropdown-item>
-                        <el-dropdown-item v-if="canReopen(row)" command="reopen" divided>退回未完成</el-dropdown-item>
-                      </template>
+                      <el-dropdown-item v-if="canFinanceEdit" command="return" divided>退回未完成</el-dropdown-item>
                     </el-dropdown-menu>
                   </template>
                 </el-dropdown>
               </div>
-            </div>
+            </template>
 
-            <div class="card-sub">
-              <div class="line">
-                <span class="muted">渠道</span><span class="val">{{ pickChannelName(row) || "-" }}</span>
-              </div>
-              <div class="line">
-                <span class="muted">客户</span><span class="val">{{ pickCustomerName(row) || "-" }}</span>
-              </div>
-              <div class="line">
-                <span class="muted">市场</span><span class="val">{{ pickMarket(row) || "-" }}</span>
-              </div>
-              <div v-if="isFinance" class="line">
-                <span class="muted">业务员</span><span class="val">{{ pickSalespersonName(row) || "-" }}</span>
-              </div>
-            </div>
+            <template v-else>
+              <div class="actions">
+                <el-button native-type="button" size="small" link @click.stop="goDetail(row.id)">详情</el-button>
 
-            <div class="card-grid">
-              <div class="kv"><span class="k">车主</span><span class="v">{{ pickOwner(row) || "-" }}</span></div>
-              <div class="kv"><span class="k">车牌</span><span class="v">{{ pickPlate(row) || "-" }}</span></div>
-              <div class="kv"><span class="k">电话</span><span class="v">{{ pickPhone(row) || "-" }}</span></div>
-              <div class="kv"><span class="k">保险到期</span><span class="v">{{ pickInsuranceExpire(row) || "-" }}</span></div>
-              <div class="kv"><span class="k">车架号</span><span class="v">{{ pickVin(row) || "-" }}</span></div>
-              <div class="kv"><span class="k">车型</span><span class="v">{{ pickVehicleModel(row) || "-" }}</span></div>
-            </div>
+                <el-dropdown
+                  trigger="click"
+                  :teleported="true"
+                  placement="bottom-end"
+                  popper-class="order-actions-popper"
+                  @command="(cmd) => onAction(cmd, row)"
+                >
+                  <el-button native-type="button" size="small" circle @click.stop>
+                    <el-icon><MoreFilled /></el-icon>
+                  </el-button>
 
-            <div v-if="isFinance" class="finance-mini">
-              <div class="kv"><span class="k">应收</span><span class="v">{{ pickReceivable(row) }}</span></div>
-              <div class="kv"><span class="k">应付</span><span class="v">{{ pickPayable(row) }}</span></div>
-              <div class="kv"><span class="k">利润</span><span class="v">{{ pickProfit(row) }}</span></div>
-
-              <div class="switch-row">
-                <div class="switch-item">
-                  <span class="k">回款</span>
-                  <el-switch
-                    size="small"
-                    inline-prompt
-                    inactive-text="否"
-                    active-text="是"
-                    :model-value="pickPaid(row)"
-                    :loading="Boolean(row?._saving_paid)"
-                    :disabled="!canFinanceEdit"
-                    @change="(val) => onPaidSwitch(row, val)"
-                  />
-                </div>
-                <div class="switch-item">
-                  <span class="k">返点</span>
-                  <el-switch
-                    size="small"
-                    inline-prompt
-                    inactive-text="否"
-                    active-text="是"
-                    :model-value="pickRebate(row)"
-                    :loading="Boolean(row?._saving_rebate)"
-                    :disabled="!canFinanceEdit"
-                    @change="(val) => onRebateSwitch(row, val)"
-                  />
-                </div>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="detail">详情</el-dropdown-item>
+                      <el-dropdown-item v-if="canMarkFinished(row)" command="markFinished" divided>标记完成</el-dropdown-item>
+                      <el-dropdown-item v-if="canReopen(row)" command="reopen" divided>退回未完成</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
               </div>
-            </div>
-          </el-card>
-        </template>
-      </div>
-    </template>
+            </template>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
 
     <div class="pagination-wrapper">
-      <template v-if="!isMobile">
-        <el-pagination
-          background
-          layout="total, prev, pager, next, sizes"
-          :total="total"
-          :current-page="page"
-          :page-size="pageSize"
-          :page-sizes="[10, 20, 50, 100]"
-          @current-change="onPageChange"
-          @size-change="onPageSizeChange"
-        />
-      </template>
-
-      <template v-else>
-        <div class="mobile-pagination">
-          <div class="mobile-total">共 {{ total }} 条</div>
-          <el-pagination
-            small
-            background
-            layout="prev, pager, next"
-            :total="total"
-            :current-page="page"
-            :page-size="pageSize"
-            @current-change="onPageChange"
-          />
-          <el-select
-            class="mobile-size"
-            size="small"
-            :model-value="pageSize"
-            @update:model-value="(v) => onPageSizeChange(v)"
-          >
-            <el-option v-for="n in [10, 20, 50, 100]" :key="n" :label="String(n) + ' /页'" :value="n" />
-          </el-select>
-        </div>
-      </template>
+      <el-pagination
+        background
+        layout="total, prev, pager, next, sizes"
+        :total="total"
+        :current-page="page"
+        :page-size="pageSize"
+        :page-sizes="[10, 20, 50, 100]"
+        @current-change="onPageChange"
+        @size-change="onPageSizeChange"
+      />
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { useRouter, useRoute } from "vue-router";
+import { computed, onMounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { MoreFilled } from "@element-plus/icons-vue";
 
-import http from "@/api/http";
-import {
-  listOrders,
-  updateOrderStatus,
-  getCustomerGroups,
-  getChannelGroups,
-} from "@/api/orders";
-import {
-  listFinanceOrders,
-  updateFinanceOrderStatus,
-  returnFinanceOrder,
-  getFinanceOrdersSummary,
-} from "@/api/finance";
-import { useAuthStore } from "@/stores/auth";
-
-const props = defineProps({
-  title: { type: String, required: true },
-  mode: { type: String, default: "all" }, // all | finished | unfinished | finance
-});
-
-const router = useRouter();
-const route = useRoute();
-const auth = useAuthStore();
+import http from "../../api/http";
+import { getChannelGroups, getCustomerGroups, listOrders, updateOrderStatus } from "../../api/orders";
+import { getFinanceOrdersSummary, listFinanceOrders, returnFinanceOrder, updateFinanceOrderStatus } from "../../api/finance";
+import { useSessionStore } from "../../store/session";
 
 const ROLE = {
   SUPER_ADMIN: "ROLE_SUPER_ADMIN",
@@ -897,33 +654,35 @@ const ROLE = {
   SALES: "ROLE_SALES",
 };
 
-const session = computed(() => auth?.user || auth?.profile || auth?.session || {}).value || {};
-const roleName = computed(() => {
-  return (
-    session?.role_name ||
-    session?.role ||
-    session?.user?.role_name ||
-    session?.user?.role ||
-    ""
-  );
+const props = defineProps({
+  title: { type: String, default: "订单列表" },
+  mode: { type: String, default: "all" }, // all | finished | unfinished | finance
+  pageMode: { type: String, default: "orders" }, // orders | finance
 });
+
+const router = useRouter();
+const route = useRoute();
+const sessionStore = useSessionStore();
+
+const sessionUser = computed(() => sessionStore?.user || null);
+
 const currentUserId = computed(() => {
   const candidates = [
-    session?.id,
-    session?.user_id,
-    session?.uid,
-    session?.user?.id,
-    session?.user?.user_id,
-    session?.user?.uid,
+    sessionUser.value?.id,
+    sessionUser.value?.user_id,
+    sessionUser.value?.uid,
   ];
   for (const c of candidates) {
     const n = Number(c);
-    if (Number.isFinite(n) && n > 0) return n;
+    if (Number.isFinite(n) && n > 0) return Math.trunc(n);
   }
-  return null;
+  return 0;
 });
 
-const isFinance = computed(() => props.mode === "finance");
+const isFinance = computed(() => props.pageMode === "finance" || props.mode === "finance");
+const showFinishedColumn = computed(() => !isFinance.value);
+
+const roleName = computed(() => String(sessionStore?.roleName || sessionUser.value?.role_name || "").trim());
 const isSales = computed(() => roleName.value === ROLE.SALES);
 
 const canChooseTeam = computed(() => {
@@ -931,17 +690,12 @@ const canChooseTeam = computed(() => {
   return rn === ROLE.SUPER_ADMIN || rn === ROLE.MANAGER || rn === ROLE.FINANCE || rn === ROLE.MARKET;
 });
 
-/** ✅ 财务页是否显示完成状态列 */
-const showFinishedColumn = computed(() => !isFinance.value);
-
-/** ✅ 财务编辑权限（市场账号只能看） */
 const canFinanceEdit = computed(() => {
   if (!isFinance.value) return false;
   const rn = roleName.value;
   return rn === ROLE.FINANCE || rn === ROLE.SUPER_ADMIN || rn === ROLE.MANAGER;
 });
 
-/** ✅ 只有能访问财务页面的人才有下载权限（按角色兜底） */
 const canFinanceDownload = computed(() => {
   if (!isFinance.value) return false;
   const rn = roleName.value;
@@ -950,55 +704,6 @@ const canFinanceDownload = computed(() => {
 
 const loading = ref(false);
 const downloading = ref(false);
-
-/** ✅ 移动端判断（仅用于布局，不影响权限/功能） */
-const isMobile = ref(false);
-const showFilters = ref(false);
-
-function _calcIsMobile() {
-  try {
-    isMobile.value = window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
-  } catch {
-    isMobile.value = false;
-  }
-}
-
-function toggleFilters() {
-  showFilters.value = !showFilters.value;
-}
-
-function _onResize() {
-  const prev = isMobile.value;
-  _calcIsMobile();
-  // 切到手机端默认收起筛选；切回 PC 展开
-  if (isMobile.value && !prev) showFilters.value = false;
-  if (!isMobile.value && prev) showFilters.value = true;
-}
-
-/** ✅ 手机端勾选（财务下载） */
-const mobileSelectedIds = ref(new Set());
-
-function isMobileSelected(row) {
-  const id = Number(row?.id);
-  if (!Number.isFinite(id) || id <= 0) return false;
-  return mobileSelectedIds.value.has(id);
-}
-
-function toggleMobileSelected(row, checked) {
-  const id = Number(row?.id);
-  if (!Number.isFinite(id) || id <= 0) return;
-  const next = new Set(mobileSelectedIds.value);
-  if (checked) next.add(id);
-  else next.delete(id);
-  mobileSelectedIds.value = next;
-
-  // 同步 selectedRows，复用原下载逻辑
-  const all = Array.isArray(tableData.value) ? tableData.value : [];
-  selectedRows.value = all.filter((r) => {
-    const rid = Number(r?.id);
-    return !isSummaryRow(r) && Number.isFinite(rid) && rid > 0 && mobileSelectedIds.value.has(rid);
-  });
-}
 
 const orders = ref([]);
 const total = ref(0);
@@ -1011,15 +716,12 @@ const salespersons = ref([]);
 const groupsLoading = ref(false);
 const salesLoading = ref(false);
 
-/** ✅ 团队下拉：来自后端 /orders/teams（只返回具体团队名，不含“全部团队”） */
 const teamOptions = ref([]);
 const teamsLoading = ref(false);
 
-/** ✅ 勾选行（财务下载用） */
 const tableRef = ref(null);
 const selectedRows = ref([]);
 
-/** ✅ 财务汇总（全量，非当前页） */
 const financeSummary = ref(null);
 const lastSummaryKey = ref("");
 
@@ -1042,7 +744,6 @@ function onSelectionChange(list) {
 
 function _clearSelection() {
   selectedRows.value = [];
-  mobileSelectedIds.value = new Set();
   try {
     tableRef.value?.clearSelection?.();
   } catch {
@@ -1072,36 +773,25 @@ function defaultFinanceFilters() {
     created_date: [],
     channel_group_id: null,
     customer_group_id: null,
-    salesperson_id: null,
     market: "",
     owner_name: "",
     insurance_expire_date: "",
     first_register_date: [],
     is_paid: null,
     is_rebate: null,
-    team_names: [],
+    team_name: null,
   };
 }
 
 const filters = ref(isFinance.value ? defaultFinanceFilters() : defaultOrdersFilters());
 
-const financeTeamMultiple = computed(() => {
-  if (!isFinance.value) return false;
-  const rn = roleName.value;
-  return rn === ROLE.MANAGER || rn === ROLE.SUPER_ADMIN;
-});
-
-const financeTeamSingle = computed({
-  get() {
-    const v = filters.value?.team_names;
-    if (Array.isArray(v)) return v[0] || null;
-    return null;
+watch(
+  () => isFinance.value,
+  (val) => {
+    filters.value = val ? defaultFinanceFilters() : defaultOrdersFilters();
   },
-  set(val) {
-    const s = String(val ?? "").trim();
-    filters.value.team_names = s ? [s] : [];
-  },
-});
+  { immediate: false }
+);
 
 function dyn(row, key) {
   const dd = row?.dynamic_data;
@@ -1113,9 +803,8 @@ function _trimStr(v) {
 }
 
 function formatGroupLabel(g) {
-  // Unified display: [code] - [name]
-  const code = _trimStr(g?.channel_code || g?.customer_code || g?.group_code || g?.code || "");
-  const name = _trimStr(g?.channel_name || g?.customer_name || g?.group_name || g?.name || "");
+  const code = _trimStr(g?.channel_code || g?.customer_code || "");
+  const name = _trimStr(g?.channel_name || g?.customer_name || "");
   const id = g?.id != null ? String(g.id) : "";
 
   if (code && name) return `${code} - ${name}`;
@@ -1166,9 +855,6 @@ function _formatYmdInShanghai(dateObj) {
   return `${y}-${m}-${da}`;
 }
 
-/**
- * ✅ created_at 日期展示统一（北京时间）
- */
 function fmtYmdSafe(anyVal) {
   if (!anyVal) return "-";
 
@@ -1199,7 +885,6 @@ function orderInfo(row) {
   return oi && typeof oi === "object" ? oi : null;
 }
 
-/** ✅ 业务员映射：订单列表用 */
 const salespersonMap = computed(() => {
   const mp = new Map();
   const arr = Array.isArray(salespersons.value) ? salespersons.value : [];
@@ -1218,12 +903,10 @@ function _getSalespersonByRow(row) {
 }
 
 function _joinTeams(v) {
-  const arr = Array.isArray(v) ? v : v ? [v] : [];
+  const arr = Array.isArray(v) ? v : [];
   const cleaned = [...new Set(arr.map((x) => String(x || "").trim()).filter(Boolean))];
   return cleaned.length ? cleaned.join("、") : "";
 }
-
-/** ===================== ✅ 团队/业务员下拉（订单走 /orders/*；财务走 /finance/*） ===================== */
 
 function normalizeItems(resp) {
   const data = resp?.data ?? resp ?? {};
@@ -1300,15 +983,11 @@ const filteredSalespersons = computed(() => {
   return Array.isArray(salespersons.value) ? salespersons.value : [];
 });
 
-/** ✅ 业务员角色：默认锁定自己（salesperson_id），团队默认取 /orders/teams 返回的唯一团队 */
 function _currentUserId() {
   const candidates = [
-    session?.userId,
-    session?.user_id,
-    session?.id,
-    session?.user?.id,
-    session?.user?.user_id,
-    session?.user?.uid,
+    sessionUser.value?.id,
+    sessionUser.value?.user_id,
+    sessionUser.value?.uid,
   ];
   for (const c of candidates) {
     const n = Number(c);
@@ -1331,12 +1010,10 @@ function initTeamForSalesRoleIfPossible() {
   }
 }
 
-/** ✅ team 改变时：订单模式下，重新拉业务员下拉；并处理 salesperson_id 是否仍有效 */
 watch(
-  () => (isFinance.value ? null : filters.value?.team_name ?? null),
-  async (team, prev) => {
+  () => filters.value?.team_name,
+  async (team) => {
     if (isFinance.value) return;
-    if (team === prev) return;
 
     const prevSid = filters.value?.salesperson_id;
     if (!isSales.value) {
@@ -1439,7 +1116,7 @@ function resetFilters() {
   lastSummaryKey.value = "";
   loadList();
 
-  loadSalespersonsForTeam(isFinance.value ? null : filters.value?.team_name);
+  loadSalespersonsForTeam(filters.value?.team_name);
 }
 
 function onPageChange(p) {
@@ -1460,7 +1137,6 @@ function goDetail(id) {
 }
 
 function _isMyOrder(row) {
-  // ✅ 后端已做 ACL，这里只是 UI 侧“少给按钮”，避免误点
   const uid = currentUserId.value;
   if (!uid) return true;
   const sid = Number(row?.salesperson_id ?? 0);
@@ -1475,8 +1151,6 @@ function canMarkFinished(row) {
 
   const rn = roleName.value;
   if (rn === ROLE.MARKET || rn === ROLE.FINANCE) return false;
-
-  // ✅ 业务员仅能操作自己的订单（后端也会兜底）
   if (rn === ROLE.SALES) return _isMyOrder(row);
   return rn === ROLE.SUPER_ADMIN || rn === ROLE.MANAGER;
 }
@@ -1487,7 +1161,6 @@ function canReopen(row) {
   if (!pickFinished(row)) return false;
 
   const rn = roleName.value;
-  // ✅ 后端限制：只有 manager/super_admin 可以退回已完成
   return rn === ROLE.SUPER_ADMIN || rn === ROLE.MANAGER;
 }
 
@@ -1515,7 +1188,6 @@ async function _updateFinished(row, nextFinished) {
   const prev = Boolean(row?.is_finished);
   if (prev === next) return;
 
-  // ✅ UI 先提示确认，避免误操作
   const ok = await _confirmUpdateFinished(row, next);
   if (!ok) return;
 
@@ -1525,7 +1197,6 @@ async function _updateFinished(row, nextFinished) {
   try {
     await updateOrderStatus(row.id, { is_finished: next });
     ElMessage.success(next ? "已标记完成" : "已退回未完成");
-    // ✅ 为了让 finished/unfinished 列表即时刷新（该条可能消失/出现）
     await loadList();
   } catch (e) {
     console.error(e);
@@ -1690,8 +1361,6 @@ async function onRebateSwitch(row, nextVal) {
   }
 }
 
-/** ====================== 导出：调用后端 /finance/orders/export ====================== */
-
 function _nowShanghaiFileStamp() {
   const parts = new Intl.DateTimeFormat("zh-CN", {
     timeZone: "Asia/Shanghai",
@@ -1713,53 +1382,74 @@ function _nowShanghaiFileStamp() {
   return `${y}-${m}-${d}_${hh}${mm}${ss}`;
 }
 
-function _appendParam(sp, k, v) {
-  if (v === null || v === undefined) return;
-  const s = String(v).trim();
-  if (!s) return;
-  sp.append(k, s);
-}
-
 function _parseFilenameFromDisposition(disposition) {
-  const text = String(disposition || "");
-  if (!text) return "";
+  const s = String(disposition || "");
+  if (!s) return "";
 
-  const utf8Match = text.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
-  if (utf8Match?.[1]) {
-    try {
-      return decodeURIComponent(utf8Match[1]).replace(/[/\\?%*:|"<>]/g, "_");
-    } catch {
-      // ignore
+  const m1 = s.match(/filename\*\s*=\s*([^;]+)/i);
+  if (m1 && m1[1]) {
+    const v = m1[1].trim();
+    const idx = v.indexOf("''");
+    if (idx >= 0) {
+      const encoded = v.slice(idx + 2).trim();
+      try {
+        return decodeURIComponent(encoded);
+      } catch {
+        return encoded;
+      }
     }
+    return v.replace(/^["']|["']$/g, "");
   }
 
-  const normalMatch = text.match(/filename\s*=\s*"([^"]+)"|filename\s*=\s*([^;]+)/i);
-  const raw = normalMatch?.[1] || normalMatch?.[2] || "";
-  return String(raw).trim().replace(/^["']|["']$/g, "").replace(/[/\\?%*:|"<>]/g, "_");
+  const m2 = s.match(/filename\s*=\s*([^;]+)/i);
+  if (m2 && m2[1]) {
+    return m2[1].trim().replace(/^["']|["']$/g, "");
+  }
+  return "";
 }
 
 function _triggerDownloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = filename || `导出_${_nowShanghaiFileStamp()}.xls`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+  setTimeout(() => {
+    try {
+      URL.revokeObjectURL(url);
+    } catch {
+      // ignore
+    }
+  }, 1200);
+}
+
+function _appendParam(sp, k, v) {
+  if (!k) return;
+  if (v === null || v === undefined) return;
+  const s = String(v).trim();
+  if (!s) return;
+  sp.append(k, s);
 }
 
 async function downloadFinanceExcel() {
-  if (!isFinance.value || !canFinanceDownload.value) return;
+  if (!isFinance.value) return;
+  if (!canFinanceDownload.value) {
+    ElMessage.error("无权限下载");
+    return;
+  }
+  if (downloading.value) return;
+
+  downloading.value = true;
 
   try {
-    downloading.value = true;
+    const baseParams = buildSummaryParams();
 
-    const ids = Array.isArray(selectedRows.value)
-      ? selectedRows.value
-          .map((r) => Number(r?.id))
-          .filter((n) => Number.isFinite(n) && n > 0)
-      : [];
+    const ids = (Array.isArray(selectedRows.value) ? selectedRows.value : [])
+      .filter((r) => !isSummaryRow(r))
+      .map((r) => Number(r?.id))
+      .filter((n) => Number.isFinite(n) && n > 0);
 
     const sp = new URLSearchParams();
 
@@ -1767,16 +1457,12 @@ async function downloadFinanceExcel() {
       for (const id of ids) sp.append("ids", String(id));
     }
 
-    const baseParams = buildSummaryParams();
-
-    // 写筛选条件
     for (const [k, v] of Object.entries(baseParams || {})) {
-      // Export param align: owner_name -> owner
       if (k === "owner_name") {
         if (v !== null && v !== undefined && String(v).trim()) _appendParam(sp, "owner", v);
         continue;
       }
-      if (k === "page" || k === "page_size") continue; // 导出接口不接收分页参数
+      if (k === "page" || k === "page_size") continue;
 
       if (v === true || v === false) {
         sp.append(k, v ? "true" : "false");
@@ -1843,8 +1529,6 @@ async function downloadFinanceExcel() {
     downloading.value = false;
   }
 }
-
-/** ===================== 字段读取（按当前后端真实返回） ===================== */
 
 const FINANCE_MONEY_COL = {
   commercial_amount: "col_14_commercial_amount",
@@ -1920,12 +1604,12 @@ function pickSalespersonName(row) {
 }
 
 function pickOwner(row) {
-  const v = isFinance.value ? row?.col_05_owner : dyn(row, "id_name");
+  const v = isFinance.value ? row?.col_05_owner : dyn(row, "id_name") || dyn(row, "owner_name");
   return String(v ?? "").trim() || "-";
 }
 
 function pickPlate(row) {
-  const v = isFinance.value ? row?.col_06_plate_no : dyn(row, "dl_plate_no") || dyn(row, "plate_no");
+  const v = isFinance.value ? row?.col_06_plate_no : dyn(row, "plate_no");
   return String(v ?? "").trim() || "-";
 }
 
@@ -1935,24 +1619,22 @@ function pickInsuranceExpire(row) {
 }
 
 function pickVin(row) {
-  const v = isFinance.value ? row?.col_08_vin : dyn(row, "vin") || dyn(row, "dl_vin");
+  const v = isFinance.value ? row?.col_08_vin : dyn(row, "vin");
   return String(v ?? "").trim() || "-";
 }
 
 function pickEngine(row) {
-  const v = isFinance.value ? row?.col_09_engine_no : dyn(row, "engine_no") || dyn(row, "dl_engine_no");
+  const v = isFinance.value ? row?.col_09_engine_no : dyn(row, "engine_no");
   return String(v ?? "").trim() || "-";
 }
 
 function pickVehicleModel(row) {
-  const v = isFinance.value ? row?.col_10_vehicle_model : dyn(row, "vehicle_model") || dyn(row, "dl_vehicle_model");
+  const v = isFinance.value ? row?.col_10_vehicle_model : dyn(row, "vehicle_model");
   return String(v ?? "").trim() || "-";
 }
 
 function pickFirstRegister(row) {
-  const v = isFinance.value
-    ? row?.col_11_first_register_date
-    : dyn(row, "dl_register_date") || dyn(row, "register_date") || dyn(row, "first_register_date");
+  const v = isFinance.value ? row?.col_11_first_register_date : dyn(row, "first_register_date");
   return normalizeCompactYmd(v) || "-";
 }
 
@@ -2034,17 +1716,16 @@ function pickPoint(row, logicalKey) {
   return fmtPoint(_pointRaw(row, logicalKey));
 }
 
-/** ✅ 新增：奖励字段取值 */
 function _rewardRaw(row, key) {
   const k = String(key || "").trim();
   if (!k) return null;
 
   if (isFinance.value) {
     if (k === "channel_reward") {
-      return row?.col_31_channel_reward ?? row?.channel_reward ?? row?.channel_bonus ?? null;
+      return row?.col_31_channel_reward ?? row?.channel_reward ?? null;
     }
     if (k === "customer_reward") {
-      return row?.col_32_customer_reward ?? row?.customer_reward ?? row?.customer_bonus ?? null;
+      return row?.col_32_customer_reward ?? row?.customer_reward ?? null;
     }
     return row?.[k] ?? null;
   }
@@ -2058,7 +1739,6 @@ function pickRewardMoney(row, key) {
   return fmtMoney(_rewardRaw(row, key));
 }
 
-/** ✅ 仅当“后补点位”非 0 时才前端重算 */
 function hasSupplementPoint(row) {
   if (isFinance.value) return false;
   const oi = orderInfo(row);
@@ -2113,7 +1793,6 @@ function pickReceivable(row) {
   if (isFinance.value) return fmtMoney(_moneyRaw(row, "receivable"));
   const oi = orderInfo(row);
   if (!oi) return fmtMoney(0);
-  // ✅ 对齐财务口径：应收 = channel_total
   if (hasSupplementPoint(row)) return fmtMoney(computeTotals(row).channel_total);
   return fmtMoney(oi.channel_total);
 }
@@ -2122,7 +1801,6 @@ function pickPayable(row) {
   if (isFinance.value) return fmtMoney(_moneyRaw(row, "payable"));
   const oi = orderInfo(row);
   if (!oi) return fmtMoney(0);
-  // ✅ 对齐财务口径：应付 = customer_total
   if (hasSupplementPoint(row)) return fmtMoney(computeTotals(row).customer_total);
   return fmtMoney(oi.customer_total);
 }
@@ -2135,7 +1813,6 @@ function pickProfit(row) {
   return fmtMoney(oi.profit);
 }
 
-/** ====================== 查询参数 ====================== */
 function _asDateRange(v) {
   if (!Array.isArray(v)) return null;
   const s = _trimStr(v[0]);
@@ -2161,15 +1838,13 @@ function buildListParams() {
   const p = { page: page.value, page_size: pageSize.value };
   const f = filters.value || {};
 
-  if (isFinance.value) {
-    const arr = Array.isArray(f.team_names) ? f.team_names.map((x) => String(x || "").trim()).filter(Boolean) : [];
-    if (arr.length) p.team_names = arr;
+  if (f.team_name) p.team_name = String(f.team_name).trim();
 
+  if (isFinance.value) {
     _applyRangeParams(p, "created_date", f.created_date);
 
     if (f.channel_group_id) p.channel_group_id = f.channel_group_id;
     if (f.customer_group_id) p.customer_group_id = f.customer_group_id;
-    if (f.salesperson_id) p.salesperson_id = f.salesperson_id;
 
     const market = _trimStr(f.market);
     if (market) p.market = market;
@@ -2186,8 +1861,6 @@ function buildListParams() {
 
     return p;
   }
-
-  if (f.team_name) p.team_name = String(f.team_name).trim();
 
   if (props.mode === "finished") p.is_finished = true;
   if (props.mode === "unfinished") p.is_finished = false;
@@ -2245,8 +1918,8 @@ function buildSummaryRow(sum) {
     return Number.isFinite(x) ? x : 0;
   };
 
-  const chReward = n(sum?.channel_reward ?? sum?.channel_bonus ?? 0);
-  const cuReward = n(sum?.customer_reward ?? sum?.customer_bonus ?? 0);
+  const chReward = n(sum?.channel_reward ?? 0);
+  const cuReward = n(sum?.customer_reward ?? 0);
 
   return {
     id: -1,
@@ -2262,7 +1935,6 @@ function buildSummaryRow(sum) {
     channel_reward: chReward,
     customer_reward: cuReward,
 
-    // NOTE: Finance footer summary swaps receivable/payable positions per requirement
     col_26_receivable: n(sum?.payable),
     col_27_payable: n(sum?.receivable),
     col_28_profit: n(sum?.profit),
@@ -2276,23 +1948,8 @@ const tableData = computed(() => {
 });
 
 onMounted(async () => {
-  _calcIsMobile();
-  showFilters.value = !isMobile.value;
-  try {
-    window.addEventListener("resize", _onResize, { passive: true });
-  } catch {
-    // ignore
-  }
   await loadGroupsAndSalespersonsIfNeeded();
   await loadList();
-});
-
-onBeforeUnmount(() => {
-  try {
-    window.removeEventListener("resize", _onResize);
-  } catch {
-    // ignore
-  }
 });
 </script>
 
@@ -2344,6 +2001,11 @@ onBeforeUnmount(() => {
   background: rgba(255, 255, 255, 0.65);
 }
 
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
 .main-table {
   width: 100%;
 }
@@ -2352,6 +2014,7 @@ onBeforeUnmount(() => {
   padding-top: 6px;
   padding-bottom: 6px;
 }
+
 .main-table :deep(.el-table__cell .cell) {
   padding-left: 4px;
   padding-right: 4px;
@@ -2388,11 +2051,9 @@ onBeforeUnmount(() => {
   touch-action: manipulation;
 }
 
-/* ✅ 下拉菜单层：提高层级，避免被表格/容器遮挡导致看起来“没反应” */
 :deep(.order-actions-popper) {
   z-index: 9999 !important;
 }
-
 
 .switch-cell {
   display: flex;
@@ -2401,161 +2062,7 @@ onBeforeUnmount(() => {
   min-height: 30px;
 }
 
-/* ✅ 汇总行：加粗一点，避免误操作观感 */
 .main-table :deep(tr.row-summary td) {
   font-weight: 800;
-}
-
-/* ✅ 手机卡片视图：更好点按、更清晰的信息分组 */
-.mobile-topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 10px;
-}
-
-.mobile-topbar-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.mobile-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.order-card {
-  border-radius: 12px;
-  border: 1px solid rgba(60, 60, 60, 0.08);
-}
-
-.summary-card :deep(.el-card__body) {
-  padding: 10px 12px;
-}
-
-.card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.card-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 700;
-}
-
-.badge {
-  font-size: 12px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid rgba(60, 60, 60, 0.14);
-  opacity: 0.9;
-}
-
-.card-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.card-sub {
-  margin-top: 6px;
-}
-
-.card-sub .line {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 4px;
-  font-size: 13px;
-}
-
-.muted {
-  opacity: 0.72;
-}
-
-.val {
-  text-align: right;
-  max-width: 70%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.card-grid {
-  margin-top: 8px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px 12px;
-}
-
-.kv {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  min-width: 0;
-}
-
-.k {
-  opacity: 0.72;
-  font-size: 12px;
-  flex: 0 0 auto;
-}
-
-.v {
-  font-size: 13px;
-  font-weight: 600;
-  text-align: right;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-.finance-mini {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px dashed rgba(60, 60, 60, 0.14);
-}
-
-.switch-row {
-  margin-top: 10px;
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.switch-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.mobile-pagination {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.mobile-total {
-  opacity: 0.72;
-  font-size: 13px;
-}
-
-.mobile-size {
-  min-width: 110px;
 }
 </style>

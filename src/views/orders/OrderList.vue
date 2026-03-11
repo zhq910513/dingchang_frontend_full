@@ -1,6 +1,6 @@
 <!-- src/views/orders/OrderList.vue -->
 <template>
-  <OrderListBase title="所有订单" mode="all" />
+  <OrderListBase title="所有订单" mode="all" pageMode="orders" />
 </template>
 
 <script setup>
