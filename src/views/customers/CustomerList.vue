@@ -6,28 +6,28 @@
 
       <div class="header-actions">
         <el-tooltip
-          v-if="canViewDeleted"
-          :content="showDeleted ? '点击隐藏已删除' : '点击显示已删除'"
-          placement="top"
+            v-if="pageCaps.can_view_deleted"
+            :content="showDeleted ? '点击隐藏已删除' : '点击显示已删除'"
+            placement="top"
         >
           <el-button
-            size="small"
-            class="toggle-btn"
-            :class="{ 'toggle-btn--active': showDeleted }"
-            :type="showDeleted ? 'info' : 'default'"
-            :plain="true"
-            :loading="loading"
-            @click="toggleShowDeleted"
+              size="small"
+              class="toggle-btn"
+              :class="{ 'toggle-btn--active': showDeleted }"
+              :type="showDeleted ? 'info' : 'default'"
+              :plain="true"
+              :loading="loading"
+              @click="toggleShowDeleted"
           >
             <el-icon class="btn-ico">
-              <Hide v-if="showDeleted" />
-              <View v-else />
+              <Hide v-if="showDeleted"/>
+              <View v-else/>
             </el-icon>
             {{ showDeleted ? "隐藏已删除" : "显示已删除" }}
           </el-button>
         </el-tooltip>
 
-        <el-tooltip v-if="!canModify" content="财务账号无新增权限" placement="top">
+        <el-tooltip v-if="!pageCaps.can_create" content="财务账号无新增权限" placement="top">
           <span>
             <el-button type="primary" size="small" disabled>新增客户</el-button>
           </span>
@@ -44,54 +44,54 @@
         <div class="toolbar-content">
           <div class="toolbar-fields">
             <el-input
-              v-model="filters.customer_code"
-              size="small"
-              clearable
-              placeholder="客户代码（模糊）"
-              class="toolbar-input"
-              :disabled="loading"
-              @keyup.enter="applyFilter"
-              @clear="applyFilter"
+                v-model="filters.customer_code"
+                size="small"
+                clearable
+                placeholder="客户代码（模糊）"
+                class="toolbar-input"
+                :disabled="loading"
+                @keyup.enter="applyFilter"
+                @clear="applyFilter"
             />
             <el-input
-              v-model="filters.customer_name"
-              size="small"
-              clearable
-              placeholder="客户名称（模糊）"
-              class="toolbar-input"
-              :disabled="loading"
-              @keyup.enter="applyFilter"
-              @clear="applyFilter"
+                v-model="filters.customer_name"
+                size="small"
+                clearable
+                placeholder="客户名称（模糊）"
+                class="toolbar-input"
+                :disabled="loading"
+                @keyup.enter="applyFilter"
+                @clear="applyFilter"
             />
             <el-input
-              v-model="filters.market"
-              size="small"
-              clearable
-              placeholder="市场（模糊）"
-              class="toolbar-input"
-              :disabled="loading"
-              @keyup.enter="applyFilter"
-              @clear="applyFilter"
+                v-model="filters.market"
+                size="small"
+                clearable
+                placeholder="市场（模糊）"
+                class="toolbar-input"
+                :disabled="loading"
+                @keyup.enter="applyFilter"
+                @clear="applyFilter"
             />
             <el-input
-              v-model="filters.region"
-              size="small"
-              clearable
-              placeholder="归属地（模糊）"
-              class="toolbar-input"
-              :disabled="loading"
-              @keyup.enter="applyFilter"
-              @clear="applyFilter"
+                v-model="filters.region"
+                size="small"
+                clearable
+                placeholder="归属地（模糊）"
+                class="toolbar-input"
+                :disabled="loading"
+                @keyup.enter="applyFilter"
+                @clear="applyFilter"
             />
             <el-input
-              v-model="filters.created_by"
-              size="small"
-              clearable
-              placeholder="创建人（模糊）"
-              class="toolbar-input"
-              :disabled="loading"
-              @keyup.enter="applyFilter"
-              @clear="applyFilter"
+                v-model="filters.created_by_name"
+                size="small"
+                clearable
+                placeholder="创建人（模糊）"
+                class="toolbar-input"
+                :disabled="loading"
+                @keyup.enter="applyFilter"
+                @clear="applyFilter"
             />
           </div>
 
@@ -117,7 +117,7 @@
 
         <el-table-column prop="customer_name" label="客户名称" min-width="180" show-overflow-tooltip>
           <template #default="{ row }">
-            {{ row.customer_name || row.group_name || "-" }}
+            {{ row.customer_name || "-" }}
           </template>
         </el-table-column>
 
@@ -127,16 +127,29 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="region" label="归属地" min-width="140" show-overflow-tooltip />
-
-        <el-table-column label="联系方式" min-width="220" show-overflow-tooltip>
+        <el-table-column prop="region" label="归属地" min-width="140" show-overflow-tooltip>
           <template #default="{ row }">
-            {{ formatContacts(row.contacts) }}
+            {{ row.region || "-" }}
           </template>
         </el-table-column>
 
-        <el-table-column prop="created_by_name" label="创建人" width="120" show-overflow-tooltip />
-        <el-table-column prop="created_at" label="创建时间" width="180" show-overflow-tooltip />
+        <el-table-column label="联系方式" min-width="220" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ formatContacts(row.contacts) || "-" }}
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="created_by_name" label="创建人" width="120" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ row.created_by_name || "-" }}
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="created_at" label="创建时间" width="180" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ row.created_at || "-" }}
+          </template>
+        </el-table-column>
 
         <el-table-column label="操作" width="160" fixed="right" class-name="col-actions">
           <template #default="{ row }">
@@ -150,12 +163,12 @@
             </template>
 
             <template v-else>
-              <el-tooltip v-if="!canEdit" content="仅经理/超级账号/市场账号可编辑" placement="top">
+              <el-tooltip v-if="!pageCaps.can_edit" content="仅经理/超级账号/市场账号可编辑" placement="top">
                 <span><el-button type="primary" size="small" link disabled>编辑</el-button></span>
               </el-tooltip>
               <el-button v-else type="primary" size="small" link @click="openEditDialog(row)">编辑</el-button>
 
-              <el-tooltip v-if="!canModify" content="财务账号无删除权限" placement="top">
+              <el-tooltip v-if="!pageCaps.can_delete" content="财务账号无删除权限" placement="top">
                 <span><el-button type="danger" size="small" link disabled>删除</el-button></span>
               </el-tooltip>
               <el-button v-else type="danger" size="small" link @click="openDeleteDialog(row)">删除</el-button>
@@ -167,33 +180,33 @@
 
     <div class="pagination-bar">
       <el-pagination
-        background
-        layout="prev, pager, next, jumper, sizes, total"
-        :current-page="page"
-        :page-size="pageSize"
-        :total="total"
-        :page-sizes="[10, 20, 50, 100]"
-        @current-change="onPageChange"
-        @size-change="onPageSizeChange"
+          background
+          layout="prev, pager, next, jumper, sizes, total"
+          :current-page="page"
+          :page-size="pageSize"
+          :total="total"
+          :page-sizes="[10, 20, 50, 100]"
+          @current-change="onPageChange"
+          @size-change="onPageSizeChange"
       />
     </div>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="520px" destroy-on-close>
       <el-form :model="form" :rules="rules" ref="formRef" label-width="90px">
         <el-form-item label="客户代码" prop="customer_code">
-          <el-input v-model="form.customer_code" clearable />
+          <el-input v-model="form.customer_code" clearable/>
         </el-form-item>
 
         <el-form-item label="客户名称" prop="customer_name">
-          <el-input v-model="form.customer_name" clearable />
+          <el-input v-model="form.customer_name" clearable/>
         </el-form-item>
 
         <el-form-item label="市场" prop="market">
-          <el-input v-model="form.market" clearable />
+          <el-input v-model="form.market" clearable/>
         </el-form-item>
 
         <el-form-item label="归属地" prop="region">
-          <el-input v-model="form.region" clearable />
+          <el-input v-model="form.region" clearable/>
         </el-form-item>
 
         <el-form-item label="联系方式" prop="contacts">
@@ -207,23 +220,18 @@
 
             <div v-else class="contacts-list">
               <div v-for="(c, idx) in form.contacts" :key="idx" class="contacts-row">
-                <el-select
-                  v-model="c.type"
-                  class="contacts-type"
-                  placeholder="类型"
-                  @change="onContactTypeChange(idx)"
-                >
-                  <el-option label="手机号" value="mobile" />
-                  <el-option label="座机" value="tel" />
+                <el-select v-model="c.type" class="contacts-type" placeholder="类型" @change="onContactTypeChange(idx)">
+                  <el-option label="手机号" value="mobile"/>
+                  <el-option label="座机" value="tel"/>
                 </el-select>
 
                 <el-input
-                  v-model="c.value"
-                  class="contacts-value"
-                  clearable
-                  placeholder="手机号：11位；座机：010-88888888 / 400xxxxxxx"
-                  @input="(val) => onContactValueInput(idx, val)"
-                  @blur="() => validateContactsField()"
+                    v-model="c.value"
+                    class="contacts-value"
+                    clearable
+                    placeholder="手机号：11位；座机：010-88888888 / 400xxxxxxx"
+                    @input="(val) => onContactValueInput(idx, val)"
+                    @blur="() => validateContactsField()"
                 />
 
                 <el-button type="danger" size="small" link class="contacts-remove" @click="removeContact(idx)">
@@ -244,17 +252,19 @@
     </el-dialog>
 
     <el-dialog
-      v-model="deleteDialogVisible"
-      width="440px"
-      destroy-on-close
-      append-to-body
-      :show-close="false"
-      class="confirm-dialog"
-      @closed="onDeleteDialogClosed"
+        v-model="deleteDialogVisible"
+        width="440px"
+        destroy-on-close
+        append-to-body
+        :show-close="false"
+        class="confirm-dialog"
+        @closed="onDeleteDialogClosed"
     >
       <div class="cd">
         <div class="cd-icon-wrap">
-          <el-icon class="cd-icon"><WarningFilled /></el-icon>
+          <el-icon class="cd-icon">
+            <WarningFilled/>
+          </el-icon>
         </div>
 
         <div class="cd-body">
@@ -274,36 +284,43 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from "vue";
-import { ElMessage } from "element-plus";
-import { WarningFilled, View, Hide } from "@element-plus/icons-vue";
-import { listCustomerGroups, createCustomerGroup, updateCustomerGroup, deleteCustomerGroup } from "../../api/customerChannel";
-import { useSessionStore } from "../../store/session";
-const sessionStore = useSessionStore();
-const canEdit = computed(() => true);
-const canDelete = computed(() => true);
-const canCreate = computed(() => true);
-const roleName = computed(() => String(sessionStore.roleName || "").trim().toLowerCase());
-
-const canModify = computed(() => roleName.value !== ROLE.FINANCE);
-const canViewDeleted = computed(() => roleName.value === ROLE.SUPER_ADMIN);
-const showDeleted = ref(false);
+import {computed, nextTick, onMounted, ref} from "vue";
+import {ElMessage} from "element-plus";
+import {Hide, View, WarningFilled} from "@element-plus/icons-vue";
+import {
+  createCustomerGroup,
+  deleteCustomerGroup,
+  listCustomerGroups,
+  updateCustomerGroup,
+} from "../../api/customerChannel";
 
 const loading = ref(false);
 const page = ref(1);
 const pageSize = ref(20);
 const total = ref(0);
 const rawItems = ref([]);
+const pageCaps = ref({
+  can_create: false,
+  can_edit: false,
+  can_delete: false,
+  can_view_deleted: false,
+});
 
 let _reqSeq = 0;
 
+const showDeleted = ref(false);
 const filters = ref({
   customer_code: "",
   customer_name: "",
   market: "",
   region: "",
-  created_by: "",
+  created_by_name: "",
 });
+
+function _trim(v) {
+  const s = String(v ?? "").trim();
+  return s ? s : "";
+}
 
 function isRowDeleted(row) {
   return Boolean(row?.is_deleted) || Boolean(row?.deleted_at);
@@ -319,39 +336,37 @@ function _typeLabel(t) {
 function formatContacts(list) {
   if (!Array.isArray(list) || !list.length) return "";
   return list
-    .map((c) => {
-      if (!c) return "";
-      const t = _typeLabel(c.type);
-      const v = c.value ? String(c.value) : "";
-      return t ? `${t}:${v}` : v;
-    })
-    .filter(Boolean)
-    .join("；");
-}
-
-function _trim(v) {
-  const s = String(v ?? "").trim();
-  return s ? s : "";
+      .map((c) => {
+        if (!c) return "";
+        const t = _typeLabel(c.type);
+        const v = c.value ? String(c.value) : "";
+        return t ? `${t}:${v}` : v;
+      })
+      .filter(Boolean)
+      .join("；");
 }
 
 async function loadList() {
   const seq = ++_reqSeq;
   loading.value = true;
   try {
-    const params = { page: page.value, page_size: pageSize.value };
-    if (canViewDeleted.value && showDeleted.value) params.include_deleted = 1;
+    const params = {
+      page: page.value,
+      page_size: pageSize.value,
+      include_deleted: showDeleted.value ? 1 : 0,
+    };
 
     const cc = _trim(filters.value.customer_code);
     const cn = _trim(filters.value.customer_name);
     const mk = _trim(filters.value.market);
     const rg = _trim(filters.value.region);
-    const cb = _trim(filters.value.created_by);
+    const cb = _trim(filters.value.created_by_name);
 
     if (cc) params.customer_code = cc;
     if (cn) params.customer_name = cn;
     if (mk) params.market = mk;
     if (rg) params.region = rg;
-    if (cb) params.created_by = cb;
+    if (cb) params.created_by_name = cb;
 
     const resp = await listCustomerGroups(params);
     if (seq !== _reqSeq) return;
@@ -359,6 +374,16 @@ async function loadList() {
     const data = resp?.data || {};
     total.value = Number(data.total || 0);
     rawItems.value = Array.isArray(data.items) ? data.items : [];
+    pageCaps.value = data.capabilities || {
+      can_create: false,
+      can_edit: false,
+      can_delete: false,
+      can_view_deleted: false,
+    };
+
+    if (!pageCaps.value.can_view_deleted && showDeleted.value) {
+      showDeleted.value = false;
+    }
   } catch (e) {
     if (seq !== _reqSeq) return;
     console.error(e);
@@ -378,7 +403,7 @@ function applyFilter() {
 }
 
 function resetFilter() {
-  filters.value = { customer_code: "", customer_name: "", market: "", region: "", created_by: "" };
+  filters.value = {customer_code: "", customer_name: "", market: "", region: "", created_by_name: ""};
   page.value = 1;
   loadList();
 }
@@ -397,7 +422,7 @@ function onPageSizeChange(ps) {
 }
 
 function toggleShowDeleted() {
-  if (!canViewDeleted.value) return;
+  if (!pageCaps.value.can_view_deleted) return;
   showDeleted.value = !showDeleted.value;
   page.value = 1;
   loadList();
@@ -409,14 +434,13 @@ const formRef = ref(null);
 
 const dialogMode = ref("create");
 const editId = ref(null);
-
 const dialogTitle = computed(() => (dialogMode.value === "edit" ? "编辑客户" : "新增客户"));
 
 function _newContact() {
-  return { type: "mobile", value: "" };
+  return {type: "mobile", value: ""};
 }
 
-const form = ref({ customer_code: "", customer_name: "", market: "", region: "", contacts: [] });
+const form = ref({customer_code: "", customer_name: "", market: "", region: "", contacts: []});
 
 const _MOBILE_RE = /^1[3-9]\d{9}$/;
 const _LANDLINE_RE = /^(0\d{2,3}-?)?\d{7,8}(-\d{1,6})?$/;
@@ -462,14 +486,14 @@ function _normalizeContactsForSubmit() {
       const key = `${t}:${digits}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      out.push({ type: t, value: digits });
+      out.push({type: t, value: digits});
       continue;
     }
 
     const key = `${t}:${raw}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    out.push({ type: t, value: raw });
+    out.push({type: t, value: raw});
   }
   return out;
 }
@@ -493,8 +517,8 @@ async function validateContactsField() {
 }
 
 const rules = {
-  customer_code: [{ required: true, message: "客户代码必填", trigger: "blur" }],
-  customer_name: [{ required: true, message: "客户名称必填", trigger: "blur" }],
+  customer_code: [{required: true, message: "客户代码必填", trigger: "blur"}],
+  customer_name: [{required: true, message: "客户名称必填", trigger: "blur"}],
   contacts: [
     {
       trigger: ["change", "blur"],
@@ -511,18 +535,18 @@ const rules = {
 };
 
 function openCreateDialog() {
-  if (!canModify.value) {
+  if (!pageCaps.value.can_create) {
     ElMessage.warning("财务账号无新增权限");
     return;
   }
   dialogMode.value = "create";
   editId.value = null;
-  form.value = { customer_code: "", customer_name: "", market: "", region: "", contacts: [] };
+  form.value = {customer_code: "", customer_name: "", market: "", region: "", contacts: []};
   dialogVisible.value = true;
 }
 
 function openEditDialog(row) {
-  if (!canEdit.value) {
+  if (!pageCaps.value.can_edit) {
     ElMessage.warning("仅经理/超级账号/市场账号可编辑");
     return;
   }
@@ -532,7 +556,7 @@ function openEditDialog(row) {
   editId.value = row.id;
   form.value = {
     customer_code: String(row.customer_code || ""),
-    customer_name: String(row.customer_name || row.group_name || ""),
+    customer_name: String(row.customer_name || ""),
     market: String(row.market || ""),
     region: String(row.region || ""),
     contacts: _contactsToForm(row.contacts),
@@ -569,12 +593,12 @@ function onContactValueInput(idx, val) {
 
 async function submit() {
   if (dialogMode.value === "create") {
-    if (!canModify.value) {
+    if (!pageCaps.value.can_create) {
       ElMessage.warning("财务账号无新增权限");
       return;
     }
   } else {
-    if (!canEdit.value) {
+    if (!pageCaps.value.can_edit) {
       ElMessage.warning("仅经理/超级账号/市场账号可编辑");
       return;
     }
@@ -597,7 +621,7 @@ async function submit() {
       customer_code: form.value.customer_code,
       customer_name: form.value.customer_name,
       market: _trim(form.value.market) || null,
-      region: form.value.region,
+      region: _trim(form.value.region) || null,
       contacts: contactsPayload,
     };
 
@@ -632,7 +656,7 @@ const deleteTargetDisplay = computed(() => {
 });
 
 function openDeleteDialog(row) {
-  if (!canModify.value) {
+  if (!pageCaps.value.can_delete) {
     ElMessage.warning("财务账号无删除权限");
     return;
   }
@@ -647,7 +671,7 @@ function onDeleteDialogClosed() {
 }
 
 async function confirmDelete() {
-  if (!canModify.value) {
+  if (!pageCaps.value.can_delete) {
     ElMessage.warning("财务账号无删除权限");
     return;
   }
@@ -673,7 +697,12 @@ onMounted(() => loadList());
 </script>
 
 <style scoped>
-.page { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
 
 .page-header {
   display: flex;
@@ -692,13 +721,16 @@ onMounted(() => loadList());
   border-radius: 10px;
   border: 1px solid rgba(60, 60, 60, 0.14);
 }
+
 .toggle-btn--active {
   border-color: rgba(64, 158, 255, 0.45);
   background: rgba(64, 158, 255, 0.06);
 }
-.btn-ico { margin-right: 6px; }
 
-/* ✅ 搜索栏：更稳、更好看 */
+.btn-ico {
+  margin-right: 6px;
+}
+
 .toolbar-card {
   margin-bottom: 10px;
   position: sticky;
@@ -758,11 +790,25 @@ onMounted(() => loadList());
   flex-wrap: nowrap;
 }
 
-.table-scroll { flex: 1; min-height: 0; overflow: auto; }
+.table-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
 
-.main-table { width: 100%; }
-.col-actions :deep(.cell) { text-align: center; }
-.pagination-bar { margin-top: 10px; display: flex; justify-content: flex-end; }
+.main-table {
+  width: 100%;
+}
+
+.col-actions :deep(.cell) {
+  text-align: center;
+}
+
+.pagination-bar {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+}
 
 .code-cell {
   display: flex;
@@ -770,34 +816,90 @@ onMounted(() => loadList());
   gap: 8px;
   min-width: 0;
 }
+
 .code-text {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.deleted-tag { border-radius: 10px; }
 
-.contacts-wrap { width: 100%; }
-.contacts-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.contacts-hint { font-size: 12px; color: rgba(31, 42, 68, 0.65); }
-.contacts-empty { font-size: 12px; color: rgba(31, 42, 68, 0.55); padding: 6px 0; }
-.contacts-list { display: flex; flex-direction: column; gap: 8px; }
-.contacts-row { display: flex; align-items: center; gap: 10px; }
-.contacts-type { width: 110px; flex-shrink: 0; }
-.contacts-value { flex: 1; min-width: 0; }
-.contacts-remove { flex-shrink: 0; }
+.deleted-tag {
+  border-radius: 10px;
+}
+
+.contacts-wrap {
+  width: 100%;
+}
+
+.contacts-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.contacts-hint {
+  font-size: 12px;
+  color: rgba(31, 42, 68, 0.65);
+}
+
+.contacts-empty {
+  font-size: 12px;
+  color: rgba(31, 42, 68, 0.55);
+  padding: 6px 0;
+}
+
+.contacts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.contacts-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.contacts-type {
+  width: 110px;
+  flex-shrink: 0;
+}
+
+.contacts-value {
+  flex: 1;
+  min-width: 0;
+}
+
+.contacts-remove {
+  flex-shrink: 0;
+}
 
 :deep(.confirm-dialog .el-dialog) {
   margin-top: 14vh;
   border-radius: 14px;
   overflow: hidden;
 }
-:deep(.confirm-dialog .el-dialog__header) { display: none; }
-:deep(.confirm-dialog .el-dialog__body) { padding: 18px 18px 10px 18px; }
-:deep(.confirm-dialog .el-dialog__footer) { padding: 10px 18px 16px 18px; }
 
-.cd { display: flex; gap: 12px; align-items: flex-start; }
+:deep(.confirm-dialog .el-dialog__header) {
+  display: none;
+}
+
+:deep(.confirm-dialog .el-dialog__body) {
+  padding: 18px 18px 10px 18px;
+}
+
+:deep(.confirm-dialog .el-dialog__footer) {
+  padding: 10px 18px 16px 18px;
+}
+
+.cd {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
 .cd-icon-wrap {
   width: 40px;
   height: 40px;
@@ -809,14 +911,22 @@ onMounted(() => loadList());
   border: 1px solid rgba(245, 108, 108, 0.18);
   flex-shrink: 0;
 }
-.cd-icon { font-size: 18px; }
-.cd-body { min-width: 0; }
+
+.cd-icon {
+  font-size: 18px;
+}
+
+.cd-body {
+  min-width: 0;
+}
+
 .cd-title {
   font-weight: 800;
   color: rgba(31, 42, 68, 0.92);
   line-height: 1.25;
   font-size: 14px;
 }
+
 .cd-code {
   display: inline-block;
   padding: 0 8px;
@@ -826,12 +936,14 @@ onMounted(() => loadList());
   background: rgba(31, 42, 68, 0.06);
   border: 1px solid rgba(31, 42, 68, 0.10);
 }
+
 .cd-desc {
   margin-top: 6px;
   font-size: 12px;
   color: rgba(31, 42, 68, 0.66);
   line-height: 1.45;
 }
+
 .cd-footer {
   display: flex;
   justify-content: flex-end;

@@ -10,7 +10,7 @@
         <el-badge :value="pendingCount" :hidden="pendingCount === 0" :max="99" class="task-badge">
           <el-button class="task-btn" type="primary" @click="taskDrawer = true">
             <el-icon class="task-icon">
-              <Tickets />
+              <Tickets/>
             </el-icon>
             图片识别任务
           </el-button>
@@ -29,9 +29,9 @@
                 <div class="upload-mode">
                   <span class="upload-mode-label">上传模式</span>
                   <el-select v-model="uploadMode" size="small" style="width: 160px" @change="persistUploadMode">
-                    <el-option label="智能（推荐）" value="smart" />
-                    <el-option label="直传（更快）" value="direct" />
-                    <el-option label="稳定（兼容VPN）" value="stable" />
+                    <el-option label="智能（推荐）" value="smart"/>
+                    <el-option label="直传（更快）" value="direct"/>
+                    <el-option label="稳定（兼容VPN）" value="stable"/>
                   </el-select>
                 </div>
 
@@ -40,11 +40,11 @@
                 </el-button>
 
                 <el-button
-                  size="small"
-                  type="primary"
-                  :loading="submitting"
-                  :disabled="uploadingCount > 0 || !canSubmitImport"
-                  @click="submitImport"
+                    size="small"
+                    type="primary"
+                    :loading="submitting"
+                    :disabled="uploadingCount > 0 || !canSubmitImport"
+                    @click="submitImport"
                 >
                   提交 OCR 导入
                 </el-button>
@@ -54,52 +54,32 @@
 
           <div class="filters">
             <el-form
-              ref="filtersFormRef"
-              :model="filters"
-              :rules="filtersRules"
-              label-width="80px"
-              class="filters-form"
+                ref="filtersFormRef"
+                :model="filters"
+                :rules="filtersRules"
+                label-width="80px"
+                class="filters-form"
             >
               <el-row :gutter="12">
                 <el-col :span="12">
                   <el-form-item label="客户群" prop="customer_group_id">
-                    <el-select
-                      v-model="filters.customer_group_id"
-                      clearable
-                      filterable
-                      placeholder="必选"
-                      style="width: 100%"
-                      :loading="groupsLoading"
-                      :disabled="groupsLoading"
-                    >
-                      <el-option
-                        v-for="g in customerGroups"
-                        :key="String(g.id)"
-                        :label="customerGroupLabel(g)"
-                        :value="g.id"
-                      />
-                    </el-select>
+                    <RemotePagedSelect
+                        v-model="filters.customer_group_id"
+                        type="customers"
+                        placeholder="必选"
+                        select-class="full-select"
+                    />
                   </el-form-item>
                 </el-col>
 
                 <el-col :span="12">
                   <el-form-item label="渠道群" prop="channel_group_id">
-                    <el-select
-                      v-model="filters.channel_group_id"
-                      clearable
-                      filterable
-                      placeholder="必选"
-                      style="width: 100%"
-                      :loading="groupsLoading"
-                      :disabled="groupsLoading"
-                    >
-                      <el-option
-                        v-for="g in channelGroups"
-                        :key="String(g.id)"
-                        :label="channelGroupLabel(g)"
-                        :value="g.id"
-                      />
-                    </el-select>
+                    <RemotePagedSelect
+                        v-model="filters.channel_group_id"
+                        type="channels"
+                        placeholder="必选"
+                        select-class="full-select"
+                    />
                   </el-form-item>
                 </el-col>
               </el-row>
@@ -107,13 +87,13 @@
           </div>
 
           <el-alert
-            v-if="uploadingCount > 0"
-            class="upload-alert"
-            type="warning"
-            :closable="false"
-            show-icon
-            title="正在上传"
-            :description="`正在上传 ${uploadingCount} 个文件…（全部上传完成后才能提交）`"
+              v-if="uploadingCount > 0"
+              class="upload-alert"
+              type="warning"
+              :closable="false"
+              show-icon
+              title="正在上传"
+              :description="`正在上传 ${uploadingCount} 个文件…（全部上传完成后才能提交）`"
           />
 
           <div class="upload-grid">
@@ -128,26 +108,26 @@
               </div>
 
               <el-upload
-                v-if="!slot.multiple"
-                drag
-                :auto-upload="false"
-                :multiple="false"
-                :limit="1"
-                :show-file-list="false"
-                :file-list="slotFiles[slot.key]"
-                :disabled="isSingleSlotLocked(slot.key) || submitting || uploadingCount > 0"
-                :on-change="(file) => onFileChange(slot.key, file)"
-                :on-exceed="() => onExceedWarn(slot.key)"
-                accept="image/*"
-                class="upload-box upload-one"
+                  v-if="!slot.multiple"
+                  drag
+                  :auto-upload="false"
+                  :multiple="false"
+                  :limit="1"
+                  :show-file-list="false"
+                  :file-list="slotFiles[slot.key]"
+                  :disabled="isSingleSlotLocked(slot.key) || submitting || uploadingCount > 0"
+                  :on-change="(file) => onFileChange(slot.key, file)"
+                  :on-exceed="() => onExceedWarn(slot.key)"
+                  accept="image/*"
+                  class="upload-box upload-one"
               >
                 <template #default>
                   <div v-if="firstFile(slot.key)" class="one-wrap">
                     <el-image
-                      :src="firstFile(slot.key)?.url"
-                      :preview-src-list="previewUrls(slot.key)"
-                      fit="contain"
-                      class="one-img"
+                        :src="firstFile(slot.key)?.url"
+                        :preview-src-list="previewUrls(slot.key)"
+                        fit="contain"
+                        class="one-img"
                     />
                     <div class="one-mask">
                       <div class="one-mask-text">已上传，删除后可重新上传</div>
@@ -165,16 +145,16 @@
 
               <template v-else>
                 <el-upload
-                  drag
-                  :auto-upload="false"
-                  :multiple="true"
-                  :limit="20"
-                  :show-file-list="false"
-                  :file-list="slotFiles[slot.key]"
-                  :disabled="submitting || uploadingCount > 0"
-                  :on-change="(file) => onFileChange(slot.key, file)"
-                  accept="image/*"
-                  class="upload-box upload-multi"
+                    drag
+                    :auto-upload="false"
+                    :multiple="true"
+                    :limit="20"
+                    :show-file-list="false"
+                    :file-list="slotFiles[slot.key]"
+                    :disabled="submitting || uploadingCount > 0"
+                    :on-change="(file) => onFileChange(slot.key, file)"
+                    accept="image/*"
+                    class="upload-box upload-multi"
                 >
                   <div class="upload-empty">
                     <div class="empty-center">
@@ -187,11 +167,11 @@
                 <div v-if="(slotFiles[slot.key] || []).length" class="preview-wall">
                   <div v-for="f in slotFiles[slot.key]" :key="f.uid" class="preview-item">
                     <el-image
-                      v-if="f.url"
-                      :src="f.url"
-                      :preview-src-list="previewUrls(slot.key)"
-                      fit="cover"
-                      class="preview-img"
+                        v-if="f.url"
+                        :src="f.url"
+                        :preview-src-list="previewUrls(slot.key)"
+                        fit="cover"
+                        class="preview-img"
                     />
                     <div v-else class="preview-img preview-empty"></div>
 
@@ -232,13 +212,13 @@
 
                 <div class="slot-foot-right">
                   <el-button
-                    v-if="(slotFiles[slot.key] || []).length"
-                    size="small"
-                    type="danger"
-                    link
-                    class="slot-remove"
-                    :disabled="submitting || uploadingCount > 0"
-                    @click="clearSlot(slot.key)"
+                      v-if="(slotFiles[slot.key] || []).length"
+                      size="small"
+                      type="danger"
+                      link
+                      class="slot-remove"
+                      :disabled="submitting || uploadingCount > 0"
+                      @click="clearSlot(slot.key)"
                   >
                     移除
                   </el-button>
@@ -261,8 +241,8 @@
 
           <div class="table-scroll">
             <el-table :data="tasks" border stripe v-loading="loadingTasks" height="calc(100vh - 140px)">
-              <el-table-column prop="id" label="任务ID" width="90" />
-              <el-table-column prop="order_id" label="订单ID" width="90" />
+              <el-table-column prop="id" label="任务ID" width="90"/>
+              <el-table-column prop="order_id" label="订单ID" width="90"/>
               <el-table-column label="状态" width="120">
                 <template #default="{ row }">
                   <el-tag :type="statusTagType(row.status)">{{ statusText(row.status) }}</el-tag>
@@ -272,8 +252,8 @@
               <el-table-column label="进度" width="180">
                 <template #default="{ row }">
                   <el-progress
-                    :percentage="row.progress || 0"
-                    :status="row.status === 'failed' ? 'exception' : row.status === 'finished' ? 'success' : 'active'"
+                      :percentage="row.progress || 0"
+                      :status="row.status === 'failed' ? 'exception' : row.status === 'finished' ? 'success' : 'active'"
                   />
                 </template>
               </el-table-column>
@@ -281,10 +261,10 @@
               <el-table-column label="错误信息">
                 <template #default="{ row }">
                   <span
-                    v-if="row?.error_message"
-                    class="task-error"
-                    @click="showTaskError(row)"
-                    :title="hasChinese(row.error_message) ? '' : '点击查看详情'"
+                      v-if="row?.error_message"
+                      class="task-error"
+                      @click="showTaskError(row)"
+                      :title="hasChinese(row.error_message) ? '' : '点击查看详情'"
                   >
                     {{ formatTaskError(row.error_message) }}
                   </span>
@@ -303,29 +283,24 @@
       </el-tab-pane>
 
       <el-tab-pane label="手动新建" name="manual">
-        <OrderCreateForm :embedded="true" />
+        <OrderCreateForm :embedded="true"/>
       </el-tab-pane>
     </el-tabs>
   </div>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
-import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
-import { Tickets } from "@element-plus/icons-vue";
+import {computed, onBeforeUnmount, onMounted, ref, watch} from "vue";
+import {useRoute, useRouter} from "vue-router";
+import {ElMessage, ElMessageBox, ElNotification} from "element-plus";
+import {Tickets} from "@element-plus/icons-vue";
 
-import http from "../../api/http";
-import {
-  createOrderDraft,
-  finalizeOrderUpload,
-  getChannelGroups,
-  getCustomerGroups,
-  uploadOrderImageProxy,
-} from "../../api/orders";
-import OrderCreateForm from "./OrderCreateForm.vue";
-import { uploadOrReuseByMd5 } from "../../utils/bosUpload";
-import { preprocessImageForUpload } from "../../utils/imagePreprocess";
+import http from "@/api/http";
+import {createOrderDraft, finalizeOrderUpload, uploadOrderImageProxy} from "@/api/orders";
+import OrderCreateForm from "@/views/orders/OrderCreateForm.vue";
+import RemotePagedSelect from "@/components/common/RemotePagedSelect.vue";
+import {uploadOrReuseByMd5} from "@/utils/bosUpload";
+import {preprocessImageForUpload} from "@/utils/imagePreprocess";
 
 const router = useRouter();
 const route = useRoute();
@@ -333,7 +308,7 @@ const route = useRoute();
 const activeTab = ref("import");
 
 function onTabChange() {
-  router.replace({ path: "/orders/import", query: { tab: activeTab.value } });
+  router.replace({path: "/orders/import", query: {tab: activeTab.value}});
 }
 
 onMounted(() => {
@@ -342,10 +317,10 @@ onMounted(() => {
 });
 
 watch(
-  () => route.query?.tab,
-  (tab) => {
-    if (tab === "manual" || tab === "import") activeTab.value = tab;
-  }
+    () => route.query?.tab,
+    (tab) => {
+      if (tab === "manual" || tab === "import") activeTab.value = tab;
+    }
 );
 
 function goBack() {
@@ -358,7 +333,7 @@ function goBack() {
     router.back();
     return;
   }
-  router.push({ path: "/orders/all" });
+  router.push({path: "/orders/all"});
 }
 
 /** 上传模式 */
@@ -419,29 +394,35 @@ function normalizeErrMsg(e, fallback = "操作失败，请稍后重试") {
 function isLikelyNetworkBlocked(err) {
   const m = _rawErrMsg(err).toLowerCase();
   return (
-    m.includes("failed to fetch") ||
-    m.includes("network error") ||
-    m.includes("err_") ||
-    m.includes("cors") ||
-    m.includes("代理") ||
-    m.includes("vpn") ||
-    m.includes("hint=浏览器请求可能走了本机代理") ||
-    m.includes("127.0.0.1:7890")
+      m.includes("failed to fetch") ||
+      m.includes("network error") ||
+      m.includes("err_") ||
+      m.includes("cors") ||
+      m.includes("代理") ||
+      m.includes("vpn") ||
+      m.includes("hint=浏览器请求可能走了本机代理") ||
+      m.includes("127.0.0.1:7890")
   );
 }
 
+let _stableSuggestShown = false;
+
 async function suggestSwitchToStableOnce() {
   try {
+    if (_stableSuggestShown) return false;
+
+    _stableSuggestShown = true;
+
     await ElMessageBox.confirm(
-      `上传可能被当前网络环境拦截（常见于 VPN/代理/公司网关）。\n\n建议切换到【稳定模式上传】继续，无需任何设置。`,
-      "上传失败（网络拦截）",
-      {
-        confirmButtonText: "切换为稳定模式",
-        cancelButtonText: "继续直传重试",
-        type: "warning",
-        center: true,
-        distinguishCancelAndClose: true,
-      }
+        `上传可能被当前网络环境拦截（常见于 VPN/代理/公司网关）。\n\n建议切换到【稳定模式上传】继续，无需任何设置。`,
+        "上传失败（网络拦截）",
+        {
+          confirmButtonText: "切换为稳定模式",
+          cancelButtonText: "继续直传重试",
+          type: "warning",
+          center: true,
+          distinguishCancelAndClose: true,
+        }
     );
     uploadMode.value = "stable";
     persistUploadMode();
@@ -451,7 +432,7 @@ async function suggestSwitchToStableOnce() {
   }
 }
 
-/** 客户/渠道筛选（严格按后端字段） */
+/** 客户/渠道筛选 */
 const filtersFormRef = ref(null);
 
 const filters = ref({
@@ -460,78 +441,27 @@ const filters = ref({
 });
 
 const filtersRules = {
-  customer_group_id: [{ required: true, message: "客户必选", trigger: "change" }],
-  channel_group_id: [{ required: true, message: "渠道必选", trigger: "change" }],
+  customer_group_id: [{required: true, message: "客户必选", trigger: "change"}],
+  channel_group_id: [{required: true, message: "渠道必选", trigger: "change"}],
 };
 
 const canSubmitImport = computed(() => Boolean(filters.value.customer_group_id) && Boolean(filters.value.channel_group_id));
 
-const customerGroups = ref([]);
-const channelGroups = ref([]);
-const groupsLoading = ref(false);
-
-function _trimStr(v) {
-  return String(v ?? "").trim();
-}
-
-const CODE_NAME_SEP = " - ";
-
-function _formatCodeNameLabel(code, name, fallback = "") {
-  const c = _trimStr(code);
-  const n = _trimStr(name);
-  if (c && n) return `${c}${CODE_NAME_SEP}${n}`;
-  if (c) return c;
-  if (n) return n;
-  return _trimStr(fallback) || "-";
-}
-
-// 严格以后端当前字段为准：group_code / group_name
-function customerGroupLabel(g) {
-  return _formatCodeNameLabel(g?.group_code, g?.group_name, g?.id);
-}
-
-function channelGroupLabel(g) {
-  return _formatCodeNameLabel(g?.group_code, g?.group_name, g?.id);
-}
-
-function normalizeItemsStrict(resp) {
-  const items = resp?.data?.items;
-  return Array.isArray(items) ? items : [];
-}
-
-async function loadGroups() {
-  groupsLoading.value = true;
-  try {
-    const [cg, ch] = await Promise.all([getCustomerGroups(), getChannelGroups()]);
-    customerGroups.value = normalizeItemsStrict(cg);
-    channelGroups.value = normalizeItemsStrict(ch);
-  } catch (e) {
-    console.error(e);
-    ElNotification.error({
-      title: "加载失败",
-      message: normalizeErrMsg(e, "加载客户/渠道群失败，请稍后重试"),
-      duration: 4000,
-    });
-  } finally {
-    groupsLoading.value = false;
-  }
-}
-
 /** 上传槽位 */
 const IMAGE_SLOTS = [
-  { key: "vehicle_cert", label: "合格证", multiple: false },
-  { key: "idcard_front", label: "身份证正面", multiple: false },
-  { key: "idcard_back", label: "身份证反面", multiple: false },
-  { key: "driving_license_main", label: "行驶证主页", multiple: false },
-  { key: "driving_license_sub", label: "行驶证副页", multiple: false },
-  { key: "related", label: "相关图片(多张)", multiple: true },
+  {key: "vehicle_cert", label: "合格证", multiple: false},
+  {key: "idcard_front", label: "身份证正面", multiple: false},
+  {key: "idcard_back", label: "身份证背面", multiple: false},
+  {key: "driving_license_main", label: "行驶证主页", multiple: false},
+  {key: "driving_license_sub", label: "行驶证副页", multiple: false},
+  {key: "related", label: "相关图片(多张)", multiple: true},
 ];
 
 const slotFiles = ref(
-  IMAGE_SLOTS.reduce((acc, s) => {
-    acc[s.key] = [];
-    return acc;
-  }, {})
+    IMAGE_SLOTS.reduce((acc, s) => {
+      acc[s.key] = [];
+      return acc;
+    }, {})
 );
 
 const submitting = ref(false);
@@ -649,11 +579,6 @@ function onFileChange(slotKey, file) {
   if (!file?.uid || !file?.raw) return;
 
   if (!isMultipleSlot(slotKey)) {
-    if (isSingleSlotLocked(slotKey)) {
-      onExceedWarn(slotKey);
-      return;
-    }
-
     clearSlot(slotKey);
     _ensureLocalPreview(file);
     slotFiles.value[slotKey] = [file];
@@ -691,29 +616,27 @@ async function startUpload(slotKey, file) {
   const raw0 = file?.raw;
   if (!raw0 || !file?.uid) return;
 
-  // 防重复触发（Element Plus on-change + 状态抖动很容易二次进来）
   const curState = uploadState.value[file.uid]?.status;
   if (curState === "uploading" || curState === "done") return;
   if (uploadedMap.value[file.uid]) return;
 
   uploadingCount.value += 1;
-  uploadState.value[file.uid] = { status: "uploading" };
+  uploadState.value[file.uid] = {status: "uploading"};
 
   try {
     let raw = raw0;
     try {
-      const pre = await preprocessImageForUpload({ file: raw0, slotKey });
+      const pre = await preprocessImageForUpload({file: raw0, slotKey});
       if (pre?.file) {
         raw = pre.file;
         _replaceFileRawAndPreview(file, raw);
-        if (pre?.note) console.info("[image-preprocess]", pre.note);
       }
     } catch {
       raw = raw0;
     }
 
     if (uploadMode.value === "stable") {
-      const resp = await uploadOrderImageProxy({ slot_key: slotKey, file: raw });
+      const resp = await uploadOrderImageProxy({slot_key: slotKey, file: raw});
       const meta = resp?.data;
 
       uploadedMap.value[file.uid] = {
@@ -724,9 +647,13 @@ async function startUpload(slotKey, file) {
         size: meta?.size || raw.size || 0,
         content_type: meta?.content_type || raw.type || "application/octet-stream",
         original_name: meta?.original_name || raw.name || "file",
-        preview_url: meta?.preview_url || "",
+        preview_url: meta?.preview_url || meta?.url || "",
+        url: meta?.url || meta?.preview_url || "",
       };
-      uploadState.value[file.uid] = { status: "done" };
+      uploadState.value[file.uid] = {status: "done"};
+      if (meta?.url || meta?.preview_url) {
+        file.url = meta?.url || meta?.preview_url;
+      }
       return;
     }
 
@@ -746,15 +673,19 @@ async function startUpload(slotKey, file) {
       size: meta?.size || raw.size || 0,
       content_type: meta?.content_type || raw.type || "application/octet-stream",
       original_name: meta?.original_name || raw.name || "file",
+      url: meta?.url || meta?.preview_url || "",
     };
-    uploadState.value[file.uid] = { status: "done" };
+    uploadState.value[file.uid] = {status: "done"};
+    if (meta?.url || meta?.preview_url) {
+      file.url = meta?.url || meta?.preview_url;
+    }
   } catch (e) {
     if (uploadMode.value === "smart" && isLikelyNetworkBlocked(e)) {
       const switched = await suggestSwitchToStableOnce();
       if (switched) {
         try {
           const rawRetry = file?.raw || raw0;
-          const resp = await uploadOrderImageProxy({ slot_key: slotKey, file: rawRetry });
+          const resp = await uploadOrderImageProxy({slot_key: slotKey, file: rawRetry});
           const meta = resp?.data;
 
           uploadedMap.value[file.uid] = {
@@ -765,9 +696,13 @@ async function startUpload(slotKey, file) {
             size: meta?.size || rawRetry.size || 0,
             content_type: meta?.content_type || rawRetry.type || "application/octet-stream",
             original_name: meta?.original_name || rawRetry.name || "file",
-            preview_url: meta?.preview_url || "",
+            preview_url: meta?.preview_url || meta?.url || "",
+            url: meta?.url || meta?.preview_url || "",
           };
-          uploadState.value[file.uid] = { status: "done" };
+          uploadState.value[file.uid] = {status: "done"};
+          if (meta?.url || meta?.preview_url) {
+            file.url = meta?.url || meta?.preview_url;
+          }
           return;
         } catch (e2) {
           uploadState.value[file.uid] = {
@@ -820,6 +755,7 @@ function collectFinalizeImages() {
         content_type: m.content_type ?? undefined,
         etag: m.etag ?? undefined,
         original_name: m.original_name ?? undefined,
+        url: m.url ?? m.preview_url ?? undefined,
       });
     }
   }
@@ -893,8 +829,6 @@ async function submitImport() {
       order_id: orderId,
       images,
       dynamic_data: dynamicData,
-      customer_group_id: filters.value.customer_group_id,
-      channel_group_id: filters.value.channel_group_id,
     });
 
     resetImages();
@@ -921,7 +855,7 @@ async function loadTasks() {
   if (loadingTasks.value) return;
   loadingTasks.value = true;
   try {
-    const resp = await http.get("/orders/ocr-tasks", { params: { limit: 50 } });
+    const resp = await http.get("/orders/ocr-tasks", {params: {limit: 50}});
     const data = resp?.data;
     tasks.value = Array.isArray(data?.items) ? data.items : [];
   } catch (e) {
@@ -952,17 +886,17 @@ function showTaskError(row) {
   const raw = String(row?.error_message || "").trim();
   if (!raw) return;
   if (hasChinese(raw)) return;
-  console.warn("[OCR任务原始错误信息]", { taskId: row?.id, orderId: row?.order_id, error_message: raw });
+  console.warn("[OCR任务原始错误信息]", {taskId: row?.id, orderId: row?.order_id, error_message: raw});
   ElMessage.info("已在控制台输出任务原始错误信息");
 }
 
 function goOrder(orderId) {
   if (!orderId) return;
-  router.push({ path: `/orders/${orderId}`, query: { from: route.fullPath } });
+  router.push({path: `/orders/${orderId}`, query: {from: route.fullPath}});
 }
 
 function goUnfinished() {
-  router.push({ path: "/orders/unfinished", query: { from: route.fullPath } });
+  router.push({path: "/orders/unfinished", query: {from: route.fullPath}});
 }
 
 function statusText(s) {
@@ -1011,7 +945,7 @@ watch(taskDrawer, async (open) => {
 });
 
 onMounted(async () => {
-  await Promise.all([loadGroups(), loadTasks()]);
+  await loadTasks();
 });
 
 onBeforeUnmount(() => {
@@ -1099,6 +1033,10 @@ onBeforeUnmount(() => {
 
 .filters-form :deep(.el-form-item) {
   margin-bottom: 10px;
+}
+
+.full-select {
+  width: 100%;
 }
 
 .upload-alert {

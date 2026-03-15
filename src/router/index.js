@@ -1,6 +1,6 @@
 // src/router/index.js
-import { createRouter, createWebHistory } from "vue-router";
-import { useSessionStore } from "../store/session";
+import {createRouter, createWebHistory} from "vue-router";
+import {useSessionStore} from "../store/session";
 
 // 全部懒加载
 const Login = () => import("../views/Login.vue");
@@ -28,80 +28,81 @@ const ChannelList = () => import("../views/channels/ChannelList.vue");
 const AiAssistantWorkbench = () => import("../views/ai-assistant/AiAssistantWorkbench.vue");
 
 /**
- * ✅ 冻结硬规则：
- * - 路由层不做基于 role 的访问控制、不做 route.meta.roles 之类硬编码权限
- * - 页面内所有按钮/入口/上传槽位/导出能力统一由后端 meta.capabilities 驱动
- *
- * 路由层仅保留：
+ * 路由层只做：
  * - 登录态守卫（未登录跳转 /login）
  * - 已登录访问 /login 时回到默认首页
+ *
+ * 说明：
+ * - 订单详情页与财务详情页共用同一个 OrderDetail 组件
+ * - 通过不同路由入口区分订单视图与财务视图：
+ *   - /orders/:id
+ *   - /finance/orders/:id
+ * - 详情页内部自行判断当前视图类型并调用对应 API
  */
 const DEFAULT_HOME = "/orders/all";
 
 const routes = [
-  { path: "/login", name: "login", component: Login },
+    {path: "/login", name: "login", component: Login},
 
-  {
-    path: "/",
-    name: "dashboard",
-    component: Dashboard,
-    redirect: () => DEFAULT_HOME,
-    children: [
-      { path: "orders", redirect: DEFAULT_HOME },
-      { path: "orders/import", name: "orders-import", component: OrderImport },
-      { path: "orders/all", name: "orders-all", component: OrderList },
-      { path: "orders/finished", name: "orders-finished", component: OrderFinished },
-      { path: "orders/unfinished", name: "orders-unfinished", component: OrderUnfinished },
-      { path: "orders/create", name: "orders-create", component: OrderCreate },
-      { path: "orders/:id", name: "orders-detail", component: OrderDetail },
+    {
+        path: "/",
+        name: "dashboard",
+        component: Dashboard,
+        redirect: () => DEFAULT_HOME,
+        children: [
+            {path: "orders", redirect: DEFAULT_HOME},
+            {path: "orders/import", name: "orders-import", component: OrderImport},
+            {path: "orders/all", name: "orders-all", component: OrderList},
+            {path: "orders/finished", name: "orders-finished", component: OrderFinished},
+            {path: "orders/unfinished", name: "orders-unfinished", component: OrderUnfinished},
+            {path: "orders/create", name: "orders-create", component: OrderCreate},
+            {path: "orders/:id", name: "orders-detail", component: OrderDetail},
 
-      // 报价助手入口（不在路由层做角色限制，页面内按 meta.capabilities 控制入口与能力）
-      { path: "ai-assistant", name: "ai-assistant", component: AiAssistantWorkbench },
+            {path: "ai-assistant", name: "ai-assistant", component: AiAssistantWorkbench},
 
-      { path: "users", name: "users", component: UserList },
+            {path: "users", name: "users", component: UserList},
 
-      // 财务页与财务详情：不在路由层做权限，页面按 meta.capabilities 控制只读/可写
-      { path: "finance", name: "finance", component: FinanceList },
-      {
-        path: "finance/orders/:id",
-        name: "finance-order-detail",
-        component: OrderDetail,
-      },
+            {path: "finance", name: "finance", component: FinanceList},
+            {
+                path: "finance/orders/:id",
+                name: "finance-order-detail",
+                component: OrderDetail,
+            },
 
-      { path: "customers", name: "customers", component: CustomerList },
-      { path: "channels", name: "channels", component: ChannelList },
-    ],
-  },
+            {path: "customers", name: "customers", component: CustomerList},
+            {path: "channels", name: "channels", component: ChannelList},
+        ],
+    },
 
-  { path: "/:pathMatch(.*)*", redirect: "/" },
+    {path: "/:pathMatch(.*)*", redirect: "/"},
 ];
 
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
-  routes,
+    history: createWebHistory(import.meta.env.BASE_URL),
+    routes,
 });
 
 // 登录守卫（仅校验登录态，不做 role/route.meta 权限推断）
 router.beforeEach((to) => {
-  let store;
-  try {
-    store = useSessionStore();
-  } catch (e) {
-    store = null;
-  }
+    let store;
+    try {
+        store = useSessionStore();
+    } catch (e) {
+        store = null;
+    }
 
-  const isLoginPage = to.path === "/login";
-  const loggedIn = Boolean(store?.isLoggedIn);
+    const isLoginPage = to.path === "/login";
+    const loggedIn = Boolean(store?.isLoggedIn);
 
-  if (!isLoginPage && !loggedIn) {
-    return { path: "/login", query: { redirect: to.fullPath }, replace: true };
-  }
+    if (!isLoginPage && !loggedIn) {
+        return {path: "/login", query: {redirect: to.fullPath}, replace: true};
+    }
 
-  if (isLoginPage && loggedIn) {
-    return { path: DEFAULT_HOME, replace: true };
-  }
+    if (isLoginPage && loggedIn) {
+        return {path: DEFAULT_HOME, replace: true};
+    }
 
-  return true;
+    return true;
 });
 
 export default router;

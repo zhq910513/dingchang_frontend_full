@@ -1,779 +1,660 @@
+<!-- src/views/orders/OrderCreateForm.vue -->
 <template>
-  <div class="order-create">
-    <div class="detail-header" v-if="!props.embedded">
-      <h2>手动新建订单</h2>
-      <div class="header-actions">
-        <el-button size="small" @click="router.back()">返回</el-button>
-      </div>
-    </div>
+  <div class="order-detail">
+    <div class="detail-header" v-if="!embedded">
+      <h2>手动创建订单</h2>
 
-    <!-- 上传模式（与导入页对齐） -->
-    <el-card shadow="never" class="section-card">
-      <div class="upload-mode-row">
+      <div class="header-actions">
         <div class="upload-mode">
           <span class="upload-mode-label">上传模式</span>
-          <el-select v-model="uploadMode" size="small" style="width: 160px" @change="persistUploadMode">
-            <el-option label="智能（推荐）" value="smart" />
-            <el-option label="直传（更快）" value="direct" />
-            <el-option label="稳定（兼容VPN）" value="stable" />
+          <el-select v-model="uploadMode" size="small" style="width: 150px" @change="persistUploadMode">
+            <el-option label="智能（推荐）" value="smart"/>
+            <el-option label="直传（更快）" value="direct"/>
+            <el-option label="稳定（兼容VPN）" value="stable"/>
           </el-select>
         </div>
 
-        <div class="upload-mode-tip">图片上传失败时，智能模式会提示切换到稳定模式</div>
+        <el-button size="small" @click="goBack">返回</el-button>
+
+        <el-button
+            size="small"
+            type="primary"
+            :loading="saving"
+            :disabled="uploadingCount > 0 || !canSubmitCreate"
+            @click="save"
+        >
+          保存
+        </el-button>
       </div>
-    </el-card>
+    </div>
 
-    <!-- ① 基础信息 -->
-    <el-card shadow="never" class="section-card meta-card">
-      <template #header>
-        <div class="section-header">
-          <div class="section-title">基础信息</div>
+    <div class="detail-header" v-else>
+      <h2>手动创建订单</h2>
+
+      <div class="header-actions">
+        <div class="upload-mode">
+          <span class="upload-mode-label">上传模式</span>
+          <el-select v-model="uploadMode" size="small" style="width: 150px" @change="persistUploadMode">
+            <el-option label="智能（推荐）" value="smart"/>
+            <el-option label="直传（更快）" value="direct"/>
+            <el-option label="稳定（兼容VPN）" value="stable"/>
+          </el-select>
         </div>
-      </template>
 
-      <el-form ref="metaFormRef" :model="meta" :rules="metaRules" label-width="80px">
-        <el-row :gutter="12">
-          <el-col :span="12">
-            <el-form-item label="客户群" prop="customer_group_id">
-              <el-select
-                v-model="meta.customer_group_id"
-                clearable
-                filterable
-                placeholder="必选"
-                class="fv fv-select"
-                style="width: 100%"
-                :loading="groupsLoading"
-                :disabled="groupsLoading"
-              >
-                <el-option
-                  v-for="g in customerGroups"
-                  :key="String(g.id)"
-                  :label="customerGroupLabel(g)"
-                  :value="g.id"
+        <el-button
+            size="small"
+            type="primary"
+            :loading="saving"
+            :disabled="uploadingCount > 0 || !canSubmitCreate"
+            @click="save"
+        >
+          保存
+        </el-button>
+      </div>
+    </div>
+
+    <div class="page-body">
+      <el-alert
+          v-if="uploadingCount > 0"
+          class="upload-alert"
+          type="warning"
+          :closable="false"
+          show-icon
+          title="正在上传"
+          :description="`正在上传 ${uploadingCount} 个文件…（全部上传完成后才能保存）`"
+      />
+
+      <el-card shadow="never" class="section-card">
+        <template #header>
+          <div class="section-header">
+            <div class="section-title">渠道、客户</div>
+          </div>
+        </template>
+
+        <div class="meta-narrow">
+          <div class="kv-grid kv-grid-2">
+            <div class="kv-item">
+              <div class="kv-label">渠道</div>
+              <div class="kv-value">
+                <RemotePagedSelect
+                    v-model="editMeta.channel_group_id"
+                    type="channels"
+                    placeholder="请选择渠道（必选）"
+                    select-class="fv fv-select"
                 />
-              </el-select>
-            </el-form-item>
-          </el-col>
-
-          <el-col :span="12">
-            <el-form-item label="渠道群" prop="channel_group_id">
-              <el-select
-                v-model="meta.channel_group_id"
-                clearable
-                filterable
-                placeholder="必选"
-                class="fv fv-select"
-                style="width: 100%"
-                :loading="groupsLoading"
-                :disabled="groupsLoading"
-              >
-                <el-option
-                  v-for="g in channelGroups"
-                  :key="String(g.id)"
-                  :label="channelGroupLabel(g)"
-                  :value="g.id"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-      </el-form>
-    </el-card>
-
-    <!-- ② 车辆合格证 -->
-    <el-card shadow="never" class="section-card">
-      <template #header>
-        <div class="section-header">
-          <div class="section-title">车辆合格证</div>
-
-          <el-button class="icon-btn" circle size="small" @click="certExpanded = !certExpanded">
-            <el-icon>
-              <CaretTop v-if="certExpanded" />
-              <CaretBottom v-else />
-            </el-icon>
-          </el-button>
-        </div>
-      </template>
-
-      <div class="two-col">
-        <div class="left">
-          <div v-if="!certExpanded" class="kv-grid kv-grid-2">
-            <div class="kv-item">
-              <div class="kv-label">车辆型号</div>
-              <div class="kv-value">
-                <el-input v-model="formData.vehicle_model" placeholder="车辆型号" clearable class="fv fv-input" />
               </div>
             </div>
 
             <div class="kv-item">
-              <div class="kv-label">车辆识别代码/车架号</div>
+              <div class="kv-label">客户</div>
               <div class="kv-value">
-                <el-input v-model="formData.vin" placeholder="车架号" clearable class="fv fv-input" />
-              </div>
-            </div>
-
-            <div class="kv-item">
-              <div class="kv-label">发动机号</div>
-              <div class="kv-value">
-                <el-input v-model="formData.engine_no" placeholder="发动机号" clearable class="fv fv-input" />
-              </div>
-            </div>
-
-            <div class="kv-item">
-              <div class="kv-label">额定载客(人)</div>
-              <div class="kv-value">
-                <el-input
-                  v-model="formData.approved_passenger_count"
-                  placeholder="额定载客(人)"
-                  clearable
-                  class="fv fv-input"
+                <RemotePagedSelect
+                    v-model="editMeta.customer_group_id"
+                    type="customers"
+                    placeholder="请选择客户（必选）"
+                    select-class="fv fv-select"
                 />
               </div>
             </div>
           </div>
+        </div>
+      </el-card>
 
-          <div v-else>
-            <VehicleCertTable :data="formData" :readonly="false" />
+      <el-card shadow="never" class="section-card">
+        <template #header>
+          <div class="section-header">
+            <div class="section-title">订单信息</div>
+          </div>
+        </template>
+
+        <div class="info-block">
+          <div class="kv-grid kv-grid-2 info-grid">
+            <div class="kv-item">
+              <div class="kv-label">保险到期日</div>
+              <div class="kv-value">
+                <InfoValue v-model="editOrderInfo.insurance_expire_date" type="date" :editable="true"/>
+              </div>
+            </div>
+
+            <div class="kv-item">
+              <div class="kv-label">车主电话</div>
+              <div class="kv-value">
+                <InfoValue v-model="editOrderInfo.owner_phone" type="text" :editable="true"/>
+              </div>
+            </div>
+          </div>
+
+          <div class="kv-grid kv-grid-4 info-grid info-grid-compact">
+            <div class="kv-item">
+              <div class="kv-label">商业金额</div>
+              <div class="kv-value">
+                <InfoValue v-model="editOrderInfo.commercial_amount" type="money" :editable="true" :min="0"/>
+              </div>
+            </div>
+
+            <div class="kv-item">
+              <div class="kv-label">交强金额</div>
+              <div class="kv-value">
+                <InfoValue v-model="editOrderInfo.compulsory_amount" type="money" :editable="true" :min="0"/>
+              </div>
+            </div>
+
+            <div class="kv-item">
+              <div class="kv-label">车船税金额</div>
+              <div class="kv-value">
+                <InfoValue v-model="editOrderInfo.vehicle_tax_amount" type="money" :editable="true" :min="0"/>
+              </div>
+            </div>
+
+            <div class="kv-item">
+              <div class="kv-label">非车金额</div>
+              <div class="kv-value">
+                <InfoValue v-model="editOrderInfo.non_vehicle_amount" type="money" :editable="true" :min="0"/>
+              </div>
+            </div>
+          </div>
+
+          <div class="kv-grid kv-grid-2 info-grid">
+            <div class="kv-item">
+              <div class="kv-label">保费金额</div>
+              <div class="kv-value">
+                <InfoValue v-model="editOrderInfo.premium_total" type="money" :editable="false"/>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="right">
-          <div class="upload-title">
-            <span>合格证图片</span>
-            <span class="slot-sub" v-if="slotUploadedCount('vehicle_cert') > 0">
-              （已就绪 {{ slotUploadedCount("vehicle_cert") }} 张 <span class="ready-dot" aria-hidden="true"></span>）
-            </span>
+        <div class="split-title">渠道</div>
+        <div class="kv-grid kv-grid-5 info-grid info-grid-compact">
+          <div class="kv-item">
+            <div class="kv-label">商业点位%</div>
+            <div class="kv-value">
+              <InfoValue v-model="editOrderInfo.channel_commercial_point" type="point" :editable="true"/>
+            </div>
           </div>
+          <div class="kv-item">
+            <div class="kv-label">商业补点%</div>
+            <div class="kv-value">
+              <InfoValue v-model="editOrderInfo.channel_commercial_supplement_point" type="point" :editable="true"/>
+            </div>
+          </div>
+          <div class="kv-item">
+            <div class="kv-label">交强点位%</div>
+            <div class="kv-value">
+              <InfoValue v-model="editOrderInfo.channel_compulsory_point" type="point" :editable="true"/>
+            </div>
+          </div>
+          <div class="kv-item">
+            <div class="kv-label">车船税点位%</div>
+            <div class="kv-value">
+              <InfoValue v-model="editOrderInfo.channel_vehicle_tax_point" type="point" :editable="true"/>
+            </div>
+          </div>
+          <div class="kv-item">
+            <div class="kv-label">非车点位%</div>
+            <div class="kv-value">
+              <InfoValue v-model="editOrderInfo.channel_non_vehicle_point" type="point" :editable="true"/>
+            </div>
+          </div>
+        </div>
 
-          <el-upload
-            drag
-            :auto-upload="false"
-            :multiple="false"
-            :limit="1"
-            :show-file-list="false"
-            :file-list="slotFiles.vehicle_cert"
-            :disabled="isSingleSlotLocked('vehicle_cert') || submitting || uploadingCount > 0"
-            :on-change="(file) => onFileChange('vehicle_cert', file)"
-            :on-exceed="() => onExceedWarn('vehicle_cert')"
-            accept="image/*"
-            class="upload-box upload-one"
-          >
-            <template #default>
-              <div v-if="firstFile('vehicle_cert')" class="one-wrap">
-                <el-image
-                  :src="firstFile('vehicle_cert')?.url"
-                  :preview-src-list="previewUrls('vehicle_cert')"
-                  fit="contain"
-                  class="one-img"
-                />
-                <div class="one-mask">
-                  <div class="one-mask-text">已上传，删除后可重新上传</div>
+        <div class="kv-grid kv-grid-2 info-grid">
+          <div class="kv-item">
+            <div class="kv-label">出单奖励</div>
+            <div class="kv-value">
+              <InfoValue v-model="editOrderInfo.channel_reward" type="money" :editable="true"/>
+            </div>
+          </div>
+          <div class="kv-item">
+            <div class="kv-label">渠道合计</div>
+            <div class="kv-value">
+              <InfoValue v-model="editOrderInfo.channel_total" type="money" :editable="false"/>
+            </div>
+          </div>
+        </div>
+
+        <div class="split-title">客户</div>
+        <div class="kv-grid kv-grid-5 info-grid info-grid-compact">
+          <div class="kv-item">
+            <div class="kv-label">商业点位%</div>
+            <div class="kv-value">
+              <InfoValue v-model="editOrderInfo.customer_commercial_point" type="point" :editable="true"/>
+            </div>
+          </div>
+          <div class="kv-item">
+            <div class="kv-label">商业补点%</div>
+            <div class="kv-value">
+              <InfoValue v-model="editOrderInfo.customer_commercial_supplement_point" type="point" :editable="true"/>
+            </div>
+          </div>
+          <div class="kv-item">
+            <div class="kv-label">交强点位%</div>
+            <div class="kv-value">
+              <InfoValue v-model="editOrderInfo.customer_compulsory_point" type="point" :editable="true"/>
+            </div>
+          </div>
+          <div class="kv-item">
+            <div class="kv-label">车船税点位%</div>
+            <div class="kv-value">
+              <InfoValue v-model="editOrderInfo.customer_vehicle_tax_point" type="point" :editable="true"/>
+            </div>
+          </div>
+          <div class="kv-item">
+            <div class="kv-label">非车点位%</div>
+            <div class="kv-value">
+              <InfoValue v-model="editOrderInfo.customer_non_vehicle_point" type="point" :editable="true"/>
+            </div>
+          </div>
+        </div>
+
+        <div class="kv-grid kv-grid-2 info-grid">
+          <div class="kv-item">
+            <div class="kv-label">出单奖励</div>
+            <div class="kv-value">
+              <InfoValue v-model="editOrderInfo.customer_reward" type="money" :editable="true"/>
+            </div>
+          </div>
+          <div class="kv-item">
+            <div class="kv-label">客户合计</div>
+            <div class="kv-value">
+              <InfoValue v-model="editOrderInfo.customer_total" type="money" :editable="false"/>
+            </div>
+          </div>
+        </div>
+
+        <div class="kv-grid kv-grid-2 info-grid">
+          <div class="kv-item">
+            <div class="kv-label">利润</div>
+            <div class="kv-value">
+              <InfoValue v-model="editOrderInfo.profit" type="money" :editable="false"/>
+            </div>
+          </div>
+        </div>
+      </el-card>
+
+      <el-card shadow="never" class="section-card">
+        <template #header>
+          <div class="section-header">
+            <div class="section-title">车辆合格证</div>
+            <el-button class="icon-btn" circle size="small" @click="certExpanded = !certExpanded">
+              <el-icon>
+                <CaretTop v-if="certExpanded"/>
+                <CaretBottom v-else/>
+              </el-icon>
+            </el-button>
+          </div>
+        </template>
+
+        <div class="two-col">
+          <div class="left">
+            <div v-if="!certExpanded" class="kv-grid kv-grid-2">
+              <div class="kv-item">
+                <div class="kv-label">车辆型号</div>
+                <div class="kv-value">
+                  <FieldValue v-model="editData.vehicle_model" :field="meta('vehicle_model')" :editable="true"/>
                 </div>
               </div>
 
-              <div v-else class="upload-empty">
-                <div class="empty-center">
-                  <div class="empty-title">拖拽图片到此处</div>
-                  <div class="empty-sub">或点击选择文件</div>
+              <div class="kv-item">
+                <div class="kv-label">车辆识别代号/车架号</div>
+                <div class="kv-value">
+                  <FieldValue v-model="editData.vin" :field="meta('vin')" :editable="true"/>
                 </div>
               </div>
-            </template>
-          </el-upload>
 
-          <div v-if="slotUploadingCount('vehicle_cert') > 0" class="uploading-tip">
-            正在上传：{{ slotUploadingCount("vehicle_cert") }} 个文件…（上传完成后才能提交）
+              <div class="kv-item">
+                <div class="kv-label">发动机号</div>
+                <div class="kv-value">
+                  <FieldValue v-model="editData.engine_no" :field="meta('engine_no')" :editable="true"/>
+                </div>
+              </div>
+
+              <div class="kv-item">
+                <div class="kv-label">额定载客(人)</div>
+                <div class="kv-value">
+                  <FieldValue
+                      v-model="editData.approved_passenger_count"
+                      :field="meta('approved_passenger_count')"
+                      :editable="true"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div v-else>
+              <VehicleCertTable :data="editData" :readonly="false"/>
+            </div>
           </div>
 
-          <div class="slot-foot">
-            <div class="slot-foot-left">
-              <template v-if="slotUploadedCount('vehicle_cert') > 0">
-                <span>已就绪：{{ slotUploadedCount("vehicle_cert") }} 张</span>
-                <span class="ready-dot" aria-hidden="true"></span>
-              </template>
-              <span v-else class="muted">未上传</span>
+          <div class="right">
+            <SlotUploadCard slot-key="vehicle_cert" label="合格证" :multiple="false"/>
+          </div>
+        </div>
+      </el-card>
+
+      <el-card shadow="never" class="section-card">
+        <template #header>
+          <div class="section-header">
+            <div class="section-title">身份证正面/身份证背面</div>
+            <el-button class="icon-btn" circle size="small" @click="idExpanded = !idExpanded">
+              <el-icon>
+                <CaretTop v-if="idExpanded"/>
+                <CaretBottom v-else/>
+              </el-icon>
+            </el-button>
+          </div>
+        </template>
+
+        <div class="stack">
+          <div class="sub-block">
+            <div class="sub-title">身份证正面</div>
+            <div class="two-col">
+              <div class="left">
+                <div v-if="!idExpanded" class="kv-grid kv-grid-2">
+                  <div class="kv-item">
+                    <div class="kv-label">姓名</div>
+                    <div class="kv-value">
+                      <FieldValue v-model="editData.id_name" :field="meta('id_name')" :editable="true"/>
+                    </div>
+                  </div>
+
+                  <div class="kv-item">
+                    <div class="kv-label">公民身份号码</div>
+                    <div class="kv-value">
+                      <FieldValue v-model="editData.id_number" :field="meta('id_number')" :editable="true"/>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-else class="kv-grid kv-grid-2">
+                  <template v-for="f in idFrontFields" :key="f.key">
+                    <div class="kv-item">
+                      <div class="kv-label">{{ labelOf(f) }}</div>
+                      <div class="kv-value">
+                        <FieldValue v-model="editData[f.key]" :field="f" :editable="true"/>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <div class="right">
+                <SlotUploadCard slot-key="idcard_front" label="身份证正面" :multiple="false"/>
+              </div>
             </div>
-            <div class="slot-foot-right">
-              <el-button
-                v-if="(slotFiles.vehicle_cert || []).length"
-                size="small"
-                type="danger"
-                link
-                class="slot-remove"
-                :disabled="submitting || uploadingCount > 0"
-                @click="clearSlot('vehicle_cert')"
-              >
-                移除
+          </div>
+
+          <div class="sub-block">
+            <div class="sub-title">身份证背面</div>
+            <div class="two-col">
+              <div class="left">
+                <div v-if="idExpanded" class="kv-grid kv-grid-2">
+                  <template v-for="f in idBackFields" :key="f.key">
+                    <div class="kv-item">
+                      <div class="kv-label">{{ labelOf(f) }}</div>
+                      <div class="kv-value">
+                        <FieldValue v-model="editData[f.key]" :field="f" :editable="true"/>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <div class="right">
+                <SlotUploadCard slot-key="idcard_back" label="身份证背面" :multiple="false"/>
+              </div>
+            </div>
+          </div>
+        </div>
+      </el-card>
+
+      <el-card shadow="never" class="section-card">
+        <template #header>
+          <div class="section-header">
+            <div class="section-title">行驶证/行驶证副件</div>
+            <el-button class="icon-btn" circle size="small" @click="dlExpanded = !dlExpanded">
+              <el-icon>
+                <CaretTop v-if="dlExpanded"/>
+                <CaretBottom v-else/>
+              </el-icon>
+            </el-button>
+          </div>
+        </template>
+
+        <div class="stack">
+          <div class="sub-block">
+            <div class="sub-title">行驶证</div>
+            <div class="two-col">
+              <div class="left">
+                <div v-if="!dlExpanded" class="kv-grid kv-grid-2">
+                  <div v-if="dlKey('plate')" class="kv-item">
+                    <div class="kv-label">号牌号码</div>
+                    <div class="kv-value">
+                      <FieldValue v-model="editData[dlKey('plate')]" :field="meta(dlKey('plate'))" :editable="true"/>
+                    </div>
+                  </div>
+
+                  <div v-if="dlKey('owner')" class="kv-item">
+                    <div class="kv-label">所有人</div>
+                    <div class="kv-value">
+                      <FieldValue v-model="editData[dlKey('owner')]" :field="meta(dlKey('owner'))" :editable="true"/>
+                    </div>
+                  </div>
+
+                  <div v-if="dlKey('use_nature')" class="kv-item">
+                    <div class="kv-label">使用性质</div>
+                    <div class="kv-value">
+                      <FieldValue
+                          v-model="editData[dlKey('use_nature')]"
+                          :field="meta(dlKey('use_nature'))"
+                          :editable="true"
+                      />
+                    </div>
+                  </div>
+
+                  <div v-if="dlKey('brand_model')" class="kv-item">
+                    <div class="kv-label">品牌型号</div>
+                    <div class="kv-value">
+                      <FieldValue
+                          v-model="editData[dlKey('brand_model')]"
+                          :field="meta(dlKey('brand_model'))"
+                          :editable="true"
+                      />
+                    </div>
+                  </div>
+
+                  <div v-if="dlKey('vin')" class="kv-item">
+                    <div class="kv-label">车辆识别代码</div>
+                    <div class="kv-value">
+                      <FieldValue v-model="editData[dlKey('vin')]" :field="meta(dlKey('vin'))" :editable="true"/>
+                    </div>
+                  </div>
+
+                  <div v-if="dlKey('engine')" class="kv-item">
+                    <div class="kv-label">发动机号码</div>
+                    <div class="kv-value">
+                      <FieldValue v-model="editData[dlKey('engine')]" :field="meta(dlKey('engine'))" :editable="true"/>
+                    </div>
+                  </div>
+
+                  <div v-if="dlKey('register_date')" class="kv-item">
+                    <div class="kv-label">注册日期</div>
+                    <div class="kv-value">
+                      <FieldValue
+                          v-model="editData[dlKey('register_date')]"
+                          :field="meta(dlKey('register_date'))"
+                          :editable="true"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div v-else class="kv-grid kv-grid-2">
+                  <template v-for="f in dlMainFields" :key="f.key">
+                    <div class="kv-item">
+                      <div class="kv-label">{{ labelOf(f) }}</div>
+                      <div class="kv-value">
+                        <FieldValue v-model="editData[f.key]" :field="f" :editable="true"/>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <div class="right">
+                <SlotUploadCard slot-key="driving_license_main" label="行驶证主页" :multiple="false"/>
+              </div>
+            </div>
+          </div>
+
+          <div class="sub-block">
+            <div class="sub-title">行驶证副件</div>
+            <div class="two-col">
+              <div class="left">
+                <div v-if="!dlExpanded" class="kv-grid kv-grid-2">
+                  <div v-if="dlAttachPassengerKey" class="kv-item">
+                    <div class="kv-label">核定载人数</div>
+                    <div class="kv-value">
+                      <FieldValue
+                          v-model="editData[dlAttachPassengerKey]"
+                          :field="meta(dlAttachPassengerKey)"
+                          :editable="true"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div v-else class="kv-grid kv-grid-2">
+                  <template v-for="f in dlAttachFields" :key="f.key">
+                    <div class="kv-item">
+                      <div class="kv-label">{{ labelOf(f) }}</div>
+                      <div class="kv-value">
+                        <FieldValue v-model="editData[f.key]" :field="f" :editable="true"/>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <div class="right">
+                <SlotUploadCard slot-key="driving_license_sub" label="行驶证副页" :multiple="false"/>
+              </div>
+            </div>
+          </div>
+        </div>
+      </el-card>
+
+      <el-card shadow="never" class="section-card">
+        <template #header>
+          <div class="section-header">
+            <div class="section-title">相关图片(多张)</div>
+
+            <div class="section-actions">
+              <el-button size="small" @click="clearSlot('related')" :disabled="saving || uploadingCount > 0">
+                清空图片
               </el-button>
             </div>
           </div>
-        </div>
-      </div>
-    </el-card>
+        </template>
 
-    <!-- ③ 身份证 -->
-    <el-card shadow="never" class="section-card">
-      <template #header>
-        <div class="section-header">
-          <div class="section-title">身份证正面/身份证背面</div>
+        <div class="slot-card">
+          <div class="slot-head">
+            <div class="slot-name">相关图片(多张)</div>
+            <div class="slot-tip">
+              <el-tag size="small" type="info" effect="plain">可多张</el-tag>
+            </div>
+          </div>
 
-          <el-button class="icon-btn" circle size="small" @click="idExpanded = !idExpanded">
-            <el-icon>
-              <CaretTop v-if="idExpanded" />
-              <CaretBottom v-else />
-            </el-icon>
-          </el-button>
-        </div>
-      </template>
-
-      <div class="stack">
-        <!-- 正面 -->
-        <div class="sub-block">
-          <div class="sub-title">身份证正面</div>
-
-          <div class="two-col">
-            <div class="left">
-              <div v-if="!idExpanded" class="kv-grid kv-grid-2">
-                <div class="kv-item">
-                  <div class="kv-label">姓名</div>
-                  <div class="kv-value">
-                    <el-input v-model="formData.id_name" placeholder="姓名" clearable class="fv fv-input" />
-                  </div>
-                </div>
-                <div class="kv-item">
-                  <div class="kv-label">公民身份号码</div>
-                  <div class="kv-value">
-                    <el-input v-model="formData.id_number" placeholder="身份证号" clearable class="fv fv-input" />
-                  </div>
-                </div>
-              </div>
-
-              <div v-else class="kv-grid kv-grid-2">
-                <div class="kv-item">
-                  <div class="kv-label">姓名</div>
-                  <div class="kv-value">
-                    <el-input v-model="formData.id_name" placeholder="姓名" clearable class="fv fv-input" />
-                  </div>
-                </div>
-                <div class="kv-item">
-                  <div class="kv-label">公民身份号码</div>
-                  <div class="kv-value">
-                    <el-input v-model="formData.id_number" placeholder="身份证号" clearable class="fv fv-input" />
-                  </div>
-                </div>
-                <div class="kv-item">
-                  <div class="kv-label">性别</div>
-                  <div class="kv-value">
-                    <el-input v-model="formData.id_gender" placeholder="性别" clearable class="fv fv-input" />
-                  </div>
-                </div>
-                <div class="kv-item">
-                  <div class="kv-label">民族</div>
-                  <div class="kv-value">
-                    <el-input v-model="formData.id_ethnicity" placeholder="民族" clearable class="fv fv-input" />
-                  </div>
-                </div>
-                <div class="kv-item">
-                  <div class="kv-label">出生日期</div>
-                  <div class="kv-value">
-                    <el-input v-model="formData.id_birth_date" placeholder="YYYY-MM-DD" clearable class="fv fv-input" />
-                  </div>
-                </div>
-                <div class="kv-item">
-                  <div class="kv-label">住址</div>
-                  <div class="kv-value">
-                    <el-input v-model="formData.id_address" placeholder="住址" clearable class="fv fv-input" />
-                  </div>
-                </div>
+          <el-upload
+              drag
+              :auto-upload="false"
+              :multiple="true"
+              :limit="20"
+              :file-list="slotFiles.related"
+              :on-change="(file) => onFileChange('related', file)"
+              :on-remove="(file) => onFileRemove('related', file)"
+              accept="image/*"
+              class="upload-box upload-multi"
+          >
+            <div class="upload-empty">
+              <div class="empty-center">
+                <div class="empty-title">拖拽图片到此处</div>
+                <div class="empty-sub">或点击选择文件（可多张）</div>
               </div>
             </div>
+          </el-upload>
 
-            <div class="right">
-              <div class="upload-title">
-                <span>身份证正面图片</span>
-                <span class="slot-sub" v-if="slotUploadedCount('idcard_front') > 0">
-                  （已就绪 {{ slotUploadedCount("idcard_front") }} 张 <span class="ready-dot" aria-hidden="true"></span>）
-                </span>
-              </div>
+          <div v-if="(slotFiles.related || []).length" class="preview-wall">
+            <div v-for="f in slotFiles.related" :key="f.uid" class="preview-item">
+              <el-image
+                  v-if="f.url"
+                  :src="f.url"
+                  :preview-src-list="previewUrls('related')"
+                  fit="cover"
+                  class="preview-img"
+              />
+              <div v-else class="preview-img preview-empty"></div>
 
-              <el-upload
-                drag
-                :auto-upload="false"
-                :multiple="false"
-                :limit="1"
-                :show-file-list="false"
-                :file-list="slotFiles.idcard_front"
-                :disabled="isSingleSlotLocked('idcard_front') || submitting || uploadingCount > 0"
-                :on-change="(file) => onFileChange('idcard_front', file)"
-                :on-exceed="() => onExceedWarn('idcard_front')"
-                accept="image/*"
-                class="upload-box upload-one"
-              >
-                <template #default>
-                  <div v-if="firstFile('idcard_front')" class="one-wrap">
-                    <el-image
-                      :src="firstFile('idcard_front')?.url"
-                      :preview-src-list="previewUrls('idcard_front')"
-                      fit="contain"
-                      class="one-img"
-                    />
-                    <div class="one-mask">
-                      <div class="one-mask-text">已上传，删除后可重新上传</div>
-                    </div>
-                  </div>
+              <div class="preview-meta">
+                <div class="preview-name" :title="f.name">{{ f.name }}</div>
 
-                  <div v-else class="upload-empty">
-                    <div class="empty-center">
-                      <div class="empty-title">拖拽图片到此处</div>
-                      <div class="empty-sub">或点击选择文件</div>
-                    </div>
-                  </div>
-                </template>
-              </el-upload>
-
-              <div v-if="slotUploadingCount('idcard_front') > 0" class="uploading-tip">
-                正在上传：{{ slotUploadingCount("idcard_front") }} 个文件…（上传完成后才能提交）
-              </div>
-
-              <div class="slot-foot">
-                <div class="slot-foot-left">
-                  <template v-if="slotUploadedCount('idcard_front') > 0">
-                    <span>已就绪：{{ slotUploadedCount("idcard_front") }} 张</span>
-                    <span class="ready-dot" aria-hidden="true"></span>
-                  </template>
-                  <span v-else class="muted">未上传</span>
-                </div>
-                <div class="slot-foot-right">
-                  <el-button
-                    v-if="(slotFiles.idcard_front || []).length"
-                    size="small"
-                    type="danger"
-                    link
-                    class="slot-remove"
-                    :disabled="submitting || uploadingCount > 0"
-                    @click="clearSlot('idcard_front')"
-                  >
-                    移除
-                  </el-button>
+                <div class="preview-status">
+                  <el-tag v-if="uploadState[f.uid]?.status === 'uploading'" size="small" type="warning">上传中</el-tag>
+                  <el-tag v-else-if="uploadState[f.uid]?.status === 'done'" size="small" type="success">已就绪</el-tag>
+                  <el-tag v-else-if="uploadState[f.uid]?.status === 'error'" size="small" type="danger">失败</el-tag>
+                  <el-tag v-else size="small" type="info" effect="plain">待上传</el-tag>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- 背面 -->
-        <div class="sub-block">
-          <div class="sub-title">身份证背面</div>
-
-          <div class="two-col">
-            <div class="left">
-              <div v-if="idExpanded" class="kv-grid kv-grid-2">
-                <div class="kv-item">
-                  <div class="kv-label">签发机关</div>
-                  <div class="kv-value">
-                    <el-input v-model="formData.id_issuer" placeholder="签发机关" clearable class="fv fv-input" />
-                  </div>
-                </div>
-
-                <div class="kv-item">
-                  <div class="kv-label">有效期限</div>
-                  <div class="kv-value">
-                    <el-input
-                      v-model="formData.id_validity"
-                      placeholder="例如：2020-01-01~2040-01-01"
-                      clearable
-                      class="fv fv-input"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="right">
-              <div class="upload-title">
-                <span>身份证背面图片</span>
-                <span class="slot-sub" v-if="slotUploadedCount('idcard_back') > 0">
-                  （已就绪 {{ slotUploadedCount("idcard_back") }} 张 <span class="ready-dot" aria-hidden="true"></span>）
-                </span>
-              </div>
-
-              <el-upload
-                drag
-                :auto-upload="false"
-                :multiple="false"
-                :limit="1"
-                :show-file-list="false"
-                :file-list="slotFiles.idcard_back"
-                :disabled="isSingleSlotLocked('idcard_back') || submitting || uploadingCount > 0"
-                :on-change="(file) => onFileChange('idcard_back', file)"
-                :on-exceed="() => onExceedWarn('idcard_back')"
-                accept="image/*"
-                class="upload-box upload-one"
-              >
-                <template #default>
-                  <div v-if="firstFile('idcard_back')" class="one-wrap">
-                    <el-image
-                      :src="firstFile('idcard_back')?.url"
-                      :preview-src-list="previewUrls('idcard_back')"
-                      fit="contain"
-                      class="one-img"
-                    />
-                    <div class="one-mask">
-                      <div class="one-mask-text">已上传，删除后可重新上传</div>
-                    </div>
-                  </div>
-
-                  <div v-else class="upload-empty">
-                    <div class="empty-center">
-                      <div class="empty-title">拖拽图片到此处</div>
-                      <div class="empty-sub">或点击选择文件</div>
-                    </div>
-                  </div>
-                </template>
-              </el-upload>
-
-              <div v-if="slotUploadingCount('idcard_back') > 0" class="uploading-tip">
-                正在上传：{{ slotUploadingCount("idcard_back") }} 个文件…（上传完成后才能提交）
-              </div>
-
-              <div class="slot-foot">
-                <div class="slot-foot-left">
-                  <template v-if="slotUploadedCount('idcard_back') > 0">
-                    <span>已就绪：{{ slotUploadedCount("idcard_back") }} 张</span>
-                    <span class="ready-dot" aria-hidden="true"></span>
-                  </template>
-                  <span v-else class="muted">未上传</span>
-                </div>
-                <div class="slot-foot-right">
-                  <el-button
-                    v-if="(slotFiles.idcard_back || []).length"
-                    size="small"
-                    type="danger"
-                    link
-                    class="slot-remove"
-                    :disabled="submitting || uploadingCount > 0"
-                    @click="clearSlot('idcard_back')"
-                  >
-                    移除
-                  </el-button>
-                </div>
-              </div>
-            </div>
+          <div class="slot-foot">
+            <span v-if="slotUploadedCount('related') > 0">已就绪：{{ slotUploadedCount('related') }} 张</span>
+            <span v-else class="muted">未上传</span>
           </div>
         </div>
-      </div>
-    </el-card>
-
-    <!-- ④ 行驶证 -->
-    <el-card shadow="never" class="section-card">
-      <template #header>
-        <div class="section-header">
-          <div class="section-title">行驶证/行驶证副件</div>
-
-          <el-button class="icon-btn" circle size="small" @click="dlExpanded = !dlExpanded">
-            <el-icon>
-              <CaretTop v-if="dlExpanded" />
-              <CaretBottom v-else />
-            </el-icon>
-          </el-button>
-        </div>
-      </template>
-
-      <div class="stack">
-        <!-- 主页 -->
-        <div class="sub-block">
-          <div class="sub-title">行驶证主页</div>
-
-          <div class="two-col">
-            <div class="left">
-              <div v-if="!dlExpanded" class="kv-grid kv-grid-2">
-                <div class="kv-item">
-                  <div class="kv-label">号牌号码</div>
-                  <div class="kv-value">
-                    <el-input v-model="formData.dl_plate_no" placeholder="车牌号" clearable class="fv fv-input" />
-                  </div>
-                </div>
-              </div>
-
-              <div v-else class="kv-grid kv-grid-2">
-                <div class="kv-item">
-                  <div class="kv-label">号牌号码</div>
-                  <div class="kv-value">
-                    <el-input v-model="formData.dl_plate_no" placeholder="车牌号" clearable class="fv fv-input" />
-                  </div>
-                </div>
-                <div class="kv-item">
-                  <div class="kv-label">车辆类型</div>
-                  <div class="kv-value">
-                    <el-input v-model="formData.dl_vehicle_type" placeholder="车辆类型" clearable class="fv fv-input" />
-                  </div>
-                </div>
-                <div class="kv-item">
-                  <div class="kv-label">所有人</div>
-                  <div class="kv-value">
-                    <el-input v-model="formData.dl_owner" placeholder="所有人" clearable class="fv fv-input" />
-                  </div>
-                </div>
-                <div class="kv-item">
-                  <div class="kv-label">使用性质</div>
-                  <div class="kv-value">
-                    <el-input v-model="formData.dl_use_nature" placeholder="使用性质" clearable class="fv fv-input" />
-                  </div>
-                </div>
-                <div class="kv-item">
-                  <div class="kv-label">品牌型号</div>
-                  <div class="kv-value">
-                    <el-input v-model="formData.dl_brand_model" placeholder="品牌型号" clearable class="fv fv-input" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="right">
-              <div class="upload-title">
-                <span>行驶证主页图片</span>
-                <span class="slot-sub" v-if="slotUploadedCount('driving_license_main') > 0">
-                  （已就绪 {{ slotUploadedCount("driving_license_main") }} 张 <span class="ready-dot" aria-hidden="true"></span>）
-                </span>
-              </div>
-
-              <el-upload
-                drag
-                :auto-upload="false"
-                :multiple="false"
-                :limit="1"
-                :show-file-list="false"
-                :file-list="slotFiles.driving_license_main"
-                :disabled="isSingleSlotLocked('driving_license_main') || submitting || uploadingCount > 0"
-                :on-change="(file) => onFileChange('driving_license_main', file)"
-                :on-exceed="() => onExceedWarn('driving_license_main')"
-                accept="image/*"
-                class="upload-box upload-one"
-              >
-                <template #default>
-                  <div v-if="firstFile('driving_license_main')" class="one-wrap">
-                    <el-image
-                      :src="firstFile('driving_license_main')?.url"
-                      :preview-src-list="previewUrls('driving_license_main')"
-                      fit="contain"
-                      class="one-img"
-                    />
-                    <div class="one-mask">
-                      <div class="one-mask-text">已上传，删除后可重新上传</div>
-                    </div>
-                  </div>
-
-                  <div v-else class="upload-empty">
-                    <div class="empty-center">
-                      <div class="empty-title">拖拽图片到此处</div>
-                      <div class="empty-sub">或点击选择文件</div>
-                    </div>
-                  </div>
-                </template>
-              </el-upload>
-
-              <div v-if="slotUploadingCount('driving_license_main') > 0" class="uploading-tip">
-                正在上传：{{ slotUploadingCount("driving_license_main") }} 个文件…（上传完成后才能提交）
-              </div>
-
-              <div class="slot-foot">
-                <div class="slot-foot-left">
-                  <template v-if="slotUploadedCount('driving_license_main') > 0">
-                    <span>已就绪：{{ slotUploadedCount("driving_license_main") }} 张</span>
-                    <span class="ready-dot" aria-hidden="true"></span>
-                  </template>
-                  <span v-else class="muted">未上传</span>
-                </div>
-                <div class="slot-foot-right">
-                  <el-button
-                    v-if="(slotFiles.driving_license_main || []).length"
-                    size="small"
-                    type="danger"
-                    link
-                    class="slot-remove"
-                    :disabled="submitting || uploadingCount > 0"
-                    @click="clearSlot('driving_license_main')"
-                  >
-                    移除
-                  </el-button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 副页 -->
-        <div class="sub-block">
-          <div class="sub-title">行驶证副页</div>
-
-          <div class="two-col">
-            <div class="left">
-              <div v-if="dlExpanded" class="kv-grid kv-grid-2">
-                <div class="kv-item">
-                  <div class="kv-label">副页备注</div>
-                  <div class="kv-value">
-                    <el-input v-model="formData.dl_attach_note" placeholder="可选" clearable class="fv fv-input" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="right">
-              <div class="upload-title">
-                <span>行驶证副页图片</span>
-                <span class="slot-sub" v-if="slotUploadedCount('driving_license_sub') > 0">
-                  （已就绪 {{ slotUploadedCount("driving_license_sub") }} 张 <span class="ready-dot" aria-hidden="true"></span>）
-                </span>
-              </div>
-
-              <el-upload
-                drag
-                :auto-upload="false"
-                :multiple="false"
-                :limit="1"
-                :show-file-list="false"
-                :file-list="slotFiles.driving_license_sub"
-                :disabled="isSingleSlotLocked('driving_license_sub') || submitting || uploadingCount > 0"
-                :on-change="(file) => onFileChange('driving_license_sub', file)"
-                :on-exceed="() => onExceedWarn('driving_license_sub')"
-                accept="image/*"
-                class="upload-box upload-one"
-              >
-                <template #default>
-                  <div v-if="firstFile('driving_license_sub')" class="one-wrap">
-                    <el-image
-                      :src="firstFile('driving_license_sub')?.url"
-                      :preview-src-list="previewUrls('driving_license_sub')"
-                      fit="contain"
-                      class="one-img"
-                    />
-                    <div class="one-mask">
-                      <div class="one-mask-text">已上传，删除后可重新上传</div>
-                    </div>
-                  </div>
-
-                  <div v-else class="upload-empty">
-                    <div class="empty-center">
-                      <div class="empty-title">拖拽图片到此处</div>
-                      <div class="empty-sub">或点击选择文件</div>
-                    </div>
-                  </div>
-                </template>
-              </el-upload>
-
-              <div v-if="slotUploadingCount('driving_license_sub') > 0" class="uploading-tip">
-                正在上传：{{ slotUploadingCount("driving_license_sub") }} 个文件…（上传完成后才能提交）
-              </div>
-
-              <div class="slot-foot">
-                <div class="slot-foot-left">
-                  <template v-if="slotUploadedCount('driving_license_sub') > 0">
-                    <span>已就绪：{{ slotUploadedCount("driving_license_sub") }} 张</span>
-                    <span class="ready-dot" aria-hidden="true"></span>
-                  </template>
-                  <span v-else class="muted">未上传</span>
-                </div>
-                <div class="slot-foot-right">
-                  <el-button
-                    v-if="(slotFiles.driving_license_sub || []).length"
-                    size="small"
-                    type="danger"
-                    link
-                    class="slot-remove"
-                    :disabled="submitting || uploadingCount > 0"
-                    @click="clearSlot('driving_license_sub')"
-                  >
-                    移除
-                  </el-button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </el-card>
-
-    <!-- ⑤ 相关图片（多张） -->
-    <el-card shadow="never" class="section-card">
-      <template #header>
-        <div class="section-header">
-          <div class="section-title">相关图片（可多张）</div>
-        </div>
-      </template>
-
-      <div class="upload-title">
-        <span>相关图片（可多张）</span>
-        <span class="slot-sub" v-if="slotUploadedCount('related') > 0">
-          （已就绪 {{ slotUploadedCount("related") }} 张 <span class="ready-dot" aria-hidden="true"></span>）
-        </span>
-      </div>
-
-      <el-upload
-        class="upload-card upload-wide"
-        :file-list="slotFiles.related"
-        list-type="picture-card"
-        :limit="20"
-        :multiple="true"
-        :auto-upload="false"
-        drag
-        accept="image/*"
-        :disabled="submitting || uploadingCount > 0"
-        :on-change="(file, files) => onFileChangeMulti('related', file, files)"
-        :on-remove="(file, files) => onFileRemoveMulti('related', file, files)"
-      >
-        <div class="upload-trigger">
-          <el-icon class="upload-plus"><Plus /></el-icon>
-          <div class="upload-text">拖拽图片到此处</div>
-        </div>
-      </el-upload>
-
-      <div v-if="slotUploadingCount('related') > 0" class="uploading-tip">
-        正在上传：{{ slotUploadingCount("related") }} 个文件…（上传完成后才能提交）
-      </div>
-    </el-card>
-
-    <div class="footer-actions">
-      <el-button @click="resetAll" :disabled="submitting || uploadingCount > 0">清空</el-button>
-      <el-button type="primary" :loading="submitting" :disabled="uploadingCount > 0" @click="submit">提交</el-button>
+      </el-card>
     </div>
   </div>
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
-import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
-import { Plus } from "@element-plus/icons-vue";
-import { CaretBottom, CaretTop } from "@element-plus/icons-vue";
+import {computed, defineComponent, h, onBeforeUnmount, onMounted, reactive, ref, resolveComponent, watch} from "vue";
+import {useRoute, useRouter} from "vue-router";
+import {ElMessage, ElMessageBox, ElNotification} from "element-plus";
+import {CaretBottom, CaretTop} from "@element-plus/icons-vue";
 
-import VehicleCertTable from "./VehicleCertTable.vue";
+import VehicleCertTable from "@/views/orders/VehicleCertTable.vue";
+import RemotePagedSelect from "@/components/common/RemotePagedSelect.vue";
 
-import http from "../../api/http";
-import {
-  getCustomerGroups,
-  getChannelGroups,
-  createOrderDraft,
-  finalizeOrderUpload,
-  uploadOrderImageProxy,
-} from "../../api/orders";
-import { uploadOrReuseByMd5 } from "../../utils/bosUpload";
-import { preprocessImageForUpload } from "../../utils/imagePreprocess";
+import http from "@/api/http";
+import {createOrderDraft, finalizeOrderUpload, uploadOrderImageProxy} from "@/api/orders";
+import {useOrderFieldConfig} from "@/composables/useOrderFieldConfig";
+import {formatDynamicValue} from "@/utils/fieldFormat";
+import {uploadOrReuseByMd5} from "@/utils/bosUpload";
+import {preprocessImageForUpload} from "@/utils/imagePreprocess";
 
-const props = defineProps({
-  embedded: { type: Boolean, default: false },
+defineProps({
+  embedded: {type: Boolean, default: false},
 });
 
 const router = useRouter();
-const submitting = ref(false);
-const groupsLoading = ref(false);
+const route = useRoute();
 
-/** 上传模式（与导入页一致） */
-const UPLOAD_MODE_KEY = "order_create_upload_mode";
+const saving = ref(false);
+
+const certExpanded = ref(false);
+const idExpanded = ref(false);
+const dlExpanded = ref(false);
+
+const UPLOAD_MODE_KEY = "order_import_upload_mode";
 const uploadMode = ref("smart");
 
 function loadUploadMode() {
   const v = localStorage.getItem(UPLOAD_MODE_KEY);
   if (v === "smart" || v === "direct" || v === "stable") uploadMode.value = v;
 }
+
 function persistUploadMode() {
   try {
     localStorage.setItem(UPLOAD_MODE_KEY, uploadMode.value);
@@ -782,167 +663,369 @@ function persistUploadMode() {
   }
 }
 
-/** 基础信息必选 */
-const metaFormRef = ref(null);
-const meta = ref({
-  customer_group_id: null,
+loadUploadMode();
+
+function _errMsg(e) {
+  const m = e?.message || e?.response?.data?.detail || e?.response?.data?.message || "";
+  return String(m || "");
+}
+
+function isLikelyNetworkBlocked(err) {
+  const m = _errMsg(err).toLowerCase();
+  return (
+      m.includes("failed to fetch") ||
+      m.includes("network error") ||
+      m.includes("err_") ||
+      m.includes("cors") ||
+      m.includes("代理") ||
+      m.includes("vpn") ||
+      m.includes("hint=浏览器请求可能走了本机代理") ||
+      m.includes("127.0.0.1:7890")
+  );
+}
+
+let _stableSuggestShown = false;
+
+async function suggestSwitchToStableOnce() {
+  if (_stableSuggestShown) return false;
+  _stableSuggestShown = true;
+
+  try {
+    await ElMessageBox.confirm(
+        `上传被当前网络环境拦截（常见于 VPN/代理/公司网关）。\n\n建议切换到【稳定模式上传】继续，无需任何设置。`,
+        "上传失败（网络拦截）",
+        {
+          confirmButtonText: "切换为稳定模式",
+          cancelButtonText: "继续直传重试",
+          type: "warning",
+          center: true,
+          distinguishCancelAndClose: true,
+        }
+    );
+    uploadMode.value = "stable";
+    persistUploadMode();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function goBack() {
+  const from = route.query?.from;
+  if (typeof from === "string" && from) {
+    let decoded = from;
+    try {
+      decoded = decodeURIComponent(from);
+    } catch {
+      decoded = from;
+    }
+    if (decoded.startsWith("/")) {
+      router.push(decoded);
+      return;
+    }
+  }
+  if (window.history.length > 1) {
+    router.back();
+    return;
+  }
+  router.push({path: "/orders/all"});
+}
+
+const editMeta = reactive({
   channel_group_id: null,
-});
-const metaRules = {
-  customer_group_id: [{ required: true, message: "客户必选", trigger: "change" }],
-  channel_group_id: [{ required: true, message: "渠道必选", trigger: "change" }],
-};
-
-const customerGroups = ref([]);
-const channelGroups = ref([]);
-
-/** 下拉展示：代码 + 名称 */
-function _trim(v) {
-  return String(v ?? "").trim();
-}
-
-function customerGroupLabel(g) {
-  const code = _trim(g?.customer_code || g?.code || "");
-  const name = _trim(g?.customer_name || g?.name || "");
-  const groupName = _trim(g?.group_name || "");
-  const id = g?.id != null ? String(g.id) : "";
-
-  if (code && name) return `${code} - ${name}`;
-  if (code && groupName) return `${code} - ${groupName}`;
-  if (code) return code;
-  if (name) return name;
-  if (groupName) return groupName;
-  return id || "-";
-}
-
-function channelGroupLabel(g) {
-  const code = _trim(g?.channel_code || g?.code || "");
-  const name = _trim(g?.channel_name || g?.name || "");
-  const groupName = _trim(g?.group_name || "");
-  const id = g?.id != null ? String(g.id) : "";
-
-  if (code && name) return `${code} - ${name}`;
-  if (code && groupName) return `${code} - ${groupName}`;
-  if (code) return code;
-  if (name) return name;
-  if (groupName) return groupName;
-  return id || "-";
-}
-
-/** 轻量表单字段（动态字段口径） */
-const formData = ref({
-  cert_no: "",
-  cert_issue_date: "",
-
-  manufacturer_name: "",
-  vehicle_brand_name: "",
-  vehicle_model: "",
-  vin: "",
-  body_color: "",
-
-  chassis_model_id: "",
-  chassis_cert_no: "",
-  engine_model: "",
-  engine_no: "",
-
-  fuel_type: "",
-  displacement_and_power: "",
-  emission_standard: "",
-  fuel_consumption: "",
-
-  overall_dimensions: "",
-  cargo_dimensions: "",
-
-  leaf_spring_count: "",
-  tire_count: "",
-  tire_spec: "",
-  wheel_track: "",
-
-  wheel_base: "",
-  axle_load_kg: "",
-  axle_count: "",
-  steering_type: "",
-  curb_weight: "",
-  gross_weight: "",
-
-  rated_load: "",
-  rated_traction_weight: "",
-  load_utilization_factor: "",
-  allowed_traction_weight: "",
-  semi_trailer_weight: "",
-  cab_passenger_count: "",
-  approved_passenger_count: "",
-  manufacture_date: "",
-  cert_remark: "",
-
-  id_name: "",
-  id_number: "",
-  id_gender: "",
-  id_ethnicity: "",
-  id_birth_date: "",
-  id_address: "",
-  id_issuer: "",
-  id_validity: "",
-
-  dl_plate_no: "",
-  dl_vehicle_type: "",
-  dl_owner: "",
-  dl_use_nature: "",
-  dl_brand_model: "",
-  dl_attach_note: "",
-
-  remark: "",
+  customer_group_id: null,
 });
 
-// 展开开关
-const certExpanded = ref(false);
-const idExpanded = ref(false);
-const dlExpanded = ref(false);
+const canSubmitCreate = computed(() => {
+  return Boolean(editMeta.customer_group_id) && Boolean(editMeta.channel_group_id) && uploadingCount.value === 0;
+});
+
+const {groups, allFields, loadConfig} = useOrderFieldConfig();
+
+const fieldByKey = computed(() => {
+  const m = new Map();
+  for (const f of allFields.value || []) m.set(f.key, f);
+  return m;
+});
+
+function meta(key) {
+  return fieldByKey.value.get(key) || {key, label: key, type: "text", options: []};
+}
+
+function labelOf(field) {
+  if (field?.key === "id_number") return "公民身份号码";
+  return field?.label || field?.key || "";
+}
+
+function normalizeCompactYmd(val) {
+  if (val === null || val === undefined || val === "") return val;
+  const s = String(val);
+  if (/^\d{8}$/.test(s)) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+  return val;
+}
+
+function formatForView(val, field) {
+  if (val === null || val === undefined || val === "") return "-";
+  const f = field || {type: "text", options: []};
+  const v = f.type === "date" ? normalizeCompactYmd(val) : val;
+  const out = formatDynamicValue(v, f);
+  return out === "" ? "-" : out;
+}
+
+const editData = reactive({});
+
+const dlMainGroup = computed(() => (groups.value || []).find((g) => g.group_key === "driving_license"));
+const dlAttachGroup = computed(() => (groups.value || []).find((g) => g.group_key === "driving_attach"));
+
+function groupFields(g) {
+  if (!g) return [];
+  const keys = (g.fields || []).map((x) => x.field_name).filter(Boolean);
+  return keys.map((k) => meta(k));
+}
+
+const ID_FRONT_KEYS = Object.freeze(["id_name", "id_gender", "id_ethnicity", "id_birth_date", "id_address", "id_number"]);
+const ID_BACK_KEYS = Object.freeze(["id_issuer", "id_valid_from", "id_valid_to", "id_validity"]);
+
+const idFrontFields = computed(() => ID_FRONT_KEYS.map((k) => meta(k)));
+const idBackFields = computed(() => ID_BACK_KEYS.map((k) => meta(k)));
+
+const dlMainFields = computed(() => groupFields(dlMainGroup.value));
+const dlAttachFields = computed(() => groupFields(dlAttachGroup.value));
+
+function _pickKeyFromFields(fields, {preferKeys = [], labelIncludes = [], keyIncludes = []} = {}) {
+  const arr = Array.isArray(fields) ? fields : [];
+  for (const k of preferKeys) {
+    const f = arr.find((x) => x?.key === k);
+    if (f?.key) return f.key;
+  }
+  for (const inc of keyIncludes) {
+    const f = arr.find((x) => String(x?.key || "").toLowerCase().includes(String(inc).toLowerCase()));
+    if (f?.key) return f.key;
+  }
+  for (const inc of labelIncludes) {
+    const f = arr.find((x) => String(x?.label || "").includes(String(inc)));
+    if (f?.key) return f.key;
+  }
+  return null;
+}
+
+const dlDefaultKeyMap = computed(() => {
+  const fields = dlMainFields.value || [];
+  return {
+    plate: _pickKeyFromFields(fields, {preferKeys: ["plate_no"], keyIncludes: ["plate"], labelIncludes: ["号牌"]}),
+    owner: _pickKeyFromFields(fields, {preferKeys: ["owner_name"], keyIncludes: ["owner"], labelIncludes: ["所有人"]}),
+    use_nature: _pickKeyFromFields(fields, {
+      preferKeys: ["use_nature"],
+      keyIncludes: ["use_nature", "use"],
+      labelIncludes: ["使用性质"],
+    }),
+    brand_model: _pickKeyFromFields(fields, {
+      preferKeys: ["vehicle_model"],
+      keyIncludes: ["brand", "model", "vehicle_model"],
+      labelIncludes: ["品牌型号", "品牌", "型号"],
+    }),
+    vin: _pickKeyFromFields(fields, {preferKeys: ["vin"], keyIncludes: ["vin"], labelIncludes: ["识别", "车架"]}),
+    engine: _pickKeyFromFields(fields, {
+      preferKeys: ["engine_no"],
+      keyIncludes: ["engine"],
+      labelIncludes: ["发动机"],
+    }),
+    register_date: _pickKeyFromFields(fields, {
+      preferKeys: ["first_register_date"],
+      keyIncludes: ["register", "first_register"],
+      labelIncludes: ["注册日期"],
+    }),
+  };
+});
+
+function dlKey(name) {
+  return dlDefaultKeyMap.value?.[name] || null;
+}
+
+const dlAttachPassengerKey = computed(() => {
+  const fields = dlAttachFields.value || [];
+  return _pickKeyFromFields(fields, {
+    preferKeys: ["approved_passenger_count", "dla_approved_passengers", "dla_passenger_count"],
+    keyIncludes: ["passenger", "approved"],
+    labelIncludes: ["核定载", "载人数", "载客"],
+  });
+});
+
+function _numOrZero(v) {
+  if (v === null || v === undefined || v === "") return 0;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function _trimOrEmpty(v) {
+  if (v === null || v === undefined) return "";
+  return String(v).trim();
+}
+
+function _dateOrEmpty(v) {
+  if (!v) return "";
+  const s = String(v).trim();
+  if (!s) return "";
+  if (/^\d{8}$/.test(s)) return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  return s;
+}
+
+const editOrderInfo = reactive({
+  insurance_expire_date: "",
+  owner_phone: "",
+
+  commercial_amount: 0,
+  compulsory_amount: 0,
+  vehicle_tax_amount: 0,
+  non_vehicle_amount: 0,
+  premium_total: 0,
+
+  channel_commercial_point: 0,
+  channel_commercial_supplement_point: 0,
+  channel_compulsory_point: 0,
+  channel_vehicle_tax_point: 0,
+  channel_non_vehicle_point: 0,
+  channel_reward: 0,
+  channel_total: 0,
+
+  customer_commercial_point: 0,
+  customer_commercial_supplement_point: 0,
+  customer_compulsory_point: 0,
+  customer_vehicle_tax_point: 0,
+  customer_non_vehicle_point: 0,
+  customer_reward: 0,
+  customer_total: 0,
+
+  profit: 0,
+});
+
+function recalcOrderInfoDerived() {
+  const commercial = Math.max(0, _numOrZero(editOrderInfo.commercial_amount));
+  const compulsory = Math.max(0, _numOrZero(editOrderInfo.compulsory_amount));
+  const vehicleTax = Math.max(0, _numOrZero(editOrderInfo.vehicle_tax_amount));
+  const nonVehicle = Math.max(0, _numOrZero(editOrderInfo.non_vehicle_amount));
+
+  editOrderInfo.commercial_amount = commercial;
+  editOrderInfo.compulsory_amount = compulsory;
+  editOrderInfo.vehicle_tax_amount = vehicleTax;
+  editOrderInfo.non_vehicle_amount = nonVehicle;
+
+  const premiumTotal = commercial + compulsory + vehicleTax + nonVehicle;
+
+  const chCommercialPoint = _numOrZero(editOrderInfo.channel_commercial_point);
+  const chCommercialSupplementPoint = _numOrZero(editOrderInfo.channel_commercial_supplement_point);
+  const chCompulsoryPoint = _numOrZero(editOrderInfo.channel_compulsory_point);
+  const chVehicleTaxPoint = _numOrZero(editOrderInfo.channel_vehicle_tax_point);
+  const chNonVehiclePoint = _numOrZero(editOrderInfo.channel_non_vehicle_point);
+  const chReward = _numOrZero(editOrderInfo.channel_reward);
+
+  const cuCommercialPoint = _numOrZero(editOrderInfo.customer_commercial_point);
+  const cuCommercialSupplementPoint = _numOrZero(editOrderInfo.customer_commercial_supplement_point);
+  const cuCompulsoryPoint = _numOrZero(editOrderInfo.customer_compulsory_point);
+  const cuVehicleTaxPoint = _numOrZero(editOrderInfo.customer_vehicle_tax_point);
+  const cuNonVehiclePoint = _numOrZero(editOrderInfo.customer_non_vehicle_point);
+  const cuReward = _numOrZero(editOrderInfo.customer_reward);
+
+  const channelTotal =
+      commercial * (chCommercialPoint / 100) +
+      commercial * (chCommercialSupplementPoint / 100) +
+      compulsory * (chCompulsoryPoint / 100) +
+      vehicleTax * (chVehicleTaxPoint / 100) +
+      nonVehicle * (chNonVehiclePoint / 100) +
+      chReward;
+
+  const customerTotal =
+      commercial * (cuCommercialPoint / 100) +
+      commercial * (cuCommercialSupplementPoint / 100) +
+      compulsory * (cuCompulsoryPoint / 100) +
+      vehicleTax * (cuVehicleTaxPoint / 100) +
+      nonVehicle * (cuNonVehiclePoint / 100) +
+      cuReward;
+
+  editOrderInfo.premium_total = premiumTotal;
+  editOrderInfo.channel_total = channelTotal;
+  editOrderInfo.customer_total = customerTotal;
+  editOrderInfo.profit = channelTotal - customerTotal;
+}
+
+watch(
+    () => [
+      editOrderInfo.commercial_amount,
+      editOrderInfo.compulsory_amount,
+      editOrderInfo.vehicle_tax_amount,
+      editOrderInfo.non_vehicle_amount,
+
+      editOrderInfo.channel_commercial_point,
+      editOrderInfo.channel_commercial_supplement_point,
+      editOrderInfo.channel_compulsory_point,
+      editOrderInfo.channel_vehicle_tax_point,
+      editOrderInfo.channel_non_vehicle_point,
+      editOrderInfo.channel_reward,
+
+      editOrderInfo.customer_commercial_point,
+      editOrderInfo.customer_commercial_supplement_point,
+      editOrderInfo.customer_compulsory_point,
+      editOrderInfo.customer_vehicle_tax_point,
+      editOrderInfo.customer_non_vehicle_point,
+      editOrderInfo.customer_reward,
+    ],
+    () => recalcOrderInfoDerived()
+);
+
+function _sanitizeOrderInfoPayload() {
+  return {
+    insurance_expire_date: editOrderInfo.insurance_expire_date ? _dateOrEmpty(editOrderInfo.insurance_expire_date) : null,
+    owner_phone: editOrderInfo.owner_phone ? _trimOrEmpty(editOrderInfo.owner_phone) : null,
+
+    commercial_amount: _numOrZero(editOrderInfo.commercial_amount),
+    compulsory_amount: _numOrZero(editOrderInfo.compulsory_amount),
+    vehicle_tax_amount: _numOrZero(editOrderInfo.vehicle_tax_amount),
+    non_vehicle_amount: _numOrZero(editOrderInfo.non_vehicle_amount),
+    premium_total: _numOrZero(editOrderInfo.premium_total),
+
+    channel_commercial_point: _numOrZero(editOrderInfo.channel_commercial_point),
+    channel_commercial_supplement_point: _numOrZero(editOrderInfo.channel_commercial_supplement_point),
+    channel_compulsory_point: _numOrZero(editOrderInfo.channel_compulsory_point),
+    channel_vehicle_tax_point: _numOrZero(editOrderInfo.channel_vehicle_tax_point),
+    channel_non_vehicle_point: _numOrZero(editOrderInfo.channel_non_vehicle_point),
+    channel_reward: _numOrZero(editOrderInfo.channel_reward),
+    channel_total: _numOrZero(editOrderInfo.channel_total),
+
+    customer_commercial_point: _numOrZero(editOrderInfo.customer_commercial_point),
+    customer_commercial_supplement_point: _numOrZero(editOrderInfo.customer_commercial_supplement_point),
+    customer_compulsory_point: _numOrZero(editOrderInfo.customer_compulsory_point),
+    customer_vehicle_tax_point: _numOrZero(editOrderInfo.customer_vehicle_tax_point),
+    customer_non_vehicle_point: _numOrZero(editOrderInfo.customer_non_vehicle_point),
+    customer_reward: _numOrZero(editOrderInfo.customer_reward),
+    customer_total: _numOrZero(editOrderInfo.customer_total),
+
+    profit: _numOrZero(editOrderInfo.profit),
+  };
+}
 
 const IMAGE_SLOTS = [
-  { key: "vehicle_cert", label: "合格证", multiple: false },
-  { key: "idcard_front", label: "身份证正面", multiple: false },
-  { key: "idcard_back", label: "身份证反面", multiple: false },
-  { key: "driving_license_main", label: "行驶证主页", multiple: false },
-  { key: "driving_license_sub", label: "行驶证副页", multiple: false },
-  { key: "related", label: "相关图片(多张)", multiple: true },
+  {key: "vehicle_cert", label: "合格证", multiple: false},
+  {key: "idcard_front", label: "身份证正面", multiple: false},
+  {key: "idcard_back", label: "身份证背面", multiple: false},
+  {key: "driving_license_main", label: "行驶证主页", multiple: false},
+  {key: "driving_license_sub", label: "行驶证副页", multiple: false},
+  {key: "related", label: "相关图片(多张)", multiple: true},
 ];
 
-function isMultiSlot(slotKey) {
-  return IMAGE_SLOTS.find((s) => s.key === slotKey)?.multiple === true;
-}
-function slotLabel(slotKey) {
-  return IMAGE_SLOTS.find((s) => s.key === slotKey)?.label || slotKey;
-}
+const slotFiles = reactive(
+    IMAGE_SLOTS.reduce((acc, s) => {
+      acc[s.key] = [];
+      return acc;
+    }, {})
+);
 
-function isSingleSlotLocked(slotKey) {
-  if (isMultiSlot(slotKey)) return false;
-  return (slotFiles.value[slotKey] || []).length >= 1;
-}
-
-function onExceedWarn(slotKey) {
-  ElMessage.warning(`${slotLabel(slotKey)}：请先删除当前图片，再上传新图片`);
-}
-
-/** files/state */
-const slotFiles = ref({
-  vehicle_cert: [],
-  idcard_front: [],
-  idcard_back: [],
-  driving_license_main: [],
-  driving_license_sub: [],
-  related: [],
-});
-
-// uid -> meta
-const uploadedMap = ref({});
+const uploadedMap = reactive({});
+const uploadState = reactive({});
 const uploadingCount = ref(0);
-// uid -> {status:'uploading'|'done'|'error'}
-const uploadState = ref({});
-// uid -> objectURL
-const localPreviewUrlMap = ref({});
 
-/** STS 缓存 */
+const localPreviewUrlMap = reactive({});
+
 const bosHost = ref("");
 let cachedSts = null;
 let cachedStsExpireAt = 0;
@@ -961,24 +1044,22 @@ async function ensureSts() {
 
   const resp = await http.get("/orders/bos-sts");
   const data = resp?.data;
-  if (!data?.accessKeyId || !data?.secretAccessKey || !data?.sessionToken) {
-    throw new Error("获取上传凭证失败：返回数据不完整");
-  }
+  if (!data?.accessKeyId || !data?.secretAccessKey || !data?.sessionToken) throw new Error("bos-sts response invalid");
+
   cachedSts = data;
   bosHost.value = data.bosHost || "";
   cachedStsExpireAt = _parseExpireTs(data.expiration) || now + 10 * 60 * 1000;
   return cachedSts;
 }
 
-/** 单图槽 helpers */
-function firstFile(slotKey) {
-  const list = slotFiles.value[slotKey] || [];
-  return list.length ? list[0] : null;
+function isMultipleSlot(slotKey) {
+  const s = IMAGE_SLOTS.find((x) => x.key === slotKey);
+  return !!s?.multiple;
 }
 
-function previewUrls(slotKey) {
-  const list = slotFiles.value[slotKey] || [];
-  return list.map((f) => f.url).filter(Boolean);
+function firstFile(slotKey) {
+  const list = slotFiles[slotKey] || [];
+  return list.length ? list[0] : null;
 }
 
 function _ensureLocalPreview(file) {
@@ -987,180 +1068,144 @@ function _ensureLocalPreview(file) {
   if (!file.url) {
     const u = URL.createObjectURL(raw);
     file.url = u;
-    localPreviewUrlMap.value[file.uid] = u;
+    localPreviewUrlMap[file.uid] = u;
   }
 }
 
 function _replaceFileRawAndPreview(fileObj, newRaw) {
   if (!fileObj || !newRaw) return;
-  const uid = fileObj.uid;
 
-  const oldUrl = uid ? localPreviewUrlMap.value[uid] : fileObj.url;
+  const uid = fileObj.uid;
+  const oldUrl = uid ? localPreviewUrlMap[uid] : fileObj.url;
   if (oldUrl) {
     try {
       URL.revokeObjectURL(oldUrl);
     } catch {
       // ignore
     }
-    if (uid) delete localPreviewUrlMap.value[uid];
+    if (uid) delete localPreviewUrlMap[uid];
   }
 
   const u = URL.createObjectURL(newRaw);
   fileObj.raw = newRaw;
   fileObj.url = u;
-  if (uid) localPreviewUrlMap.value[uid] = u;
-}
-
-function _revokeLocalPreviewByUid(uid) {
-  const u = localPreviewUrlMap.value[uid];
-  if (!u) return;
-  try {
-    URL.revokeObjectURL(u);
-  } catch {
-    // ignore
-  }
-  delete localPreviewUrlMap.value[uid];
+  if (uid) localPreviewUrlMap[uid] = u;
 }
 
 function clearSlot(slotKey) {
-  const list = slotFiles.value[slotKey] || [];
+  const list = slotFiles[slotKey] || [];
   for (const f of list) {
     const uid = f?.uid;
     if (!uid) continue;
-    if (uploadedMap.value[uid]) delete uploadedMap.value[uid];
-    if (uploadState.value[uid]) delete uploadState.value[uid];
-    _revokeLocalPreviewByUid(uid);
-  }
-  slotFiles.value[slotKey] = [];
-}
 
-/** 错误处理 */
-function hasChinese(s) {
-  return /[\u4e00-\u9fa5]/.test(String(s || ""));
-}
-function _rawErrMsg(e) {
-  const m = e?.response?.data?.detail || e?.response?.data?.message || e?.message || "";
-  return String(m || "");
-}
-function normalizeErrMsg(e, fallback = "操作失败，请稍后重试") {
-  const detail = e?.response?.data?.detail;
-  const msg = _rawErrMsg(e);
-  const status = e?.response?.status;
-  const code = String(e?.code || "");
+    if (uploadedMap[uid]) delete uploadedMap[uid];
+    if (uploadState[uid]) delete uploadState[uid];
 
-  if (typeof detail === "string" && detail && hasChinese(detail)) return detail;
-  if (msg && hasChinese(msg)) return msg;
-
-  const low = msg.toLowerCase();
-  if (low.includes("network error") || low.includes("failed to fetch")) return "网络异常，请检查网络连接";
-  if (low.includes("timeout") || code.includes("ECONNABORTED")) return "请求超时，请稍后重试";
-  if (low.includes("cors")) return "跨域受限或网络拦截，请切换网络后重试";
-
-  if (status === 401) return "登录状态已失效，请重新登录";
-  if (status === 403) return "无权限执行该操作";
-  if (status >= 500) return "服务器异常，请稍后重试";
-  return fallback;
-}
-function isLikelyNetworkBlocked(err) {
-  const m = _rawErrMsg(err).toLowerCase();
-  return (
-    m.includes("failed to fetch") ||
-    m.includes("network error") ||
-    m.includes("err_") ||
-    m.includes("cors") ||
-    m.includes("代理") ||
-    m.includes("vpn") ||
-    m.includes("127.0.0.1:7890")
-  );
-}
-async function suggestSwitchToStableOnce() {
-  try {
-    await ElMessageBox.confirm(
-      `上传可能被当前网络环境拦截（常见于 VPN/代理/公司网关）。\n\n建议切换到【稳定模式上传】继续，无需任何设置。`,
-      "上传失败（网络拦截）",
-      {
-        confirmButtonText: "切换为稳定模式",
-        cancelButtonText: "继续直传重试",
-        type: "warning",
-        center: true,
-        distinguishCancelAndClose: true,
+    const u = localPreviewUrlMap[uid];
+    if (u) {
+      try {
+        URL.revokeObjectURL(u);
+      } catch {
+        // ignore
       }
-    );
-    uploadMode.value = "stable";
-    persistUploadMode();
-    return true;
-  } catch {
-    return false;
+      delete localPreviewUrlMap[uid];
+    }
+  }
+  slotFiles[slotKey] = [];
+}
+
+function onFileChange(slotKey, file) {
+  if (!isMultipleSlot(slotKey)) {
+    clearSlot(slotKey);
+    _ensureLocalPreview(file);
+    slotFiles[slotKey] = [file];
+
+    startUpload(slotKey, file).catch((e) => {
+      console.error(e);
+      ElNotification.error({
+        title: "上传失败",
+        message: _errMsg(e) || "unknown error",
+        duration: 5000,
+      });
+    });
+    return;
+  }
+
+  const list = Array.isArray(slotFiles[slotKey]) ? [...slotFiles[slotKey]] : [];
+  if (!list.find((x) => x.uid === file.uid)) list.push(file);
+  slotFiles[slotKey] = list;
+
+  _ensureLocalPreview(file);
+
+  startUpload(slotKey, file).catch((e) => {
+    console.error(e);
+    ElNotification.error({
+      title: "上传失败",
+      message: _errMsg(e) || "unknown error",
+      duration: 5000,
+    });
+  });
+}
+
+function onFileRemove(slotKey, file) {
+  const list = slotFiles[slotKey] || [];
+  slotFiles[slotKey] = list.filter((x) => x.uid !== file.uid);
+
+  const uid = file?.uid;
+  if (uid && uploadedMap[uid]) delete uploadedMap[uid];
+  if (uid && uploadState[uid]) delete uploadState[uid];
+
+  const u = localPreviewUrlMap[uid];
+  if (u) {
+    try {
+      URL.revokeObjectURL(u);
+    } catch {
+      // ignore
+    }
+    delete localPreviewUrlMap[uid];
   }
 }
 
-/** Upload handlers（单图槽） */
-function onFileChange(slotKey, file) {
-  clearSlot(slotKey);
-  _ensureLocalPreview(file);
-  slotFiles.value[slotKey] = [file];
+async function _preprocessForStable(slotKey, file, raw0) {
+  let raw = raw0;
+  try {
+    const pre = await preprocessImageForUpload({file: raw0, slotKey});
+    if (pre?.file) {
+      raw = pre.file;
+      _replaceFileRawAndPreview(file, raw);
 
-  startUpload(slotKey, file).catch((e) => {
-    console.error(e);
-    ElNotification({
-      title: "上传失败",
-      message: normalizeErrMsg(e, "上传失败，请稍后重试"),
-      type: "error",
-      duration: 4500,
-    });
-  });
-}
-
-/** Upload handlers（多图槽 related） */
-function onFileChangeMulti(slotKey, file, files) {
-  slotFiles.value[slotKey] = Array.isArray(files) ? files : [];
-  _ensureLocalPreview(file);
-
-  startUpload(slotKey, file).catch((e) => {
-    console.error(e);
-    ElNotification({
-      title: "上传失败",
-      message: normalizeErrMsg(e, "上传失败，请稍后重试"),
-      type: "error",
-      duration: 4500,
-    });
-  });
-}
-
-function onFileRemoveMulti(slotKey, file, files) {
-  slotFiles.value[slotKey] = Array.isArray(files) ? files : [];
-  const uid = file?.uid;
-  if (uid && uploadedMap.value[uid]) delete uploadedMap.value[uid];
-  if (uid && uploadState.value[uid]) delete uploadState.value[uid];
-  if (uid) _revokeLocalPreviewByUid(uid);
+      if (pre?.note) {
+        ElNotification({
+          title: "已预处理",
+          message: pre.note,
+          type: "success",
+          duration: 1600,
+        });
+      }
+    }
+  } catch {
+    raw = raw0;
+  }
+  return raw;
 }
 
 async function startUpload(slotKey, file) {
   const raw0 = file?.raw;
   if (!raw0) return;
-  if (uploadedMap.value[file.uid]) return;
+
+  if (uploadedMap[file.uid]) return;
 
   uploadingCount.value += 1;
-  uploadState.value[file.uid] = { status: "uploading" };
+  uploadState[file.uid] = {status: "uploading"};
 
   try {
-    // 预处理（与导入页一致）
-    let raw = raw0;
-    try {
-      const pre = await preprocessImageForUpload({ file: raw0, slotKey });
-      if (pre?.file) {
-        raw = pre.file;
-        _replaceFileRawAndPreview(file, raw);
-      }
-    } catch {
-      raw = raw0;
-    }
-
-    // 稳定模式：后端代传
     if (uploadMode.value === "stable") {
-      const resp = await uploadOrderImageProxy({ slot_key: slotKey, file: raw });
-      const meta = resp?.data || {};
-      uploadedMap.value[file.uid] = {
+      const raw = await _preprocessForStable(slotKey, file, raw0);
+
+      const resp = await uploadOrderImageProxy({slot_key: slotKey, file: raw});
+      const meta = resp?.data;
+
+      uploadedMap[file.uid] = {
         slot_key: slotKey,
         md5: meta?.md5,
         storage_key: meta?.storage_key,
@@ -1168,47 +1213,54 @@ async function startUpload(slotKey, file) {
         size: meta?.size || raw.size || 0,
         content_type: meta?.content_type || raw.type || "application/octet-stream",
         original_name: meta?.original_name || raw.name || "file",
-        preview_url: meta?.preview_url || "",
+        preview_url: meta?.preview_url || meta?.url || "",
+        url: meta?.url || meta?.preview_url || "",
       };
-      if (meta?.preview_url) file.url = meta.preview_url;
-      uploadState.value[file.uid] = { status: "done" };
+
+      if (meta?.url || meta?.preview_url) {
+        file.url = meta?.url || meta?.preview_url;
+      }
+
+      uploadState[file.uid] = {status: "done"};
       return;
     }
 
-    // 智能/直传：BOS直传
     const sts = await ensureSts();
     if (!bosHost.value) throw new Error("bosHost missing");
 
-    const meta0 = await uploadOrReuseByMd5({
+    const meta = await uploadOrReuseByMd5({
       bosHost: bosHost.value,
       slotKey,
-      file: raw,
+      file: raw0,
       sts,
     });
 
-    if (meta0?.preview_url) {
-      file.url = meta0.preview_url;
-    }
-
-    uploadedMap.value[file.uid] = {
+    uploadedMap[file.uid] = {
       slot_key: slotKey,
-      ...meta0,
-      size: meta0?.size || raw.size || 0,
-      content_type: meta0?.content_type || raw.type || "application/octet-stream",
-      original_name: meta0?.original_name || raw.name || "file",
+      ...meta,
+      size: meta?.size || raw0.size || 0,
+      content_type: meta?.content_type || raw0.type || "application/octet-stream",
+      original_name: meta?.original_name || raw0.name || "file",
+      url: meta?.url || meta?.preview_url || "",
     };
 
-    uploadState.value[file.uid] = { status: "done" };
+    if (meta?.url || meta?.preview_url) {
+      file.url = meta?.url || meta?.preview_url;
+    }
+
+    uploadState[file.uid] = {status: "done"};
   } catch (e) {
     if (uploadMode.value === "smart" && isLikelyNetworkBlocked(e)) {
       const switched = await suggestSwitchToStableOnce();
       if (switched) {
         try {
-          const rawRetry = file?.raw || raw0;
-          const resp = await uploadOrderImageProxy({ slot_key: slotKey, file: rawRetry });
-          const meta = resp?.data || {};
+          const rawRetry0 = file?.raw || raw0;
+          const rawRetry = await _preprocessForStable(slotKey, file, rawRetry0);
 
-          uploadedMap.value[file.uid] = {
+          const resp = await uploadOrderImageProxy({slot_key: slotKey, file: rawRetry});
+          const meta = resp?.data;
+
+          uploadedMap[file.uid] = {
             slot_key: slotKey,
             md5: meta?.md5,
             storage_key: meta?.storage_key,
@@ -1216,178 +1268,388 @@ async function startUpload(slotKey, file) {
             size: meta?.size || rawRetry.size || 0,
             content_type: meta?.content_type || rawRetry.type || "application/octet-stream",
             original_name: meta?.original_name || rawRetry.name || "file",
-            preview_url: meta?.preview_url || "",
+            preview_url: meta?.preview_url || meta?.url || "",
+            url: meta?.url || meta?.preview_url || "",
           };
-          if (meta?.preview_url) file.url = meta.preview_url;
 
-          uploadState.value[file.uid] = { status: "done" };
+          if (meta?.url || meta?.preview_url) {
+            file.url = meta?.url || meta?.preview_url;
+          }
+
+          uploadState[file.uid] = {status: "done"};
           return;
         } catch (e2) {
-          uploadState.value[file.uid] = { status: "error" };
+          uploadState[file.uid] = {status: "error", msg: _errMsg(e2) || "upload failed"};
           throw e2;
         }
       }
     }
 
-    uploadState.value[file.uid] = { status: "error" };
+    uploadState[file.uid] = {status: "error", msg: _errMsg(e) || "upload failed"};
     throw e;
   } finally {
-    uploadingCount.value -= 1;
+    uploadingCount.value = Math.max(0, uploadingCount.value - 1);
   }
 }
 
 function slotUploadedCount(slotKey) {
-  const list = slotFiles.value[slotKey] || [];
+  const list = slotFiles[slotKey] || [];
   let cnt = 0;
   for (const f of list) {
-    if (uploadedMap.value[f.uid]) cnt += 1;
+    if (uploadedMap[f.uid]) cnt += 1;
   }
   return cnt;
 }
 
-function slotUploadingCount(slotKey) {
-  const list = slotFiles.value[slotKey] || [];
-  let cnt = 0;
-  for (const f of list) {
-    if (uploadState.value[f.uid]?.status === "uploading") cnt += 1;
-  }
-  return cnt;
+function previewUrls(slotKey) {
+  const list = slotFiles[slotKey] || [];
+  return list.map((f) => f.url).filter(Boolean);
 }
 
-function resetAll() {
-  meta.value = { customer_group_id: null, channel_group_id: null };
-  for (const k of Object.keys(formData.value)) formData.value[k] = "";
+function normalizeDynamicDataForSubmit(src) {
+  const d = {...(src || {})};
 
-  certExpanded.value = false;
-  idExpanded.value = false;
-  dlExpanded.value = false;
+  delete d.dl_plate_no;
+  delete d.dl_vehicle_type;
+  delete d.dl_owner;
+  delete d.dl_use_nature;
+  delete d.dl_brand_model;
+  delete d.dl_attach_note;
+  delete d.remark;
 
-  for (const s of IMAGE_SLOTS) clearSlot(s.key);
-
-  uploadedMap.value = {};
-  uploadState.value = {};
-}
-
-function buildDynamicData() {
-  const base = { ...formData.value };
-
-  // 只保留有值字段（不把 group_id 塞进 dynamic_data，避免口径混淆）
-  for (const [k, v] of Object.entries(base)) {
-    if (v === "" || v === null || v === undefined) delete base[k];
+  if (d.id_validity != null && String(d.id_validity).trim()) {
+    const s = String(d.id_validity).trim();
+    const m = s.match(/^(\d{4}[-./]?\d{2}[-./]?\d{2})\s*[~至-]\s*(\d{4}[-./]?\d{2}[-./]?\d{2}|长期)$/);
+    if (m) {
+      if (!d.id_valid_from) d.id_valid_from = m[1].replace(/\./g, "-").replace(/\//g, "-");
+      if (!d.id_valid_to) d.id_valid_to = m[2] === "长期" ? "长期" : m[2].replace(/\./g, "-").replace(/\//g, "-");
+    }
   }
-  return base;
+
+  if (d.id_valid_from) d.id_valid_from = _dateOrEmpty(d.id_valid_from);
+  if (d.id_valid_to && d.id_valid_to !== "长期") d.id_valid_to = _dateOrEmpty(d.id_valid_to);
+
+  if (d.id_birth_date) d.id_birth_date = _dateOrEmpty(d.id_birth_date);
+  if (d.first_register_date) d.first_register_date = _dateOrEmpty(d.first_register_date);
+  if (d.issue_date) d.issue_date = _dateOrEmpty(d.issue_date);
+  if (d.cert_issue_date) d.cert_issue_date = _dateOrEmpty(d.cert_issue_date);
+  if (d.manufacture_date) d.manufacture_date = _dateOrEmpty(d.manufacture_date);
+
+  for (const [k, v] of Object.entries(d)) {
+    if (v === "" || v === null || v === undefined) delete d[k];
+  }
+
+  return d;
 }
 
 function collectFinalizeImages() {
   const out = [];
   for (const slot of IMAGE_SLOTS) {
-    const list = slotFiles.value[slot.key] || [];
+    const list = slotFiles[slot.key] || [];
     for (const f of list) {
-      const m = uploadedMap.value[f.uid];
-      if (!m) continue;
-      out.push({
-        slot_key: m.slot_key,
-        storage_key: m.storage_key,
-        md5: m.md5,
-        size: m.size || 0,
-        content_type: m.content_type ?? undefined,
-        etag: m.etag ?? undefined,
-        original_name: m.original_name ?? undefined,
-      });
+      const meta = uploadedMap[f.uid];
+      if (meta) {
+        out.push({
+          ...meta,
+          url: meta.url ?? meta.preview_url ?? undefined,
+        });
+      }
     }
   }
   return out;
 }
 
-/** 统一提交：全部走 draft -> finalize（无图也走同口径） */
-async function submit() {
-  try {
-    await metaFormRef.value?.validate?.();
-  } catch {
-    ElMessage.warning("客户群、渠道群为必选项，请先选择");
+async function save() {
+  if (!editMeta.customer_group_id || !editMeta.channel_group_id) {
+    ElMessage.warning("客户和渠道为必选项，请先选择后再保存");
     return;
   }
 
   if (uploadingCount.value > 0) {
-    ElMessage.warning("还有文件在上传中，请稍后再提交");
+    ElMessage.warning("还有文件在上传中，请稍后再保存");
     return;
   }
 
-  submitting.value = true;
+  saving.value = true;
   try {
-    const dynamicData = buildDynamicData();
-    const images = collectFinalizeImages();
+    const dyn = normalizeDynamicDataForSubmit({...editData});
+    const orderInfo = _sanitizeOrderInfoPayload();
 
     const draftResp = await createOrderDraft({
       module: "order",
-      dynamic_data: dynamicData || {},
-      customer_group_id: meta.value.customer_group_id ?? undefined,
-      channel_group_id: meta.value.channel_group_id ?? undefined,
+      dynamic_data: dyn,
+      order_info: orderInfo,
+      customer_group_id: editMeta.customer_group_id ?? undefined,
+      channel_group_id: editMeta.channel_group_id ?? undefined,
     });
 
     const draft = draftResp?.data?.data ?? draftResp?.data ?? draftResp;
-    const orderId = draft?.order_id;
-    if (!orderId) throw new Error("draft failed: missing order_id");
+    const newOrderId = draft?.order_id;
+    if (!newOrderId) throw new Error("draft missing order_id");
+
+    const imgs = collectFinalizeImages();
 
     await finalizeOrderUpload({
-      order_id: orderId,
-      images, // 可为空数组（无图也统一 finalize）
-      dynamic_data: dynamicData || {},
-      customer_group_id: meta.value.customer_group_id ?? undefined,
-      channel_group_id: meta.value.channel_group_id ?? undefined,
+      order_id: newOrderId,
+      images: imgs,
+      dynamic_data: dyn,
+      order_info: orderInfo,
     });
 
-    if (images.length > 0) {
-      ElNotification({
-        title: "创建成功",
-        message: "订单已创建并提交识别任务，稍后可在订单详情查看回填结果。",
-        type: "success",
-        duration: 3500,
-      });
-    } else {
-      ElMessage.success("订单创建成功");
-    }
-
-    router.push({ path: `/orders/${orderId}` });
+    ElMessage.success("创建成功");
+    router.push({path: `/orders/${newOrderId}`});
   } catch (e) {
     console.error(e);
-    ElMessage.error(`提交失败：${normalizeErrMsg(e, "提交失败，请稍后重试")}`);
+    ElMessage.error(_errMsg(e) || "保存失败");
   } finally {
-    submitting.value = false;
+    saving.value = false;
   }
 }
 
-async function loadGroups() {
-  groupsLoading.value = true;
-  try {
-    const [cg, ch] = await Promise.all([getCustomerGroups(), getChannelGroups()]);
-    customerGroups.value = cg?.data?.items || cg?.data || [];
-    channelGroups.value = ch?.data?.items || ch?.data || [];
-  } catch (e) {
-    console.error(e);
-    ElMessage.error("加载客户/渠道分组失败");
-  } finally {
-    groupsLoading.value = false;
-  }
-}
-
-onMounted(() => {
-  loadUploadMode();
-  loadGroups();
+onMounted(async () => {
+  await loadConfig("order");
+  recalcOrderInfoDerived();
 });
 
 onBeforeUnmount(() => {
-  for (const uid of Object.keys(localPreviewUrlMap.value)) {
-    _revokeLocalPreviewByUid(uid);
+  for (const uid of Object.keys(localPreviewUrlMap)) {
+    try {
+      URL.revokeObjectURL(localPreviewUrlMap[uid]);
+    } catch {
+      // ignore
+    }
+    delete localPreviewUrlMap[uid];
   }
+});
+
+const FieldValue = defineComponent({
+  name: "FieldValue",
+  props: {
+    modelValue: {type: [String, Number, Date], default: ""},
+    field: {type: Object, required: true},
+    editable: {type: Boolean, default: false},
+  },
+  emits: ["update:modelValue"],
+  setup(props, {emit}) {
+    const ElInput = resolveComponent("el-input");
+    const ElSelect = resolveComponent("el-select");
+    const ElOption = resolveComponent("el-option");
+    const ElDatePicker = resolveComponent("el-date-picker");
+
+    const onUpdate = (v) => emit("update:modelValue", v);
+
+    return () => {
+      const f = props.field || {type: "text", options: []};
+      const raw = props.modelValue ?? "";
+      const view = formatForView(raw, f);
+
+      if (!props.editable) {
+        return h("span", {class: "plain-value", title: view}, view);
+      }
+
+      if (f.type === "date") {
+        const v = normalizeCompactYmd(raw) ?? "";
+        return h(ElDatePicker, {
+          modelValue: v,
+          "onUpdate:modelValue": onUpdate,
+          type: "date",
+          clearable: true,
+          format: "YYYY-MM-DD",
+          valueFormat: "YYYY-MM-DD",
+          class: "fv fv-date",
+        });
+      }
+
+      if (f.type === "select") {
+        const opts = Array.isArray(f.options) ? f.options : [];
+        return h(
+            ElSelect,
+            {
+              modelValue: raw,
+              "onUpdate:modelValue": onUpdate,
+              filterable: true,
+              clearable: true,
+              class: "fv fv-select",
+            },
+            () =>
+                opts.map((op) => {
+                  const label = op && typeof op === "object" ? op.label : String(op);
+                  const value = op && typeof op === "object" ? op.value : op;
+                  return h(ElOption, {key: String(value), label, value});
+                })
+        );
+      }
+
+      return h(ElInput, {
+        modelValue: raw,
+        "onUpdate:modelValue": onUpdate,
+        clearable: true,
+        class: "fv fv-input",
+      });
+    };
+  },
+});
+
+const InfoValue = defineComponent({
+  name: "InfoValue",
+  props: {
+    modelValue: {type: [String, Number], default: ""},
+    type: {type: String, default: "text"},
+    editable: {type: Boolean, default: false},
+    min: {type: Number, default: undefined},
+    max: {type: Number, default: undefined},
+  },
+  emits: ["update:modelValue"],
+  setup(props, {emit}) {
+    const ElInput = resolveComponent("el-input");
+    const ElDatePicker = resolveComponent("el-date-picker");
+    const ElInputNumber = resolveComponent("el-input-number");
+
+    const onUpdate = (v) => emit("update:modelValue", v);
+
+    function fmt(v) {
+      if (v === null || v === undefined || v === "") return "-";
+      const n = Number(v);
+      if (props.type === "money") return Number.isFinite(n) ? n.toFixed(2) : "-";
+      if (props.type === "point") return Number.isFinite(n) ? String(n) : "-";
+      if (props.type === "date") return _dateOrEmpty(v) || "-";
+      return String(v);
+    }
+
+    return () => {
+      const raw = props.modelValue ?? "";
+
+      if (!props.editable) {
+        const view = fmt(raw);
+        return h("span", {class: "plain-value", title: view}, view);
+      }
+
+      if (props.type === "date") {
+        const v = _dateOrEmpty(raw);
+        return h(ElDatePicker, {
+          modelValue: v,
+          "onUpdate:modelValue": onUpdate,
+          type: "date",
+          clearable: true,
+          format: "YYYY-MM-DD",
+          valueFormat: "YYYY-MM-DD",
+          class: "fv fv-date",
+        });
+      }
+
+      if (props.type === "money" || props.type === "point") {
+        const n = raw === "" || raw === null || raw === undefined ? undefined : Number(raw);
+        return h(ElInputNumber, {
+          modelValue: Number.isFinite(n) ? n : undefined,
+          "onUpdate:modelValue": onUpdate,
+          controls: false,
+          precision: props.type === "money" ? 2 : undefined,
+          step: props.type === "money" ? 1 : 0.1,
+          min: typeof props.min === "number" ? props.min : undefined,
+          max: typeof props.max === "number" ? props.max : undefined,
+          class: "fv fv-number",
+        });
+      }
+
+      return h(ElInput, {
+        modelValue: raw,
+        "onUpdate:modelValue": onUpdate,
+        clearable: true,
+        class: "fv fv-input",
+      });
+    };
+  },
+});
+
+const SlotUploadCard = defineComponent({
+  name: "SlotUploadCard",
+  props: {
+    slotKey: {type: String, required: true},
+    label: {type: String, default: ""},
+    multiple: {type: Boolean, default: false},
+  },
+  setup(props) {
+    const ElUpload = resolveComponent("el-upload");
+    const ElImage = resolveComponent("el-image");
+    const ElButton = resolveComponent("el-button");
+    const ElTag = resolveComponent("el-tag");
+
+    return () => {
+      const slotKey = props.slotKey;
+      const label = props.label || slotKey;
+      const list = slotFiles[slotKey] || [];
+      const one = firstFile(slotKey);
+
+      return h("div", {class: "slot-card"}, [
+        h("div", {class: "slot-head"}, [
+          h("div", {class: "slot-name"}, label),
+          h("div", {class: "slot-tip"}, [h(ElTag, {size: "small", type: "info", effect: "plain"}, () => "单张")]),
+        ]),
+
+        h(
+            ElUpload,
+            {
+              drag: true,
+              autoUpload: false,
+              multiple: false,
+              showFileList: false,
+              fileList: list,
+              accept: "image/*",
+              class: "upload-box upload-one",
+              onChange: (f) => onFileChange(slotKey, f),
+              onRemove: (f) => onFileRemove(slotKey, f),
+            },
+            {
+              default: () =>
+                  one
+                      ? h("div", {class: "one-wrap"}, [
+                        h(ElImage, {
+                          src: one?.url,
+                          previewSrcList: previewUrls(slotKey),
+                          fit: "contain",
+                          class: "one-img",
+                        }),
+                        h("div", {class: "one-mask"}, [
+                          h("div", {class: "one-mask-text"}, "拖拽或点击替换"),
+                          h(
+                              ElButton,
+                              {
+                                size: "small",
+                                type: "danger",
+                                plain: true,
+                                class: "one-remove",
+                                onClick: (ev) => {
+                                  ev?.stopPropagation?.();
+                                  clearSlot(slotKey);
+                                },
+                              },
+                              () => "移除"
+                          ),
+                        ]),
+                      ])
+                      : h("div", {class: "upload-empty"}, [
+                        h("div", {class: "empty-center"}, [
+                          h("div", {class: "empty-title"}, "拖拽图片到此处"),
+                          h("div", {class: "empty-sub"}, "或点击选择文件"),
+                        ]),
+                      ]),
+            }
+        ),
+
+        h("div", {class: "slot-foot"}, [
+          slotUploadedCount(slotKey) > 0
+              ? h("span", null, `已就绪：${slotUploadedCount(slotKey)} 张`)
+              : h("span", {class: "muted"}, "未上传"),
+        ]),
+      ]);
+    };
+  },
 });
 </script>
 
 <style scoped>
-.order-create {
+.order-detail {
   width: 100%;
-  --preview-w: 320px;
-  --preview-gap: 14px;
 }
 
 .detail-header {
@@ -1400,43 +1662,30 @@ onBeforeUnmount(() => {
 .header-actions {
   display: flex;
   gap: 8px;
+  align-items: center;
+}
+
+.page-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .section-card {
   border-radius: 12px;
   border: 1px solid rgba(60, 60, 60, 0.08);
-  margin-bottom: 12px;
-}
-
-.upload-mode-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 36px;
-}
-
-.upload-mode {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.upload-mode-label {
-  font-size: 12px;
-  color: rgba(31, 42, 68, 0.72);
-  font-weight: 700;
-}
-
-.upload-mode-tip {
-  font-size: 12px;
-  color: rgba(31, 42, 68, 0.5);
 }
 
 .section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .section-title {
@@ -1451,8 +1700,8 @@ onBeforeUnmount(() => {
 
 .two-col {
   display: grid;
-  grid-template-columns: 1fr var(--preview-w);
-  gap: var(--preview-gap);
+  grid-template-columns: 1fr 320px;
+  gap: 14px;
   align-items: start;
 }
 
@@ -1466,44 +1715,85 @@ onBeforeUnmount(() => {
   min-width: 0;
 }
 
+.meta-narrow {
+  max-width: calc(100% - 334px);
+}
+
+@media (max-width: 980px) {
+  .meta-narrow {
+    max-width: 100%;
+  }
+}
+
 .kv-grid {
   display: grid;
-  gap: 10px 14px;
+  gap: 8px 12px;
 }
+
 .kv-grid-2 {
   grid-template-columns: 1fr 1fr;
 }
 
+.kv-grid-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.kv-grid-5 {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .kv-item {
   display: grid;
-  grid-template-columns: 140px 1fr;
+  grid-template-columns: 120px 1fr;
   gap: 10px;
   align-items: center;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border: 1px solid rgba(60, 60, 60, 0.08);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.6);
 }
 
 .kv-label {
   font-size: 12px;
-  color: rgba(31, 42, 68, 0.56);
+  color: rgba(31, 42, 68, 0.6);
   font-weight: 700;
-  letter-spacing: 0.1px;
 }
 
 .kv-value {
   min-width: 0;
   font-size: 13px;
-  color: rgba(31, 42, 68, 0.94);
-  font-weight: 650;
+  color: rgba(31, 42, 68, 0.95);
+  font-weight: 800;
 }
 
-.fv {
-  width: 100%;
+.plain-value {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.fv :deep(.el-input__wrapper) {
-  border-radius: 10px;
+
+.info-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.info-grid .kv-item {
+  grid-template-columns: 120px 1fr;
+}
+
+.info-grid-compact .kv-item {
+  grid-template-columns: 92px 1fr;
+  padding: 8px 10px;
+}
+
+.split-title {
+  margin-top: 12px;
+  margin-bottom: 8px;
+  font-weight: 800;
+  color: rgba(31, 42, 68, 0.9);
 }
 
 .stack {
@@ -1516,7 +1806,7 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(60, 60, 60, 0.08);
   border-radius: 12px;
   padding: 12px;
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.55);
 }
 
 .sub-title {
@@ -1525,33 +1815,65 @@ onBeforeUnmount(() => {
   margin-bottom: 10px;
 }
 
-.upload-title {
-  font-size: 13px;
-  color: rgba(31, 42, 68, 0.82);
-  font-weight: 750;
-  margin-bottom: 8px;
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
+.fv :deep(.el-input__wrapper) {
+  border-radius: 10px;
 }
-.slot-sub {
+
+.fv :deep(.el-input-number) {
+  width: 100%;
+}
+
+.fv :deep(.el-input-number .el-input__wrapper) {
+  border-radius: 10px;
+}
+
+.fv {
+  width: 100%;
+}
+
+.upload-alert {
+  margin-bottom: 2px;
+}
+
+.upload-mode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 6px;
+}
+
+.upload-mode-label {
   font-size: 12px;
-  color: rgba(31, 42, 68, 0.48);
-  font-weight: 650;
+  color: rgba(31, 42, 68, 0.72);
+  font-weight: 600;
+}
+
+.slot-card {
+  border: 1px solid rgba(60, 60, 60, 0.1);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.slot-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.slot-name {
+  font-weight: 700;
+  color: rgba(31, 42, 68, 0.92);
+}
+
+.slot-foot {
+  margin-top: 8px;
+  font-size: 12px;
 }
 
 .muted {
   color: #999;
-}
-
-.ready-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: #00e676;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.18);
-  display: inline-block;
-  vertical-align: -1px;
 }
 
 .upload-box :deep(.el-upload-dragger) {
@@ -1564,6 +1886,10 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.upload-multi :deep(.el-upload-dragger) {
+  padding: 12px;
 }
 
 .upload-empty {
@@ -1589,7 +1915,6 @@ onBeforeUnmount(() => {
   margin-top: 4px;
   font-size: 12px;
   color: rgba(31, 42, 68, 0.55);
-  font-weight: 650;
 }
 
 .one-wrap {
@@ -1610,10 +1935,10 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: 0;
   border-radius: 12px;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.22));
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.2));
   display: flex;
   align-items: flex-end;
-  justify-content: flex-start;
+  justify-content: space-between;
   padding: 10px;
   pointer-events: none;
 }
@@ -1625,81 +1950,71 @@ onBeforeUnmount(() => {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
-.upload-card :deep(.el-upload--picture-card) {
-  width: 100%;
+.one-remove {
+  pointer-events: auto;
 }
-.upload-trigger {
-  width: 100%;
-  height: 100%;
+
+.preview-wall {
+  margin-top: 10px;
   display: grid;
-  place-items: center;
-  gap: 6px;
-}
-.upload-plus {
-  font-size: 22px;
-  color: rgba(31, 42, 68, 0.65);
-}
-.upload-text {
-  font-size: 12px;
-  color: rgba(31, 42, 68, 0.55);
-  font-weight: 650;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
 }
 
-.upload-wide :deep(.el-upload--picture-card) {
-  width: 120px;
+.preview-item {
+  border: 1px solid rgba(60, 60, 60, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.75);
 }
 
-.slot-foot {
-  margin-top: 8px;
-  font-size: 12px;
+.preview-img {
+  width: 100%;
+  height: 110px;
+  border-bottom: 1px solid rgba(60, 60, 60, 0.08);
+}
+
+.preview-empty {
+  background: rgba(31, 42, 68, 0.03);
+}
+
+.preview-meta {
+  padding: 8px 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
 }
 
-.slot-foot-left {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-.slot-foot-right {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-}
-
-.uploading-tip {
-  margin-top: 10px;
+.preview-name {
   font-size: 12px;
-  color: #e6a23c;
-}
-
-.footer-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 10px;
+  color: rgba(31, 42, 68, 0.9);
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (max-width: 980px) {
-  .upload-mode-row {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
   .two-col {
     grid-template-columns: 1fr;
   }
+
   .right {
     border-left: none;
     padding-left: 0;
   }
-  .kv-grid-2 {
+
+  .preview-wall {
     grid-template-columns: 1fr;
+  }
+
+  .kv-grid-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kv-grid-5 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>

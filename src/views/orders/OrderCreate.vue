@@ -8,20 +8,20 @@
         <div class="upload-mode">
           <span class="upload-mode-label">上传模式</span>
           <el-select v-model="uploadMode" size="small" style="width: 150px" @change="persistUploadMode">
-            <el-option label="智能（推荐）" value="smart" />
-            <el-option label="直传（更快）" value="direct" />
-            <el-option label="稳定（兼容VPN）" value="stable" />
+            <el-option label="智能（推荐）" value="smart"/>
+            <el-option label="直传（更快）" value="direct"/>
+            <el-option label="稳定（兼容VPN）" value="stable"/>
           </el-select>
         </div>
 
         <el-button size="small" @click="goBack">返回</el-button>
 
         <el-button
-          size="small"
-          type="primary"
-          :loading="saving"
-          :disabled="uploadingCount > 0 || !canSubmitCreate"
-          @click="save"
+            size="small"
+            type="primary"
+            :loading="saving"
+            :disabled="uploadingCount > 0 || !canSubmitCreate"
+            @click="save"
         >
           保存
         </el-button>
@@ -30,13 +30,13 @@
 
     <div class="page-body">
       <el-alert
-        v-if="uploadingCount > 0"
-        class="upload-alert"
-        type="warning"
-        :closable="false"
-        show-icon
-        title="正在上传"
-        :description="`正在上传 ${uploadingCount} 个文件…（全部上传完成后才能保存）`"
+          v-if="uploadingCount > 0"
+          class="upload-alert"
+          type="warning"
+          :closable="false"
+          show-icon
+          title="正在上传"
+          :description="`正在上传 ${uploadingCount} 个文件…（全部上传完成后才能保存）`"
       />
 
       <!-- ① 渠道、客户 -->
@@ -53,19 +53,19 @@
               <div class="kv-label">渠道</div>
               <div class="kv-value">
                 <el-select
-                  v-model="editMeta.channel_group_id"
-                  filterable
-                  clearable
-                  placeholder="请选择渠道（必选）"
-                  class="fv fv-select"
-                  :loading="channelLoading"
-                  :disabled="channelLoading"
+                    v-model="editMeta.channel_group_id"
+                    filterable
+                    clearable
+                    placeholder="请选择渠道（必选）"
+                    class="fv fv-select"
+                    :loading="channelLoading"
+                    :disabled="channelLoading"
                 >
                   <el-option
-                    v-for="op in channelOptions"
-                    :key="String(op.id)"
-                    :label="formatGroupLabel(op)"
-                    :value="op.id"
+                      v-for="op in channelOptions"
+                      :key="String(op.id)"
+                      :label="formatGroupLabel(op)"
+                      :value="op.id"
                   />
                 </el-select>
               </div>
@@ -75,19 +75,19 @@
               <div class="kv-label">客户</div>
               <div class="kv-value">
                 <el-select
-                  v-model="editMeta.customer_group_id"
-                  filterable
-                  clearable
-                  placeholder="请选择客户（必选）"
-                  class="fv fv-select"
-                  :loading="customerLoading"
-                  :disabled="customerLoading"
+                    v-model="editMeta.customer_group_id"
+                    filterable
+                    clearable
+                    placeholder="请选择客户（必选）"
+                    class="fv fv-select"
+                    :loading="customerLoading"
+                    :disabled="customerLoading"
                 >
                   <el-option
-                    v-for="op in customerOptions"
-                    :key="String(op.id)"
-                    :label="formatGroupLabel(op)"
-                    :value="op.id"
+                      v-for="op in customerOptions"
+                      :key="String(op.id)"
+                      :label="formatGroupLabel(op)"
+                      :value="op.id"
                   />
                 </el-select>
               </div>
@@ -109,14 +109,14 @@
             <div class="kv-item">
               <div class="kv-label">保险到期日</div>
               <div class="kv-value">
-                <InfoValue v-model="editOrderInfo.insurance_expire_date" type="date" :editable="true" />
+                <InfoValue v-model="editOrderInfo.insurance_expire_date" type="date" :editable="true"/>
               </div>
             </div>
 
             <div class="kv-item">
               <div class="kv-label">车主电话</div>
               <div class="kv-value">
-                <InfoValue v-model="editOrderInfo.owner_phone" type="text" :editable="true" />
+                <InfoValue v-model="editOrderInfo.owner_phone" type="text" :editable="true"/>
               </div>
             </div>
           </div>
@@ -125,28 +125,28 @@
             <div class="kv-item">
               <div class="kv-label">商业金额</div>
               <div class="kv-value">
-                <InfoValue v-model="editOrderInfo.commercial_amount" type="money" :editable="true" :min="0" />
+                <InfoValue v-model="editOrderInfo.commercial_amount" type="money" :editable="true" :min="0"/>
               </div>
             </div>
 
             <div class="kv-item">
               <div class="kv-label">交强金额</div>
               <div class="kv-value">
-                <InfoValue v-model="editOrderInfo.compulsory_amount" type="money" :editable="true" :min="0" />
+                <InfoValue v-model="editOrderInfo.compulsory_amount" type="money" :editable="true" :min="0"/>
               </div>
             </div>
 
             <div class="kv-item">
               <div class="kv-label">车船税金额</div>
               <div class="kv-value">
-                <InfoValue v-model="editOrderInfo.vehicle_tax_amount" type="money" :editable="true" :min="0" />
+                <InfoValue v-model="editOrderInfo.vehicle_tax_amount" type="money" :editable="true" :min="0"/>
               </div>
             </div>
 
             <div class="kv-item">
               <div class="kv-label">非车金额</div>
               <div class="kv-value">
-                <InfoValue v-model="editOrderInfo.non_vehicle_amount" type="money" :editable="true" :min="0" />
+                <InfoValue v-model="editOrderInfo.non_vehicle_amount" type="money" :editable="true" :min="0"/>
               </div>
             </div>
           </div>
@@ -155,7 +155,7 @@
             <div class="kv-item">
               <div class="kv-label">保费金额</div>
               <div class="kv-value">
-                <InfoValue v-model="editOrderInfo.premium_total" type="money" :editable="false" />
+                <InfoValue v-model="editOrderInfo.premium_total" type="money" :editable="false"/>
               </div>
             </div>
           </div>
@@ -166,40 +166,46 @@
           <div class="kv-item">
             <div class="kv-label">商业点位%</div>
             <div class="kv-value">
-              <InfoValue v-model="editOrderInfo.channel_commercial_point" type="point" :editable="true" />
+              <InfoValue v-model="editOrderInfo.channel_commercial_point" type="point" :editable="true"/>
+            </div>
+          </div>
+          <div class="kv-item">
+            <div class="kv-label">商业补点%</div>
+            <div class="kv-value">
+              <InfoValue v-model="editOrderInfo.channel_commercial_supplement_point" type="point" :editable="true"/>
             </div>
           </div>
           <div class="kv-item">
             <div class="kv-label">交强点位%</div>
             <div class="kv-value">
-              <InfoValue v-model="editOrderInfo.channel_compulsory_point" type="point" :editable="true" />
+              <InfoValue v-model="editOrderInfo.channel_compulsory_point" type="point" :editable="true"/>
             </div>
           </div>
           <div class="kv-item">
             <div class="kv-label">车船税点位%</div>
             <div class="kv-value">
-              <InfoValue v-model="editOrderInfo.channel_vehicle_tax_point" type="point" :editable="true" />
+              <InfoValue v-model="editOrderInfo.channel_vehicle_tax_point" type="point" :editable="true"/>
             </div>
           </div>
           <div class="kv-item">
             <div class="kv-label">非车点位%</div>
             <div class="kv-value">
-              <InfoValue v-model="editOrderInfo.channel_non_vehicle_point" type="point" :editable="true" />
-            </div>
-          </div>
-          <div class="kv-item">
-            <div class="kv-label">出单奖励</div>
-            <div class="kv-value">
-              <InfoValue v-model="editOrderInfo.channel_reward" type="money" :editable="true" />
+              <InfoValue v-model="editOrderInfo.channel_non_vehicle_point" type="point" :editable="true"/>
             </div>
           </div>
         </div>
 
         <div class="kv-grid kv-grid-2 info-grid">
           <div class="kv-item">
+            <div class="kv-label">出单奖励</div>
+            <div class="kv-value">
+              <InfoValue v-model="editOrderInfo.channel_reward" type="money" :editable="true"/>
+            </div>
+          </div>
+          <div class="kv-item">
             <div class="kv-label">渠道合计</div>
             <div class="kv-value">
-              <InfoValue v-model="editOrderInfo.channel_total" type="money" :editable="false" />
+              <InfoValue v-model="editOrderInfo.channel_total" type="money" :editable="false"/>
             </div>
           </div>
         </div>
@@ -209,40 +215,46 @@
           <div class="kv-item">
             <div class="kv-label">商业点位%</div>
             <div class="kv-value">
-              <InfoValue v-model="editOrderInfo.customer_commercial_point" type="point" :editable="true" />
+              <InfoValue v-model="editOrderInfo.customer_commercial_point" type="point" :editable="true"/>
+            </div>
+          </div>
+          <div class="kv-item">
+            <div class="kv-label">商业补点%</div>
+            <div class="kv-value">
+              <InfoValue v-model="editOrderInfo.customer_commercial_supplement_point" type="point" :editable="true"/>
             </div>
           </div>
           <div class="kv-item">
             <div class="kv-label">交强点位%</div>
             <div class="kv-value">
-              <InfoValue v-model="editOrderInfo.customer_compulsory_point" type="point" :editable="true" />
+              <InfoValue v-model="editOrderInfo.customer_compulsory_point" type="point" :editable="true"/>
             </div>
           </div>
           <div class="kv-item">
             <div class="kv-label">车船税点位%</div>
             <div class="kv-value">
-              <InfoValue v-model="editOrderInfo.customer_vehicle_tax_point" type="point" :editable="true" />
+              <InfoValue v-model="editOrderInfo.customer_vehicle_tax_point" type="point" :editable="true"/>
             </div>
           </div>
           <div class="kv-item">
             <div class="kv-label">非车点位%</div>
             <div class="kv-value">
-              <InfoValue v-model="editOrderInfo.customer_non_vehicle_point" type="point" :editable="true" />
-            </div>
-          </div>
-          <div class="kv-item">
-            <div class="kv-label">出单奖励</div>
-            <div class="kv-value">
-              <InfoValue v-model="editOrderInfo.customer_reward" type="money" :editable="true" />
+              <InfoValue v-model="editOrderInfo.customer_non_vehicle_point" type="point" :editable="true"/>
             </div>
           </div>
         </div>
 
         <div class="kv-grid kv-grid-2 info-grid">
           <div class="kv-item">
+            <div class="kv-label">出单奖励</div>
+            <div class="kv-value">
+              <InfoValue v-model="editOrderInfo.customer_reward" type="money" :editable="true"/>
+            </div>
+          </div>
+          <div class="kv-item">
             <div class="kv-label">客户合计</div>
             <div class="kv-value">
-              <InfoValue v-model="editOrderInfo.customer_total" type="money" :editable="false" />
+              <InfoValue v-model="editOrderInfo.customer_total" type="money" :editable="false"/>
             </div>
           </div>
         </div>
@@ -251,7 +263,7 @@
           <div class="kv-item">
             <div class="kv-label">利润</div>
             <div class="kv-value">
-              <InfoValue v-model="editOrderInfo.profit" type="money" :editable="false" />
+              <InfoValue v-model="editOrderInfo.profit" type="money" :editable="false"/>
             </div>
           </div>
         </div>
@@ -264,8 +276,8 @@
             <div class="section-title">车辆合格证</div>
             <el-button class="icon-btn" circle size="small" @click="certExpanded = !certExpanded">
               <el-icon>
-                <CaretTop v-if="certExpanded" />
-                <CaretBottom v-else />
+                <CaretTop v-if="certExpanded"/>
+                <CaretBottom v-else/>
               </el-icon>
             </el-button>
           </div>
@@ -277,21 +289,21 @@
               <div class="kv-item">
                 <div class="kv-label">车辆型号</div>
                 <div class="kv-value">
-                  <FieldValue v-model="editData.vehicle_model" :field="meta('vehicle_model')" :editable="true" />
+                  <FieldValue v-model="editData.vehicle_model" :field="meta('vehicle_model')" :editable="true"/>
                 </div>
               </div>
 
               <div class="kv-item">
                 <div class="kv-label">车辆识别代号/车架号</div>
                 <div class="kv-value">
-                  <FieldValue v-model="editData.vin" :field="meta('vin')" :editable="true" />
+                  <FieldValue v-model="editData.vin" :field="meta('vin')" :editable="true"/>
                 </div>
               </div>
 
               <div class="kv-item">
                 <div class="kv-label">发动机号</div>
                 <div class="kv-value">
-                  <FieldValue v-model="editData.engine_no" :field="meta('engine_no')" :editable="true" />
+                  <FieldValue v-model="editData.engine_no" :field="meta('engine_no')" :editable="true"/>
                 </div>
               </div>
 
@@ -299,21 +311,21 @@
                 <div class="kv-label">额定载客(人)</div>
                 <div class="kv-value">
                   <FieldValue
-                    v-model="editData.approved_passenger_count"
-                    :field="meta('approved_passenger_count')"
-                    :editable="true"
+                      v-model="editData.approved_passenger_count"
+                      :field="meta('approved_passenger_count')"
+                      :editable="true"
                   />
                 </div>
               </div>
             </div>
 
             <div v-else>
-              <VehicleCertTable :data="editData" :readonly="false" />
+              <VehicleCertTable :data="editData" :readonly="false"/>
             </div>
           </div>
 
           <div class="right">
-            <SlotUploadCard slot-key="vehicle_cert" label="合格证" :multiple="false" />
+            <SlotUploadCard slot-key="vehicle_cert" label="合格证" :multiple="false"/>
           </div>
         </div>
       </el-card>
@@ -325,8 +337,8 @@
             <div class="section-title">身份证正面/身份证背面</div>
             <el-button class="icon-btn" circle size="small" @click="idExpanded = !idExpanded">
               <el-icon>
-                <CaretTop v-if="idExpanded" />
-                <CaretBottom v-else />
+                <CaretTop v-if="idExpanded"/>
+                <CaretBottom v-else/>
               </el-icon>
             </el-button>
           </div>
@@ -341,14 +353,14 @@
                   <div class="kv-item">
                     <div class="kv-label">姓名</div>
                     <div class="kv-value">
-                      <FieldValue v-model="editData.id_name" :field="meta('id_name')" :editable="true" />
+                      <FieldValue v-model="editData.id_name" :field="meta('id_name')" :editable="true"/>
                     </div>
                   </div>
 
                   <div class="kv-item">
                     <div class="kv-label">公民身份号码</div>
                     <div class="kv-value">
-                      <FieldValue v-model="editData.id_number" :field="meta('id_number')" :editable="true" />
+                      <FieldValue v-model="editData.id_number" :field="meta('id_number')" :editable="true"/>
                     </div>
                   </div>
                 </div>
@@ -358,7 +370,7 @@
                     <div class="kv-item">
                       <div class="kv-label">{{ labelOf(f) }}</div>
                       <div class="kv-value">
-                        <FieldValue v-model="editData[f.key]" :field="f" :editable="true" />
+                        <FieldValue v-model="editData[f.key]" :field="f" :editable="true"/>
                       </div>
                     </div>
                   </template>
@@ -366,7 +378,7 @@
               </div>
 
               <div class="right">
-                <SlotUploadCard slot-key="idcard_front" label="身份证正面" :multiple="false" />
+                <SlotUploadCard slot-key="idcard_front" label="身份证正面" :multiple="false"/>
               </div>
             </div>
           </div>
@@ -380,7 +392,7 @@
                     <div class="kv-item">
                       <div class="kv-label">{{ labelOf(f) }}</div>
                       <div class="kv-value">
-                        <FieldValue v-model="editData[f.key]" :field="f" :editable="true" />
+                        <FieldValue v-model="editData[f.key]" :field="f" :editable="true"/>
                       </div>
                     </div>
                   </template>
@@ -388,7 +400,7 @@
               </div>
 
               <div class="right">
-                <SlotUploadCard slot-key="idcard_back" label="身份证背面" :multiple="false" />
+                <SlotUploadCard slot-key="idcard_back" label="身份证背面" :multiple="false"/>
               </div>
             </div>
           </div>
@@ -402,8 +414,8 @@
             <div class="section-title">行驶证/行驶证副件</div>
             <el-button class="icon-btn" circle size="small" @click="dlExpanded = !dlExpanded">
               <el-icon>
-                <CaretTop v-if="dlExpanded" />
-                <CaretBottom v-else />
+                <CaretTop v-if="dlExpanded"/>
+                <CaretBottom v-else/>
               </el-icon>
             </el-button>
           </div>
@@ -418,14 +430,14 @@
                   <div v-if="dlKey('plate')" class="kv-item">
                     <div class="kv-label">号牌号码</div>
                     <div class="kv-value">
-                      <FieldValue v-model="editData[dlKey('plate')]" :field="meta(dlKey('plate'))" :editable="true" />
+                      <FieldValue v-model="editData[dlKey('plate')]" :field="meta(dlKey('plate'))" :editable="true"/>
                     </div>
                   </div>
 
                   <div v-if="dlKey('owner')" class="kv-item">
                     <div class="kv-label">所有人</div>
                     <div class="kv-value">
-                      <FieldValue v-model="editData[dlKey('owner')]" :field="meta(dlKey('owner'))" :editable="true" />
+                      <FieldValue v-model="editData[dlKey('owner')]" :field="meta(dlKey('owner'))" :editable="true"/>
                     </div>
                   </div>
 
@@ -433,9 +445,9 @@
                     <div class="kv-label">使用性质</div>
                     <div class="kv-value">
                       <FieldValue
-                        v-model="editData[dlKey('use_nature')]"
-                        :field="meta(dlKey('use_nature'))"
-                        :editable="true"
+                          v-model="editData[dlKey('use_nature')]"
+                          :field="meta(dlKey('use_nature'))"
+                          :editable="true"
                       />
                     </div>
                   </div>
@@ -444,9 +456,9 @@
                     <div class="kv-label">品牌型号</div>
                     <div class="kv-value">
                       <FieldValue
-                        v-model="editData[dlKey('brand_model')]"
-                        :field="meta(dlKey('brand_model'))"
-                        :editable="true"
+                          v-model="editData[dlKey('brand_model')]"
+                          :field="meta(dlKey('brand_model'))"
+                          :editable="true"
                       />
                     </div>
                   </div>
@@ -454,14 +466,14 @@
                   <div v-if="dlKey('vin')" class="kv-item">
                     <div class="kv-label">车辆识别代码</div>
                     <div class="kv-value">
-                      <FieldValue v-model="editData[dlKey('vin')]" :field="meta(dlKey('vin'))" :editable="true" />
+                      <FieldValue v-model="editData[dlKey('vin')]" :field="meta(dlKey('vin'))" :editable="true"/>
                     </div>
                   </div>
 
                   <div v-if="dlKey('engine')" class="kv-item">
                     <div class="kv-label">发动机号码</div>
                     <div class="kv-value">
-                      <FieldValue v-model="editData[dlKey('engine')]" :field="meta(dlKey('engine'))" :editable="true" />
+                      <FieldValue v-model="editData[dlKey('engine')]" :field="meta(dlKey('engine'))" :editable="true"/>
                     </div>
                   </div>
 
@@ -469,9 +481,9 @@
                     <div class="kv-label">注册日期</div>
                     <div class="kv-value">
                       <FieldValue
-                        v-model="editData[dlKey('register_date')]"
-                        :field="meta(dlKey('register_date'))"
-                        :editable="true"
+                          v-model="editData[dlKey('register_date')]"
+                          :field="meta(dlKey('register_date'))"
+                          :editable="true"
                       />
                     </div>
                   </div>
@@ -482,7 +494,7 @@
                     <div class="kv-item">
                       <div class="kv-label">{{ labelOf(f) }}</div>
                       <div class="kv-value">
-                        <FieldValue v-model="editData[f.key]" :field="f" :editable="true" />
+                        <FieldValue v-model="editData[f.key]" :field="f" :editable="true"/>
                       </div>
                     </div>
                   </template>
@@ -490,7 +502,7 @@
               </div>
 
               <div class="right">
-                <SlotUploadCard slot-key="driving_license_main" label="行驶证主页" :multiple="false" />
+                <SlotUploadCard slot-key="driving_license_main" label="行驶证主页" :multiple="false"/>
               </div>
             </div>
           </div>
@@ -504,9 +516,9 @@
                     <div class="kv-label">核定载人数</div>
                     <div class="kv-value">
                       <FieldValue
-                        v-model="editData[dlAttachPassengerKey]"
-                        :field="meta(dlAttachPassengerKey)"
-                        :editable="true"
+                          v-model="editData[dlAttachPassengerKey]"
+                          :field="meta(dlAttachPassengerKey)"
+                          :editable="true"
                       />
                     </div>
                   </div>
@@ -517,7 +529,7 @@
                     <div class="kv-item">
                       <div class="kv-label">{{ labelOf(f) }}</div>
                       <div class="kv-value">
-                        <FieldValue v-model="editData[f.key]" :field="f" :editable="true" />
+                        <FieldValue v-model="editData[f.key]" :field="f" :editable="true"/>
                       </div>
                     </div>
                   </template>
@@ -525,7 +537,7 @@
               </div>
 
               <div class="right">
-                <SlotUploadCard slot-key="driving_license_sub" label="行驶证副页" :multiple="false" />
+                <SlotUploadCard slot-key="driving_license_sub" label="行驶证副页" :multiple="false"/>
               </div>
             </div>
           </div>
@@ -555,15 +567,15 @@
           </div>
 
           <el-upload
-            drag
-            :auto-upload="false"
-            :multiple="true"
-            :limit="20"
-            :file-list="slotFiles.related"
-            :on-change="(file) => onFileChange('related', file)"
-            :on-remove="(file) => onFileRemove('related', file)"
-            accept="image/*"
-            class="upload-box upload-multi"
+              drag
+              :auto-upload="false"
+              :multiple="true"
+              :limit="20"
+              :file-list="slotFiles.related"
+              :on-change="(file) => onFileChange('related', file)"
+              :on-remove="(file) => onFileRemove('related', file)"
+              accept="image/*"
+              class="upload-box upload-multi"
           >
             <div class="upload-empty">
               <div class="empty-center">
@@ -576,11 +588,11 @@
           <div v-if="(slotFiles.related || []).length" class="preview-wall">
             <div v-for="f in slotFiles.related" :key="f.uid" class="preview-item">
               <el-image
-                v-if="f.url"
-                :src="f.url"
-                :preview-src-list="previewUrls('related')"
-                fit="cover"
-                class="preview-img"
+                  v-if="f.url"
+                  :src="f.url"
+                  :preview-src-list="previewUrls('related')"
+                  fit="cover"
+                  class="preview-img"
               />
               <div v-else class="preview-img preview-empty"></div>
 
@@ -608,19 +620,19 @@
 </template>
 
 <script setup>
-import { computed, defineComponent, h, onBeforeUnmount, onMounted, reactive, ref, resolveComponent, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
-import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
-import { CaretBottom, CaretTop } from "@element-plus/icons-vue";
+import {computed, defineComponent, h, onBeforeUnmount, onMounted, reactive, ref, resolveComponent, watch} from "vue";
+import {useRoute, useRouter} from "vue-router";
+import {ElMessage, ElMessageBox, ElNotification} from "element-plus";
+import {CaretBottom, CaretTop} from "@element-plus/icons-vue";
 
 import VehicleCertTable from "./VehicleCertTable.vue";
 
 import http from "../../api/http";
-import { createOrderDraft, finalizeOrderUpload, uploadOrderImageProxy } from "../../api/orders";
-import { useOrderFieldConfig } from "../../composables/useOrderFieldConfig";
-import { formatDynamicValue } from "../../utils/fieldFormat";
-import { uploadOrReuseByMd5 } from "../../utils/bosUpload";
-import { preprocessImageForUpload } from "../../utils/imagePreprocess";
+import {createOrderDraft, finalizeOrderUpload, uploadOrderImageProxy} from "../../api/orders";
+import {useOrderFieldConfig} from "../../composables/useOrderFieldConfig";
+import {formatDynamicValue} from "../../utils/fieldFormat";
+import {uploadOrReuseByMd5} from "../../utils/bosUpload";
+import {preprocessImageForUpload} from "../../utils/imagePreprocess";
 
 const router = useRouter();
 const route = useRoute();
@@ -631,7 +643,6 @@ const certExpanded = ref(false);
 const idExpanded = ref(false);
 const dlExpanded = ref(false);
 
-/** ====================== 上传模式（与导入/详情页统一） ====================== */
 const UPLOAD_MODE_KEY = "order_import_upload_mode";
 const uploadMode = ref("smart");
 
@@ -643,7 +654,8 @@ function loadUploadMode() {
 function persistUploadMode() {
   try {
     localStorage.setItem(UPLOAD_MODE_KEY, uploadMode.value);
-  } catch {}
+  } catch {
+  }
 }
 
 loadUploadMode();
@@ -656,14 +668,14 @@ function _errMsg(e) {
 function isLikelyNetworkBlocked(err) {
   const m = _errMsg(err).toLowerCase();
   return (
-    m.includes("failed to fetch") ||
-    m.includes("network error") ||
-    m.includes("err_") ||
-    m.includes("cors") ||
-    m.includes("代理") ||
-    m.includes("vpn") ||
-    m.includes("hint=浏览器请求可能走了本机代理") ||
-    m.includes("127.0.0.1:7890")
+      m.includes("failed to fetch") ||
+      m.includes("network error") ||
+      m.includes("err_") ||
+      m.includes("cors") ||
+      m.includes("代理") ||
+      m.includes("vpn") ||
+      m.includes("hint=浏览器请求可能走了本机代理") ||
+      m.includes("127.0.0.1:7890")
   );
 }
 
@@ -675,15 +687,15 @@ async function suggestSwitchToStableOnce() {
 
   try {
     await ElMessageBox.confirm(
-      `上传被当前网络环境拦截（常见于 VPN/代理/公司网关）。\n\n建议切换到【稳定模式上传】继续，无需任何设置。`,
-      "上传失败（网络拦截）",
-      {
-        confirmButtonText: "切换为稳定模式",
-        cancelButtonText: "继续直传重试",
-        type: "warning",
-        center: true,
-        distinguishCancelAndClose: true,
-      }
+        `上传被当前网络环境拦截（常见于 VPN/代理/公司网关）。\n\n建议切换到【稳定模式上传】继续，无需任何设置。`,
+        "上传失败（网络拦截）",
+        {
+          confirmButtonText: "切换为稳定模式",
+          cancelButtonText: "继续直传重试",
+          type: "warning",
+          center: true,
+          distinguishCancelAndClose: true,
+        }
     );
     uploadMode.value = "stable";
     persistUploadMode();
@@ -693,7 +705,6 @@ async function suggestSwitchToStableOnce() {
   }
 }
 
-/** ====================== 回退逻辑 ====================== */
 function goBack() {
   const from = route.query?.from;
   if (typeof from === "string" && from) {
@@ -712,10 +723,9 @@ function goBack() {
     router.back();
     return;
   }
-  router.push({ path: "/orders/all" });
+  router.push({path: "/orders/all"});
 }
 
-/** ====================== 渠道/客户 ====================== */
 const channelOptions = ref([]);
 const customerOptions = ref([]);
 const channelLoading = ref(false);
@@ -758,7 +768,6 @@ function formatGroupLabel(op) {
 }
 
 function _extractItems(resp) {
-  // 以后端当前返回为准（优先 items）；同时容错数组直返，避免页面空下拉
   const d = resp?.data;
   if (Array.isArray(d?.items)) return d.items;
   if (Array.isArray(d)) return d;
@@ -783,8 +792,7 @@ async function loadGroupOptions() {
   }
 }
 
-/** ====================== 字段配置（dynamic_data） ====================== */
-const { groups, allFields, loadConfig } = useOrderFieldConfig();
+const {groups, allFields, loadConfig} = useOrderFieldConfig();
 
 const fieldByKey = computed(() => {
   const m = new Map();
@@ -793,7 +801,7 @@ const fieldByKey = computed(() => {
 });
 
 function meta(key) {
-  return fieldByKey.value.get(key) || { key, label: key, type: "text", options: [] };
+  return fieldByKey.value.get(key) || {key, label: key, type: "text", options: []};
 }
 
 function labelOf(field) {
@@ -810,7 +818,7 @@ function normalizeCompactYmd(val) {
 
 function formatForView(val, field) {
   if (val === null || val === undefined || val === "") return "-";
-  const f = field || { type: "text", options: [] };
+  const f = field || {type: "text", options: []};
   const v = f.type === "date" ? normalizeCompactYmd(val) : val;
   const out = formatDynamicValue(v, f);
   return out === "" ? "-" : out;
@@ -828,7 +836,7 @@ function groupFields(g) {
 }
 
 const ID_FRONT_KEYS = Object.freeze(["id_name", "id_gender", "id_ethnicity", "id_birth_date", "id_address", "id_number"]);
-const ID_BACK_KEYS = Object.freeze(["id_issuer", "id_validity"]);
+const ID_BACK_KEYS = Object.freeze(["id_issuer", "id_valid_from", "id_valid_to", "id_validity"]);
 
 const idFrontFields = computed(() => ID_FRONT_KEYS.map((k) => meta(k)));
 const idBackFields = computed(() => ID_BACK_KEYS.map((k) => meta(k)));
@@ -836,7 +844,7 @@ const idBackFields = computed(() => ID_BACK_KEYS.map((k) => meta(k)));
 const dlMainFields = computed(() => groupFields(dlMainGroup.value));
 const dlAttachFields = computed(() => groupFields(dlAttachGroup.value));
 
-function _pickKeyFromFields(fields, { preferKeys = [], labelIncludes = [], keyIncludes = [] } = {}) {
+function _pickKeyFromFields(fields, {preferKeys = [], labelIncludes = [], keyIncludes = []} = {}) {
   const arr = Array.isArray(fields) ? fields : [];
   for (const k of preferKeys) {
     const f = arr.find((x) => x?.key === k);
@@ -856,27 +864,27 @@ function _pickKeyFromFields(fields, { preferKeys = [], labelIncludes = [], keyIn
 const dlDefaultKeyMap = computed(() => {
   const fields = dlMainFields.value || [];
   return {
-    plate: _pickKeyFromFields(fields, { preferKeys: ["dl_plate_no"], keyIncludes: ["plate"], labelIncludes: ["号牌"] }),
-    owner: _pickKeyFromFields(fields, { preferKeys: ["dl_owner"], keyIncludes: ["owner"], labelIncludes: ["所有人"] }),
+    plate: _pickKeyFromFields(fields, {preferKeys: ["plate_no"], keyIncludes: ["plate"], labelIncludes: ["号牌"]}),
+    owner: _pickKeyFromFields(fields, {preferKeys: ["owner_name"], keyIncludes: ["owner"], labelIncludes: ["所有人"]}),
     use_nature: _pickKeyFromFields(fields, {
-      preferKeys: ["dl_use_nature"],
+      preferKeys: ["use_nature"],
       keyIncludes: ["use_nature", "use"],
       labelIncludes: ["使用性质"],
     }),
     brand_model: _pickKeyFromFields(fields, {
-      preferKeys: ["dl_brand_model"],
-      keyIncludes: ["brand", "model"],
+      preferKeys: ["vehicle_model"],
+      keyIncludes: ["brand", "model", "vehicle_model"],
       labelIncludes: ["品牌型号", "品牌", "型号"],
     }),
-    vin: _pickKeyFromFields(fields, { preferKeys: ["dl_vin", "vin"], keyIncludes: ["vin"], labelIncludes: ["识别", "车架"] }),
+    vin: _pickKeyFromFields(fields, {preferKeys: ["vin"], keyIncludes: ["vin"], labelIncludes: ["识别", "车架"]}),
     engine: _pickKeyFromFields(fields, {
-      preferKeys: ["dl_engine_no", "engine_no"],
+      preferKeys: ["engine_no"],
       keyIncludes: ["engine"],
       labelIncludes: ["发动机"],
     }),
     register_date: _pickKeyFromFields(fields, {
-      preferKeys: ["dl_register_date", "register_date"],
-      keyIncludes: ["register", "reg_date"],
+      preferKeys: ["first_register_date"],
+      keyIncludes: ["register", "first_register"],
       labelIncludes: ["注册日期"],
     }),
   };
@@ -889,22 +897,23 @@ function dlKey(name) {
 const dlAttachPassengerKey = computed(() => {
   const fields = dlAttachFields.value || [];
   return _pickKeyFromFields(fields, {
-    preferKeys: ["dl_approved_passenger_count", "approved_passenger_count", "dl_passenger_count"],
+    preferKeys: ["approved_passenger_count", "dla_approved_passengers", "dla_passenger_count"],
     keyIncludes: ["passenger", "approved"],
     labelIncludes: ["核定载", "载人数", "载客"],
   });
 });
 
-/** ====================== 订单信息（order_info） ====================== */
 function _numOrZero(v) {
   if (v === null || v === undefined || v === "") return 0;
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 }
+
 function _trimOrEmpty(v) {
   if (v === null || v === undefined) return "";
   return String(v).trim();
 }
+
 function _dateOrEmpty(v) {
   if (!v) return "";
   const s = String(v).trim();
@@ -925,6 +934,7 @@ const editOrderInfo = reactive({
   premium_total: 0,
 
   channel_commercial_point: 0,
+  channel_commercial_supplement_point: 0,
   channel_compulsory_point: 0,
   channel_vehicle_tax_point: 0,
   channel_non_vehicle_point: 0,
@@ -932,6 +942,7 @@ const editOrderInfo = reactive({
   channel_total: 0,
 
   customer_commercial_point: 0,
+  customer_commercial_supplement_point: 0,
   customer_compulsory_point: 0,
   customer_vehicle_tax_point: 0,
   customer_non_vehicle_point: 0,
@@ -955,30 +966,34 @@ function recalcOrderInfoDerived() {
   const premiumTotal = commercial + compulsory + vehicleTax + nonVehicle;
 
   const chCommercialPoint = _numOrZero(editOrderInfo.channel_commercial_point);
+  const chCommercialSupplementPoint = _numOrZero(editOrderInfo.channel_commercial_supplement_point);
   const chCompulsoryPoint = _numOrZero(editOrderInfo.channel_compulsory_point);
   const chVehicleTaxPoint = _numOrZero(editOrderInfo.channel_vehicle_tax_point);
   const chNonVehiclePoint = _numOrZero(editOrderInfo.channel_non_vehicle_point);
   const chReward = _numOrZero(editOrderInfo.channel_reward);
 
   const cuCommercialPoint = _numOrZero(editOrderInfo.customer_commercial_point);
+  const cuCommercialSupplementPoint = _numOrZero(editOrderInfo.customer_commercial_supplement_point);
   const cuCompulsoryPoint = _numOrZero(editOrderInfo.customer_compulsory_point);
   const cuVehicleTaxPoint = _numOrZero(editOrderInfo.customer_vehicle_tax_point);
   const cuNonVehiclePoint = _numOrZero(editOrderInfo.customer_non_vehicle_point);
   const cuReward = _numOrZero(editOrderInfo.customer_reward);
 
   const channelTotal =
-    commercial * (chCommercialPoint / 100) +
-    compulsory * (chCompulsoryPoint / 100) +
-    vehicleTax * (chVehicleTaxPoint / 100) +
-    nonVehicle * (chNonVehiclePoint / 100) +
-    chReward;
+      commercial * (chCommercialPoint / 100) +
+      commercial * (chCommercialSupplementPoint / 100) +
+      compulsory * (chCompulsoryPoint / 100) +
+      vehicleTax * (chVehicleTaxPoint / 100) +
+      nonVehicle * (chNonVehiclePoint / 100) +
+      chReward;
 
   const customerTotal =
-    commercial * (cuCommercialPoint / 100) +
-    compulsory * (cuCompulsoryPoint / 100) +
-    vehicleTax * (cuVehicleTaxPoint / 100) +
-    nonVehicle * (cuNonVehiclePoint / 100) +
-    cuReward;
+      commercial * (cuCommercialPoint / 100) +
+      commercial * (cuCommercialSupplementPoint / 100) +
+      compulsory * (cuCompulsoryPoint / 100) +
+      vehicleTax * (cuVehicleTaxPoint / 100) +
+      nonVehicle * (cuNonVehiclePoint / 100) +
+      cuReward;
 
   editOrderInfo.premium_total = premiumTotal;
   editOrderInfo.channel_total = channelTotal;
@@ -987,25 +1002,27 @@ function recalcOrderInfoDerived() {
 }
 
 watch(
-  () => [
-    editOrderInfo.commercial_amount,
-    editOrderInfo.compulsory_amount,
-    editOrderInfo.vehicle_tax_amount,
-    editOrderInfo.non_vehicle_amount,
+    () => [
+      editOrderInfo.commercial_amount,
+      editOrderInfo.compulsory_amount,
+      editOrderInfo.vehicle_tax_amount,
+      editOrderInfo.non_vehicle_amount,
 
-    editOrderInfo.channel_commercial_point,
-    editOrderInfo.channel_compulsory_point,
-    editOrderInfo.channel_vehicle_tax_point,
-    editOrderInfo.channel_non_vehicle_point,
-    editOrderInfo.channel_reward,
+      editOrderInfo.channel_commercial_point,
+      editOrderInfo.channel_commercial_supplement_point,
+      editOrderInfo.channel_compulsory_point,
+      editOrderInfo.channel_vehicle_tax_point,
+      editOrderInfo.channel_non_vehicle_point,
+      editOrderInfo.channel_reward,
 
-    editOrderInfo.customer_commercial_point,
-    editOrderInfo.customer_compulsory_point,
-    editOrderInfo.customer_vehicle_tax_point,
-    editOrderInfo.customer_non_vehicle_point,
-    editOrderInfo.customer_reward,
-  ],
-  () => recalcOrderInfoDerived()
+      editOrderInfo.customer_commercial_point,
+      editOrderInfo.customer_commercial_supplement_point,
+      editOrderInfo.customer_compulsory_point,
+      editOrderInfo.customer_vehicle_tax_point,
+      editOrderInfo.customer_non_vehicle_point,
+      editOrderInfo.customer_reward,
+    ],
+    () => recalcOrderInfoDerived()
 );
 
 function _sanitizeOrderInfoPayload() {
@@ -1020,6 +1037,7 @@ function _sanitizeOrderInfoPayload() {
     premium_total: _numOrZero(editOrderInfo.premium_total),
 
     channel_commercial_point: _numOrZero(editOrderInfo.channel_commercial_point),
+    channel_commercial_supplement_point: _numOrZero(editOrderInfo.channel_commercial_supplement_point),
     channel_compulsory_point: _numOrZero(editOrderInfo.channel_compulsory_point),
     channel_vehicle_tax_point: _numOrZero(editOrderInfo.channel_vehicle_tax_point),
     channel_non_vehicle_point: _numOrZero(editOrderInfo.channel_non_vehicle_point),
@@ -1027,6 +1045,7 @@ function _sanitizeOrderInfoPayload() {
     channel_total: _numOrZero(editOrderInfo.channel_total),
 
     customer_commercial_point: _numOrZero(editOrderInfo.customer_commercial_point),
+    customer_commercial_supplement_point: _numOrZero(editOrderInfo.customer_commercial_supplement_point),
     customer_compulsory_point: _numOrZero(editOrderInfo.customer_compulsory_point),
     customer_vehicle_tax_point: _numOrZero(editOrderInfo.customer_vehicle_tax_point),
     customer_non_vehicle_point: _numOrZero(editOrderInfo.customer_non_vehicle_point),
@@ -1037,21 +1056,20 @@ function _sanitizeOrderInfoPayload() {
   };
 }
 
-/** ====================== 卡槽上传 ====================== */
 const IMAGE_SLOTS = [
-  { key: "vehicle_cert", label: "合格证", multiple: false },
-  { key: "idcard_front", label: "身份证正面", multiple: false },
-  { key: "idcard_back", label: "身份证背面", multiple: false },
-  { key: "driving_license_main", label: "行驶证主页", multiple: false },
-  { key: "driving_license_sub", label: "行驶证副页", multiple: false },
-  { key: "related", label: "相关图片(多张)", multiple: true },
+  {key: "vehicle_cert", label: "合格证", multiple: false},
+  {key: "idcard_front", label: "身份证正面", multiple: false},
+  {key: "idcard_back", label: "身份证背面", multiple: false},
+  {key: "driving_license_main", label: "行驶证主页", multiple: false},
+  {key: "driving_license_sub", label: "行驶证副页", multiple: false},
+  {key: "related", label: "相关图片(多张)", multiple: true},
 ];
 
 const slotFiles = reactive(
-  IMAGE_SLOTS.reduce((acc, s) => {
-    acc[s.key] = [];
-    return acc;
-  }, {})
+    IMAGE_SLOTS.reduce((acc, s) => {
+      acc[s.key] = [];
+      return acc;
+    }, {})
 );
 
 const uploadedMap = reactive({});
@@ -1060,7 +1078,6 @@ const uploadingCount = ref(0);
 
 const localPreviewUrlMap = reactive({});
 
-/** ====================== STS 缓存（直传用） ====================== */
 const bosHost = ref("");
 let cachedSts = null;
 let cachedStsExpireAt = 0;
@@ -1115,7 +1132,8 @@ function _replaceFileRawAndPreview(fileObj, newRaw) {
   if (oldUrl) {
     try {
       URL.revokeObjectURL(oldUrl);
-    } catch {}
+    } catch {
+    }
     if (uid) delete localPreviewUrlMap[uid];
   }
 
@@ -1138,7 +1156,8 @@ function clearSlot(slotKey) {
     if (u) {
       try {
         URL.revokeObjectURL(u);
-      } catch {}
+      } catch {
+      }
       delete localPreviewUrlMap[uid];
     }
   }
@@ -1190,7 +1209,8 @@ function onFileRemove(slotKey, file) {
   if (u) {
     try {
       URL.revokeObjectURL(u);
-    } catch {}
+    } catch {
+    }
     delete localPreviewUrlMap[uid];
   }
 }
@@ -1198,7 +1218,7 @@ function onFileRemove(slotKey, file) {
 async function _preprocessForStable(slotKey, file, raw0) {
   let raw = raw0;
   try {
-    const pre = await preprocessImageForUpload({ file: raw0, slotKey });
+    const pre = await preprocessImageForUpload({file: raw0, slotKey});
     if (pre?.file) {
       raw = pre.file;
       _replaceFileRawAndPreview(file, raw);
@@ -1225,13 +1245,13 @@ async function startUpload(slotKey, file) {
   if (uploadedMap[file.uid]) return;
 
   uploadingCount.value += 1;
-  uploadState[file.uid] = { status: "uploading" };
+  uploadState[file.uid] = {status: "uploading"};
 
   try {
     if (uploadMode.value === "stable") {
       const raw = await _preprocessForStable(slotKey, file, raw0);
 
-      const resp = await uploadOrderImageProxy({ slot_key: slotKey, file: raw });
+      const resp = await uploadOrderImageProxy({slot_key: slotKey, file: raw});
       const meta = resp?.data;
 
       uploadedMap[file.uid] = {
@@ -1242,10 +1262,13 @@ async function startUpload(slotKey, file) {
         size: meta?.size || raw.size || 0,
         content_type: meta?.content_type || raw.type || "application/octet-stream",
         original_name: meta?.original_name || raw.name || "file",
-        preview_url: meta?.preview_url || "",
+        preview_url: meta?.url || "",
+        url: meta?.url || "",
       };
 
-      uploadState[file.uid] = { status: "done" };
+      if (meta?.url) file.url = meta.url;
+
+      uploadState[file.uid] = {status: "done"};
       ElNotification.success({
         title: "上传完成",
         message: `${file.name} 已就绪`,
@@ -1279,9 +1302,12 @@ async function startUpload(slotKey, file) {
       size: meta?.size || raw0.size || 0,
       content_type: meta?.content_type || raw0.type || "application/octet-stream",
       original_name: meta?.original_name || raw0.name || "file",
+      url: meta?.url || meta?.preview_url || "",
     };
 
-    uploadState[file.uid] = { status: "done" };
+    if (meta?.url || meta?.preview_url) file.url = meta?.url || meta?.preview_url;
+
+    uploadState[file.uid] = {status: "done"};
     ElNotification.success({
       title: "上传完成",
       message: `${file.name} 已就绪`,
@@ -1295,7 +1321,7 @@ async function startUpload(slotKey, file) {
           const rawRetry0 = file?.raw || raw0;
           const rawRetry = await _preprocessForStable(slotKey, file, rawRetry0);
 
-          const resp = await uploadOrderImageProxy({ slot_key: slotKey, file: rawRetry });
+          const resp = await uploadOrderImageProxy({slot_key: slotKey, file: rawRetry});
           const meta = resp?.data;
 
           uploadedMap[file.uid] = {
@@ -1306,10 +1332,13 @@ async function startUpload(slotKey, file) {
             size: meta?.size || rawRetry.size || 0,
             content_type: meta?.content_type || rawRetry.type || "application/octet-stream",
             original_name: meta?.original_name || rawRetry.name || "file",
-            preview_url: meta?.preview_url || "",
+            preview_url: meta?.url || "",
+            url: meta?.url || "",
           };
 
-          uploadState[file.uid] = { status: "done" };
+          if (meta?.url) file.url = meta.url;
+
+          uploadState[file.uid] = {status: "done"};
           ElNotification.success({
             title: "上传完成（稳定模式）",
             message: `${file.name} 已就绪`,
@@ -1317,13 +1346,13 @@ async function startUpload(slotKey, file) {
           });
           return;
         } catch (e2) {
-          uploadState[file.uid] = { status: "error", msg: _errMsg(e2) || "upload failed" };
+          uploadState[file.uid] = {status: "error", msg: _errMsg(e2) || "upload failed"};
           throw e2;
         }
       }
     }
 
-    uploadState[file.uid] = { status: "error", msg: _errMsg(e) || "upload failed" };
+    uploadState[file.uid] = {status: "error", msg: _errMsg(e) || "upload failed"};
     throw e;
   } finally {
     uploadingCount.value -= 1;
@@ -1356,7 +1385,42 @@ function collectFinalizeImages() {
   return out;
 }
 
-/** ====================== 保存（draft -> finalize） ====================== */
+function normalizeDynamicDataForSubmit(src) {
+  const d = {...(src || {})};
+
+  delete d.dl_plate_no;
+  delete d.dl_vehicle_type;
+  delete d.dl_owner;
+  delete d.dl_use_nature;
+  delete d.dl_brand_model;
+  delete d.dl_attach_note;
+  delete d.remark;
+
+  if (d.id_validity != null && String(d.id_validity).trim()) {
+    const s = String(d.id_validity).trim();
+    const m = s.match(/^(\d{4}[-./]?\d{2}[-./]?\d{2})\s*[~至-]\s*(\d{4}[-./]?\d{2}[-./]?\d{2}|长期)$/);
+    if (m) {
+      if (!d.id_valid_from) d.id_valid_from = m[1].replace(/\./g, "-").replace(/\//g, "-");
+      if (!d.id_valid_to) d.id_valid_to = m[2] === "长期" ? "长期" : m[2].replace(/\./g, "-").replace(/\//g, "-");
+    }
+  }
+
+  if (d.id_valid_from) d.id_valid_from = _dateOrEmpty(d.id_valid_from);
+  if (d.id_valid_to && d.id_valid_to !== "长期") d.id_valid_to = _dateOrEmpty(d.id_valid_to);
+
+  if (d.id_birth_date) d.id_birth_date = _dateOrEmpty(d.id_birth_date);
+  if (d.first_register_date) d.first_register_date = _dateOrEmpty(d.first_register_date);
+  if (d.issue_date) d.issue_date = _dateOrEmpty(d.issue_date);
+  if (d.cert_issue_date) d.cert_issue_date = _dateOrEmpty(d.cert_issue_date);
+  if (d.manufacture_date) d.manufacture_date = _dateOrEmpty(d.manufacture_date);
+
+  for (const [k, v] of Object.entries(d)) {
+    if (v === "" || v === null || v === undefined) delete d[k];
+  }
+
+  return d;
+}
+
 async function save() {
   if (!editMeta.customer_group_id || !editMeta.channel_group_id) {
     ElMessage.warning("客户和渠道为必选项，请先选择后再保存");
@@ -1370,7 +1434,7 @@ async function save() {
 
   saving.value = true;
   try {
-    const dyn = { ...editData };
+    const dyn = normalizeDynamicDataForSubmit({...editData});
     const orderInfo = _sanitizeOrderInfoPayload();
 
     const draftResp = await createOrderDraft({
@@ -1397,7 +1461,7 @@ async function save() {
     });
 
     ElMessage.success("创建成功");
-    router.push({ path: `/orders/${newOrderId}` });
+    router.push({path: `/orders/${newOrderId}`});
   } catch (e) {
     console.error(e);
     ElMessage.error(_errMsg(e) || "保存失败");
@@ -1409,6 +1473,11 @@ async function save() {
 onMounted(async () => {
   await loadConfig("order");
   await loadGroupOptions();
+
+  for (const f of allFields.value || []) {
+    if (!(f.key in editData)) editData[f.key] = "";
+  }
+
   recalcOrderInfoDerived();
 });
 
@@ -1416,21 +1485,21 @@ onBeforeUnmount(() => {
   for (const uid of Object.keys(localPreviewUrlMap)) {
     try {
       URL.revokeObjectURL(localPreviewUrlMap[uid]);
-    } catch {}
+    } catch {
+    }
     delete localPreviewUrlMap[uid];
   }
 });
 
-/** ====================== 内置组件：FieldValue ====================== */
 const FieldValue = defineComponent({
   name: "FieldValue",
   props: {
-    modelValue: { type: [String, Number, Date], default: "" },
-    field: { type: Object, required: true },
-    editable: { type: Boolean, default: false },
+    modelValue: {type: [String, Number, Date], default: ""},
+    field: {type: Object, required: true},
+    editable: {type: Boolean, default: false},
   },
   emits: ["update:modelValue"],
-  setup(props, { emit }) {
+  setup(props, {emit}) {
     const ElInput = resolveComponent("el-input");
     const ElSelect = resolveComponent("el-select");
     const ElOption = resolveComponent("el-option");
@@ -1439,12 +1508,12 @@ const FieldValue = defineComponent({
     const onUpdate = (v) => emit("update:modelValue", v);
 
     return () => {
-      const f = props.field || { type: "text", options: [] };
+      const f = props.field || {type: "text", options: []};
       const raw = props.modelValue ?? "";
       const view = formatForView(raw, f);
 
       if (!props.editable) {
-        return h("span", { class: "plain-value", title: view }, view);
+        return h("span", {class: "plain-value", title: view}, view);
       }
 
       if (f.type === "date") {
@@ -1463,40 +1532,39 @@ const FieldValue = defineComponent({
       if (f.type === "select") {
         const opts = Array.isArray(f.options) ? f.options : [];
         return h(
-          ElSelect,
-          {
-            modelValue: raw,
-            "onUpdate:modelValue": onUpdate,
-            filterable: true,
-            clearable: true,
-            class: "fv fv-select",
-          },
-          () =>
-            opts.map((op) => {
-              const label = op && typeof op === "object" ? op.label : String(op);
-              const value = op && typeof op === "object" ? op.value : op;
-              return h(ElOption, { key: String(value), label, value });
-            })
+            ElSelect,
+            {
+              modelValue: raw,
+              "onUpdate:modelValue": onUpdate,
+              filterable: true,
+              clearable: true,
+              class: "fv fv-select",
+            },
+            () =>
+                opts.map((op) => {
+                  const label = op && typeof op === "object" ? op.label : String(op);
+                  const value = op && typeof op === "object" ? op.value : op;
+                  return h(ElOption, {key: String(value), label, value});
+                })
         );
       }
 
-      return h(ElInput, { modelValue: raw, "onUpdate:modelValue": onUpdate, clearable: true, class: "fv fv-input" });
+      return h(ElInput, {modelValue: raw, "onUpdate:modelValue": onUpdate, clearable: true, class: "fv fv-input"});
     };
   },
 });
 
-/** ====================== 内置组件：InfoValue（order_info） ====================== */
 const InfoValue = defineComponent({
   name: "InfoValue",
   props: {
-    modelValue: { type: [String, Number], default: "" },
-    type: { type: String, default: "text" },
-    editable: { type: Boolean, default: false },
-    min: { type: Number, default: undefined },
-    max: { type: Number, default: undefined },
+    modelValue: {type: [String, Number], default: ""},
+    type: {type: String, default: "text"},
+    editable: {type: Boolean, default: false},
+    min: {type: Number, default: undefined},
+    max: {type: Number, default: undefined},
   },
   emits: ["update:modelValue"],
-  setup(props, { emit }) {
+  setup(props, {emit}) {
     const ElInput = resolveComponent("el-input");
     const ElDatePicker = resolveComponent("el-date-picker");
     const ElInputNumber = resolveComponent("el-input-number");
@@ -1517,7 +1585,7 @@ const InfoValue = defineComponent({
 
       if (!props.editable) {
         const view = fmt(raw);
-        return h("span", { class: "plain-value", title: view }, view);
+        return h("span", {class: "plain-value", title: view}, view);
       }
 
       if (props.type === "date") {
@@ -1557,13 +1625,12 @@ const InfoValue = defineComponent({
   },
 });
 
-/** ====================== 内置组件：SlotUploadCard（单图卡槽） ====================== */
 const SlotUploadCard = defineComponent({
   name: "SlotUploadCard",
   props: {
-    slotKey: { type: String, required: true },
-    label: { type: String, default: "" },
-    multiple: { type: Boolean, default: false },
+    slotKey: {type: String, required: true},
+    label: {type: String, default: ""},
+    multiple: {type: Boolean, default: false},
   },
   setup(props) {
     const ElUpload = resolveComponent("el-upload");
@@ -1577,66 +1644,66 @@ const SlotUploadCard = defineComponent({
       const list = slotFiles[slotKey] || [];
       const one = firstFile(slotKey);
 
-      return h("div", { class: "slot-card" }, [
-        h("div", { class: "slot-head" }, [
-          h("div", { class: "slot-name" }, label),
-          h("div", { class: "slot-tip" }, [h(ElTag, { size: "small", type: "info", effect: "plain" }, () => "单张")]),
+      return h("div", {class: "slot-card"}, [
+        h("div", {class: "slot-head"}, [
+          h("div", {class: "slot-name"}, label),
+          h("div", {class: "slot-tip"}, [h(ElTag, {size: "small", type: "info", effect: "plain"}, () => "单张")]),
         ]),
 
         h(
-          ElUpload,
-          {
-            drag: true,
-            autoUpload: false,
-            multiple: false,
-            showFileList: false,
-            fileList: list,
-            accept: "image/*",
-            class: "upload-box upload-one",
-            onChange: (f) => onFileChange(slotKey, f),
-            onRemove: (f) => onFileRemove(slotKey, f),
-          },
-          {
-            default: () =>
-              one
-                ? h("div", { class: "one-wrap" }, [
-                    h(ElImage, {
-                      src: one?.url,
-                      previewSrcList: previewUrls(slotKey),
-                      fit: "contain",
-                      class: "one-img",
-                    }),
-                    h("div", { class: "one-mask" }, [
-                      h("div", { class: "one-mask-text" }, "拖拽或点击替换"),
-                      h(
-                        ElButton,
-                        {
-                          size: "small",
-                          type: "danger",
-                          plain: true,
-                          class: "one-remove",
-                          onClick: (ev) => {
-                            ev?.stopPropagation?.();
-                            clearSlot(slotKey);
-                          },
-                        },
-                        () => "移除"
-                      ),
-                    ]),
-                  ])
-                : h("div", { class: "upload-empty" }, [
-                    h("div", { class: "empty-center" }, [
-                      h("div", { class: "empty-title" }, "拖拽图片到此处"),
-                      h("div", { class: "empty-sub" }, "或点击选择文件"),
-                    ]),
-                  ]),
-          }
+            ElUpload,
+            {
+              drag: true,
+              autoUpload: false,
+              multiple: false,
+              showFileList: false,
+              fileList: list,
+              accept: "image/*",
+              class: "upload-box upload-one",
+              onChange: (f) => onFileChange(slotKey, f),
+              onRemove: (f) => onFileRemove(slotKey, f),
+            },
+            {
+              default: () =>
+                  one
+                      ? h("div", {class: "one-wrap"}, [
+                        h(ElImage, {
+                          src: one?.url,
+                          previewSrcList: previewUrls(slotKey),
+                          fit: "contain",
+                          class: "one-img",
+                        }),
+                        h("div", {class: "one-mask"}, [
+                          h("div", {class: "one-mask-text"}, "拖拽或点击替换"),
+                          h(
+                              ElButton,
+                              {
+                                size: "small",
+                                type: "danger",
+                                plain: true,
+                                class: "one-remove",
+                                onClick: (ev) => {
+                                  ev?.stopPropagation?.();
+                                  clearSlot(slotKey);
+                                },
+                              },
+                              () => "移除"
+                          ),
+                        ]),
+                      ])
+                      : h("div", {class: "upload-empty"}, [
+                        h("div", {class: "empty-center"}, [
+                          h("div", {class: "empty-title"}, "拖拽图片到此处"),
+                          h("div", {class: "empty-sub"}, "或点击选择文件"),
+                        ]),
+                      ]),
+            }
         ),
 
-        h("div", { class: "slot-foot" }, [
+        h("div", {class: "slot-foot"}, [
           slotUploadedCount(slotKey) > 0
-            ? h("span", null, `已就绪：${slotUploadedCount(slotKey)} 张`)
-            : h("span", { class: "muted" }, "未上传"),
+              ? h("span", null, `已就绪：${slotUploadedCount(slotKey)} 张`)
+              : h("span", {class: "muted"}, "未上传"),
         ]),
       ]);
     };

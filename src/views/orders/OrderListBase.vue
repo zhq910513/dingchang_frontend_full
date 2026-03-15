@@ -1,25 +1,28 @@
-<!-- src/views/orders/OrderListBase.vue -->
 <template>
   <div class="page">
     <div class="page-header">
       <h2>{{ title }}</h2>
     </div>
 
-    <el-card shadow="never" class="toolbar-card" :body-style="{ padding: '10px 12px' }">
+    <el-card
+        shadow="never"
+        class="toolbar-card"
+        :body-style="{ padding: '10px 12px' }"
+    >
       <el-form :model="filters" class="filters-form" label-width="88px">
         <template v-if="isFinance">
           <el-row :gutter="12">
             <el-col :span="6">
               <el-form-item label="日期">
                 <el-date-picker
-                  v-model="filters.created_date"
-                  type="daterange"
-                  value-format="YYYY-MM-DD"
-                  range-separator="至"
-                  start-placeholder="开始日期"
-                  end-placeholder="结束日期"
-                  style="width: 100%"
-                  clearable
+                    v-model="filters.created_date"
+                    type="daterange"
+                    value-format="YYYY-MM-DD"
+                    range-separator="至"
+                    start-placeholder="开始日期"
+                    end-placeholder="结束日期"
+                    style="width: 100%"
+                    clearable
                 />
               </el-form-item>
             </el-col>
@@ -27,19 +30,19 @@
             <el-col :span="6">
               <el-form-item label="渠道">
                 <el-select
-                  v-model="filters.channel_group_id"
-                  clearable
-                  filterable
-                  placeholder="选择渠道"
-                  style="width: 100%"
-                  :loading="groupsLoading"
-                  :disabled="groupsLoading"
+                    v-model="filters.channel_group_id"
+                    clearable
+                    filterable
+                    placeholder="选择渠道"
+                    style="width: 100%"
+                    :loading="groupsLoading"
+                    :disabled="groupsLoading"
                 >
                   <el-option
-                    v-for="g in channelGroups"
-                    :key="String(g.id)"
-                    :label="formatGroupLabel(g)"
-                    :value="g.id"
+                      v-for="g in channelGroups"
+                      :key="String(g.id)"
+                      :label="formatChannelLabel(g)"
+                      :value="g.id"
                   />
                 </el-select>
               </el-form-item>
@@ -48,19 +51,19 @@
             <el-col :span="6">
               <el-form-item label="客户">
                 <el-select
-                  v-model="filters.customer_group_id"
-                  clearable
-                  filterable
-                  placeholder="选择客户"
-                  style="width: 100%"
-                  :loading="groupsLoading"
-                  :disabled="groupsLoading"
+                    v-model="filters.customer_group_id"
+                    clearable
+                    filterable
+                    placeholder="选择客户"
+                    style="width: 100%"
+                    :loading="groupsLoading"
+                    :disabled="groupsLoading"
                 >
                   <el-option
-                    v-for="g in customerGroups"
-                    :key="String(g.id)"
-                    :label="formatGroupLabel(g)"
-                    :value="g.id"
+                      v-for="g in customerGroups"
+                      :key="String(g.id)"
+                      :label="formatCustomerLabel(g)"
+                      :value="g.id"
                   />
                 </el-select>
               </el-form-item>
@@ -68,7 +71,12 @@
 
             <el-col :span="6">
               <el-form-item label="市场">
-                <el-input v-model="filters.market" clearable placeholder="市场（模糊）" @keyup.enter="search" />
+                <el-input
+                    v-model="filters.market"
+                    clearable
+                    placeholder="市场（模糊）"
+                    @keyup.enter="search"
+                />
               </el-form-item>
             </el-col>
           </el-row>
@@ -77,15 +85,15 @@
             <el-col :span="6">
               <el-form-item label="团队">
                 <el-select
-                  v-model="filters.team_name"
-                  clearable
-                  filterable
-                  placeholder="选择团队"
-                  style="width: 100%"
-                  :loading="teamsLoading"
-                  :disabled="teamsLoading || !canChooseTeam"
+                    v-model="filters.team_name"
+                    clearable
+                    filterable
+                    placeholder="选择团队"
+                    style="width: 100%"
+                    :loading="teamsLoading"
+                    :disabled="teamsLoading || !canChooseTeam"
                 >
-                  <el-option v-for="t in teamOptions" :key="t" :label="t" :value="t" />
+                  <el-option v-for="t in teamOptions" :key="t" :label="t" :value="t"/>
                 </el-select>
               </el-form-item>
             </el-col>
@@ -96,19 +104,24 @@
           <el-row :gutter="12">
             <el-col :span="6">
               <el-form-item label="车主">
-                <el-input v-model="filters.owner_name" clearable placeholder="车主（模糊）" @keyup.enter="search" />
+                <el-input
+                    v-model="filters.owner_name"
+                    clearable
+                    placeholder="车主（模糊）"
+                    @keyup.enter="search"
+                />
               </el-form-item>
             </el-col>
 
             <el-col :span="6">
               <el-form-item label="保险到期日">
                 <el-date-picker
-                  v-model="filters.insurance_expire_date"
-                  type="date"
-                  value-format="YYYY-MM-DD"
-                  placeholder="选择日期"
-                  style="width: 100%"
-                  clearable
+                    v-model="filters.insurance_expire_date"
+                    type="date"
+                    value-format="YYYY-MM-DD"
+                    placeholder="选择日期"
+                    style="width: 100%"
+                    clearable
                 />
               </el-form-item>
             </el-col>
@@ -116,14 +129,14 @@
             <el-col :span="6">
               <el-form-item label="初登日期">
                 <el-date-picker
-                  v-model="filters.first_register_date"
-                  type="daterange"
-                  value-format="YYYY-MM-DD"
-                  range-separator="至"
-                  start-placeholder="开始日期"
-                  end-placeholder="结束日期"
-                  style="width: 100%"
-                  clearable
+                    v-model="filters.first_register_date"
+                    type="daterange"
+                    value-format="YYYY-MM-DD"
+                    range-separator="至"
+                    start-placeholder="开始日期"
+                    end-placeholder="结束日期"
+                    style="width: 100%"
+                    clearable
                 />
               </el-form-item>
             </el-col>
@@ -131,8 +144,8 @@
             <el-col :span="6">
               <el-form-item label="是否回款">
                 <el-select v-model="filters.is_paid" clearable placeholder="全部" style="width: 100%">
-                  <el-option label="是" :value="true" />
-                  <el-option label="否" :value="false" />
+                  <el-option label="是" :value="true"/>
+                  <el-option label="否" :value="false"/>
                 </el-select>
               </el-form-item>
             </el-col>
@@ -142,8 +155,8 @@
             <el-col :span="6">
               <el-form-item label="是否返点">
                 <el-select v-model="filters.is_rebate" clearable placeholder="全部" style="width: 100%">
-                  <el-option label="是" :value="true" />
-                  <el-option label="否" :value="false" />
+                  <el-option label="是" :value="true"/>
+                  <el-option label="否" :value="false"/>
                 </el-select>
               </el-form-item>
             </el-col>
@@ -156,10 +169,10 @@
 
                 <template v-if="canFinanceDownload">
                   <el-button
-                    native-type="button"
-                    :disabled="loading || downloading || (Number(total) || 0) <= 0"
-                    :loading="downloading"
-                    @click.stop.prevent="downloadFinanceExcel"
+                      native-type="button"
+                      :disabled="loading || downloading || (Number(total) || 0) <= 0"
+                      :loading="downloading"
+                      @click.stop.prevent="downloadFinanceExcel"
                   >
                     下载
                   </el-button>
@@ -176,14 +189,14 @@
             <el-col :span="6">
               <el-form-item label="日期">
                 <el-date-picker
-                  v-model="filters.created_date"
-                  type="daterange"
-                  value-format="YYYY-MM-DD"
-                  range-separator="至"
-                  start-placeholder="开始日期"
-                  end-placeholder="结束日期"
-                  style="width: 100%"
-                  clearable
+                    v-model="filters.created_date"
+                    type="daterange"
+                    value-format="YYYY-MM-DD"
+                    range-separator="至"
+                    start-placeholder="开始日期"
+                    end-placeholder="结束日期"
+                    style="width: 100%"
+                    clearable
                 />
               </el-form-item>
             </el-col>
@@ -191,19 +204,19 @@
             <el-col :span="6">
               <el-form-item label="渠道">
                 <el-select
-                  v-model="filters.channel_group_id"
-                  clearable
-                  filterable
-                  placeholder="选择渠道"
-                  style="width: 100%"
-                  :loading="groupsLoading"
-                  :disabled="groupsLoading"
+                    v-model="filters.channel_group_id"
+                    clearable
+                    filterable
+                    placeholder="选择渠道"
+                    style="width: 100%"
+                    :loading="groupsLoading"
+                    :disabled="groupsLoading"
                 >
                   <el-option
-                    v-for="g in channelGroups"
-                    :key="String(g.id)"
-                    :label="formatGroupLabel(g)"
-                    :value="g.id"
+                      v-for="g in channelGroups"
+                      :key="String(g.id)"
+                      :label="formatChannelLabel(g)"
+                      :value="g.id"
                   />
                 </el-select>
               </el-form-item>
@@ -212,19 +225,19 @@
             <el-col :span="6">
               <el-form-item label="客户">
                 <el-select
-                  v-model="filters.customer_group_id"
-                  clearable
-                  filterable
-                  placeholder="选择客户"
-                  style="width: 100%"
-                  :loading="groupsLoading"
-                  :disabled="groupsLoading"
+                    v-model="filters.customer_group_id"
+                    clearable
+                    filterable
+                    placeholder="选择客户"
+                    style="width: 100%"
+                    :loading="groupsLoading"
+                    :disabled="groupsLoading"
                 >
                   <el-option
-                    v-for="g in customerGroups"
-                    :key="String(g.id)"
-                    :label="formatGroupLabel(g)"
-                    :value="g.id"
+                      v-for="g in customerGroups"
+                      :key="String(g.id)"
+                      :label="formatCustomerLabel(g)"
+                      :value="g.id"
                   />
                 </el-select>
               </el-form-item>
@@ -233,19 +246,19 @@
             <el-col :span="6">
               <el-form-item label="业务员">
                 <el-select
-                  v-model="filters.salesperson_id"
-                  clearable
-                  filterable
-                  placeholder="选择业务员"
-                  style="width: 100%"
-                  :loading="salesLoading"
-                  :disabled="salesLoading"
+                    v-model="filters.salesperson_id"
+                    clearable
+                    filterable
+                    placeholder="选择业务员"
+                    style="width: 100%"
+                    :loading="salesLoading"
+                    :disabled="salesLoading"
                 >
                   <el-option
-                    v-for="u in filteredSalespersons"
-                    :key="String(u.id)"
-                    :label="u.real_name || u.username"
-                    :value="u.id"
+                      v-for="u in filteredSalespersons"
+                      :key="String(u.id)"
+                      :label="u.real_name || u.username"
+                      :value="u.id"
                   />
                 </el-select>
               </el-form-item>
@@ -256,15 +269,15 @@
             <el-col :span="6">
               <el-form-item label="团队">
                 <el-select
-                  v-model="filters.team_name"
-                  clearable
-                  filterable
-                  placeholder="选择团队"
-                  style="width: 100%"
-                  :loading="teamsLoading"
-                  :disabled="teamsLoading || !canChooseTeam"
+                    v-model="filters.team_name"
+                    clearable
+                    filterable
+                    placeholder="选择团队"
+                    style="width: 100%"
+                    :loading="teamsLoading"
+                    :disabled="teamsLoading || !canChooseTeam"
                 >
-                  <el-option v-for="t in teamOptions" :key="t" :label="t" :value="t" />
+                  <el-option v-for="t in teamOptions" :key="t" :label="t" :value="t"/>
                 </el-select>
               </el-form-item>
             </el-col>
@@ -275,22 +288,42 @@
           <el-row :gutter="12">
             <el-col :span="6">
               <el-form-item label="车主">
-                <el-input v-model="filters.owner_name" clearable placeholder="车主（模糊）" @keyup.enter="search" />
+                <el-input
+                    v-model="filters.owner_name"
+                    clearable
+                    placeholder="车主（模糊）"
+                    @keyup.enter="search"
+                />
               </el-form-item>
             </el-col>
             <el-col :span="6">
               <el-form-item label="身份证号">
-                <el-input v-model="filters.id_number" clearable placeholder="身份证号（模糊）" @keyup.enter="search" />
+                <el-input
+                    v-model="filters.id_number"
+                    clearable
+                    placeholder="身份证号（模糊）"
+                    @keyup.enter="search"
+                />
               </el-form-item>
             </el-col>
             <el-col :span="6">
               <el-form-item label="车牌">
-                <el-input v-model="filters.plate_no" clearable placeholder="车牌（模糊）" @keyup.enter="search" />
+                <el-input
+                    v-model="filters.plate_no"
+                    clearable
+                    placeholder="车牌（模糊）"
+                    @keyup.enter="search"
+                />
               </el-form-item>
             </el-col>
             <el-col :span="6">
               <el-form-item label="发动机号">
-                <el-input v-model="filters.engine_no" clearable placeholder="发动机号（模糊）" @keyup.enter="search" />
+                <el-input
+                    v-model="filters.engine_no"
+                    clearable
+                    placeholder="发动机号（模糊）"
+                    @keyup.enter="search"
+                />
               </el-form-item>
             </el-col>
           </el-row>
@@ -298,17 +331,32 @@
           <el-row :gutter="12">
             <el-col :span="6">
               <el-form-item label="车架号">
-                <el-input v-model="filters.vin" clearable placeholder="车架号（模糊）" @keyup.enter="search" />
+                <el-input
+                    v-model="filters.vin"
+                    clearable
+                    placeholder="车架号（模糊）"
+                    @keyup.enter="search"
+                />
               </el-form-item>
             </el-col>
             <el-col :span="6">
               <el-form-item label="车型">
-                <el-input v-model="filters.vehicle_model" clearable placeholder="车型（模糊）" @keyup.enter="search" />
+                <el-input
+                    v-model="filters.vehicle_model"
+                    clearable
+                    placeholder="车型（模糊）"
+                    @keyup.enter="search"
+                />
               </el-form-item>
             </el-col>
             <el-col :span="6">
               <el-form-item label="备注">
-                <el-input v-model="filters.remark" clearable placeholder="备注（模糊）" @keyup.enter="search" />
+                <el-input
+                    v-model="filters.remark"
+                    clearable
+                    placeholder="备注（模糊）"
+                    @keyup.enter="search"
+                />
               </el-form-item>
             </el-col>
 
@@ -324,23 +372,23 @@
 
     <div class="table-scroll">
       <el-table
-        ref="tableRef"
-        v-loading="loading"
-        :data="tableData"
-        border
-        stripe
-        class="main-table"
-        :row-class-name="tableRowClassName"
-        @selection-change="onSelectionChange"
+          ref="tableRef"
+          v-loading="loading"
+          :data="tableData"
+          border
+          stripe
+          class="main-table"
+          :row-class-name="tableRowClassName"
+          @selection-change="onSelectionChange"
       >
         <el-table-column
-          v-if="isFinance && canFinanceDownload"
-          type="selection"
-          width="44"
-          fixed="left"
-          align="center"
-          header-align="center"
-          :selectable="selectableRow"
+            v-if="isFinance && canFinanceDownload"
+            type="selection"
+            width="44"
+            fixed="left"
+            align="center"
+            header-align="center"
+            :selectable="selectableRow"
         />
 
         <el-table-column label="日期" min-width="110" show-overflow-tooltip>
@@ -350,12 +398,12 @@
         </el-table-column>
 
         <el-table-column
-          v-if="showFinishedColumn"
-          label="完成状态"
-          min-width="92"
-          align="center"
-          header-align="center"
-          show-overflow-tooltip
+            v-if="showFinishedColumn"
+            label="完成状态"
+            min-width="92"
+            align="center"
+            header-align="center"
+            show-overflow-tooltip
         >
           <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickFinished(row) ? "是" : "否" }}</template>
         </el-table-column>
@@ -425,11 +473,14 @@
         </el-table-column>
 
         <el-table-column label="非车金额" min-width="110" show-overflow-tooltip>
-          <template #default="{ row }">{{ pickMoney(row, "noncar_amount") }}</template>
+          <template #default="{ row }">{{ pickMoney(row, "non_vehicle_amount") }}</template>
         </el-table-column>
 
         <el-table-column label="渠道商业点位" min-width="120" show-overflow-tooltip>
-          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPoint(row, "channel_commercial_point") }}</template>
+          <template #default="{ row }">{{
+              isSummaryRow(row) ? "" : pickPoint(row, "channel_commercial_point")
+            }}
+          </template>
         </el-table-column>
 
         <el-table-column label="渠道商业后补点位" min-width="140" show-overflow-tooltip>
@@ -439,15 +490,24 @@
         </el-table-column>
 
         <el-table-column label="渠道交强点位" min-width="120" show-overflow-tooltip>
-          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPoint(row, "channel_compulsory_point") }}</template>
+          <template #default="{ row }">{{
+              isSummaryRow(row) ? "" : pickPoint(row, "channel_compulsory_point")
+            }}
+          </template>
         </el-table-column>
 
         <el-table-column label="渠道车船税点位" min-width="130" show-overflow-tooltip>
-          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPoint(row, "channel_vehicle_tax_point") }}</template>
+          <template #default="{ row }">{{
+              isSummaryRow(row) ? "" : pickPoint(row, "channel_vehicle_tax_point")
+            }}
+          </template>
         </el-table-column>
 
         <el-table-column label="渠道非车点位" min-width="120" show-overflow-tooltip>
-          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPoint(row, "channel_noncar_point") }}</template>
+          <template #default="{ row }">{{
+              isSummaryRow(row) ? "" : pickPoint(row, "channel_non_vehicle_point")
+            }}
+          </template>
         </el-table-column>
 
         <el-table-column v-if="isFinance" label="渠道奖励" min-width="110" show-overflow-tooltip>
@@ -455,7 +515,10 @@
         </el-table-column>
 
         <el-table-column label="客户商业点位" min-width="120" show-overflow-tooltip>
-          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPoint(row, "customer_commercial_point") }}</template>
+          <template #default="{ row }">{{
+              isSummaryRow(row) ? "" : pickPoint(row, "customer_commercial_point")
+            }}
+          </template>
         </el-table-column>
 
         <el-table-column label="客户商业后补点位" min-width="140" show-overflow-tooltip>
@@ -465,15 +528,24 @@
         </el-table-column>
 
         <el-table-column label="客户交强点位" min-width="120" show-overflow-tooltip>
-          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPoint(row, "customer_compulsory_point") }}</template>
+          <template #default="{ row }">{{
+              isSummaryRow(row) ? "" : pickPoint(row, "customer_compulsory_point")
+            }}
+          </template>
         </el-table-column>
 
         <el-table-column label="客户车船税点位" min-width="130" show-overflow-tooltip>
-          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPoint(row, "customer_vehicle_tax_point") }}</template>
+          <template #default="{ row }">{{
+              isSummaryRow(row) ? "" : pickPoint(row, "customer_vehicle_tax_point")
+            }}
+          </template>
         </el-table-column>
 
         <el-table-column label="客户非车点位" min-width="120" show-overflow-tooltip>
-          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPoint(row, "customer_noncar_point") }}</template>
+          <template #default="{ row }">{{
+              isSummaryRow(row) ? "" : pickPoint(row, "customer_non_vehicle_point")
+            }}
+          </template>
         </el-table-column>
 
         <el-table-column v-if="isFinance" label="客户奖励" min-width="110" show-overflow-tooltip>
@@ -501,25 +573,25 @@
         </el-table-column>
 
         <el-table-column
-          v-if="isFinance"
-          label="是否回款"
-          width="108"
-          fixed="right"
-          align="center"
-          header-align="center"
-          class-name="col-switch"
+            v-if="isFinance"
+            label="是否回款"
+            width="108"
+            fixed="right"
+            align="center"
+            header-align="center"
+            class-name="col-switch"
         >
           <template #default="{ row }">
             <div class="switch-cell" v-if="!isSummaryRow(row)">
               <el-switch
-                size="medium"
-                inline-prompt
-                inactive-text="否"
-                active-text="是"
-                :model-value="pickPaid(row)"
-                :loading="Boolean(row?._saving_paid)"
-                :disabled="!canFinanceEdit"
-                @change="(val) => onPaidSwitch(row, val)"
+                  size="medium"
+                  inline-prompt
+                  inactive-text="否"
+                  active-text="是"
+                  :model-value="pickPaid(row)"
+                  :loading="Boolean(row?._saving_paid)"
+                  :disabled="!canFinanceEdit"
+                  @change="(val) => onPaidSwitch(row, val)"
               />
             </div>
             <span v-else></span>
@@ -527,25 +599,25 @@
         </el-table-column>
 
         <el-table-column
-          v-if="isFinance"
-          label="是否返点"
-          width="108"
-          fixed="right"
-          align="center"
-          header-align="center"
-          class-name="col-switch"
+            v-if="isFinance"
+            label="是否返点"
+            width="108"
+            fixed="right"
+            align="center"
+            header-align="center"
+            class-name="col-switch"
         >
           <template #default="{ row }">
             <div class="switch-cell" v-if="!isSummaryRow(row)">
               <el-switch
-                size="medium"
-                inline-prompt
-                inactive-text="否"
-                active-text="是"
-                :model-value="pickRebate(row)"
-                :loading="Boolean(row?._saving_rebate)"
-                :disabled="!canFinanceEdit"
-                @change="(val) => onRebateSwitch(row, val)"
+                  size="medium"
+                  inline-prompt
+                  inactive-text="否"
+                  active-text="是"
+                  :model-value="pickRebate(row)"
+                  :loading="Boolean(row?._saving_rebate)"
+                  :disabled="!canFinanceEdit"
+                  @change="(val) => onRebateSwitch(row, val)"
               />
             </div>
             <span v-else></span>
@@ -553,12 +625,12 @@
         </el-table-column>
 
         <el-table-column
-          label="操作"
-          :width="isFinance ? 110 : 130"
-          fixed="right"
-          align="center"
-          header-align="center"
-          class-name="col-actions"
+            label="操作"
+            :width="isFinance ? 110 : 130"
+            fixed="right"
+            align="center"
+            header-align="center"
+            class-name="col-actions"
         >
           <template #default="{ row }">
             <template v-if="isSummaryRow(row)">
@@ -570,14 +642,16 @@
                 <el-button native-type="button" size="small" link @click.stop="goDetail(row.id)">详情</el-button>
 
                 <el-dropdown
-                  trigger="click"
-                  :teleported="true"
-                  placement="bottom-end"
-                  popper-class="order-actions-popper"
-                  @command="(cmd) => onFinanceAction(cmd, row)"
+                    trigger="click"
+                    :teleported="true"
+                    placement="bottom-end"
+                    popper-class="order-actions-popper"
+                    @command="(cmd) => onFinanceAction(cmd, row)"
                 >
                   <el-button native-type="button" size="small" circle @click.stop>
-                    <el-icon><MoreFilled /></el-icon>
+                    <el-icon>
+                      <MoreFilled/>
+                    </el-icon>
                   </el-button>
 
                   <template #dropdown>
@@ -595,20 +669,23 @@
                 <el-button native-type="button" size="small" link @click.stop="goDetail(row.id)">详情</el-button>
 
                 <el-dropdown
-                  trigger="click"
-                  :teleported="true"
-                  placement="bottom-end"
-                  popper-class="order-actions-popper"
-                  @command="(cmd) => onAction(cmd, row)"
+                    trigger="click"
+                    :teleported="true"
+                    placement="bottom-end"
+                    popper-class="order-actions-popper"
+                    @command="(cmd) => onAction(cmd, row)"
                 >
                   <el-button native-type="button" size="small" circle @click.stop>
-                    <el-icon><MoreFilled /></el-icon>
+                    <el-icon>
+                      <MoreFilled/>
+                    </el-icon>
                   </el-button>
 
                   <template #dropdown>
                     <el-dropdown-menu>
                       <el-dropdown-item command="detail">详情</el-dropdown-item>
-                      <el-dropdown-item v-if="canMarkFinished(row)" command="markFinished" divided>标记完成</el-dropdown-item>
+                      <el-dropdown-item v-if="canMarkFinished(row)" command="markFinished" divided>标记完成
+                      </el-dropdown-item>
                       <el-dropdown-item v-if="canReopen(row)" command="reopen" divided>退回未完成</el-dropdown-item>
                     </el-dropdown-menu>
                   </template>
@@ -622,67 +699,56 @@
 
     <div class="pagination-wrapper">
       <el-pagination
-        background
-        layout="total, prev, pager, next, sizes"
-        :total="total"
-        :current-page="page"
-        :page-size="pageSize"
-        :page-sizes="[10, 20, 50, 100]"
-        @current-change="onPageChange"
-        @size-change="onPageSizeChange"
+          background
+          layout="total, prev, pager, next, sizes"
+          :total="total"
+          :current-page="page"
+          :page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          @current-change="onPageChange"
+          @size-change="onPageSizeChange"
       />
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
-import { ElMessage, ElMessageBox } from "element-plus";
-import { MoreFilled } from "@element-plus/icons-vue";
+import {computed, onActivated, onMounted, ref, watch} from "vue";
+import {useRoute, useRouter} from "vue-router";
+import {ElMessage, ElMessageBox} from "element-plus";
+import {MoreFilled} from "@element-plus/icons-vue";
 
-import http from "../../api/http";
-import { getChannelGroups, getCustomerGroups, listOrders, updateOrderStatus } from "../../api/orders";
-import { getFinanceOrdersSummary, listFinanceOrders, returnFinanceOrder, updateFinanceOrderStatus } from "../../api/finance";
-import { useSessionStore } from "../../store/session";
-
-const ROLE = {
-  SUPER_ADMIN: "ROLE_SUPER_ADMIN",
-  MANAGER: "ROLE_MANAGER",
-  FINANCE: "ROLE_FINANCE",
-  MARKET: "ROLE_MARKET",
-  SALES: "ROLE_SALES",
-};
+import {
+  getChannelGroups,
+  getCustomerGroups,
+  getTeams,
+  listOrders,
+  listSalespersons,
+  updateOrderStatus,
+} from "../../api/orders";
+import {
+  exportFinanceOrders,
+  getFinanceOrdersSummary,
+  returnFinanceOrder,
+  updateFinanceOrderStatus,
+} from "../../api/finance";
+import {useSessionStore} from "../../store/session";
+import {ROLE} from "../../constants";
 
 const props = defineProps({
-  title: { type: String, default: "订单列表" },
-  mode: { type: String, default: "all" }, // all | finished | unfinished | finance
-  pageMode: { type: String, default: "orders" }, // orders | finance
+  title: {type: String, default: "订单列表"},
+  mode: {type: String, default: "all"},
+  pageMode: {type: String, default: "orders"},
 });
 
 const router = useRouter();
 const route = useRoute();
-const sessionStore = useSessionStore();
+const session = useSessionStore();
 
-const sessionUser = computed(() => sessionStore?.user || null);
-
-const currentUserId = computed(() => {
-  const candidates = [
-    sessionUser.value?.id,
-    sessionUser.value?.user_id,
-    sessionUser.value?.uid,
-  ];
-  for (const c of candidates) {
-    const n = Number(c);
-    if (Number.isFinite(n) && n > 0) return Math.trunc(n);
-  }
-  return 0;
-});
-
-const isFinance = computed(() => props.pageMode === "finance" || props.mode === "finance");
+const isFinance = computed(() => props.pageMode === "finance");
 const showFinishedColumn = computed(() => !isFinance.value);
 
-const roleName = computed(() => String(sessionStore?.roleName || sessionUser.value?.role_name || "").trim());
+const roleName = computed(() => String(session.roleName || "").trim().toLowerCase());
 const isSales = computed(() => roleName.value === ROLE.SALES);
 
 const canChooseTeam = computed(() => {
@@ -715,41 +781,21 @@ const channelGroups = ref([]);
 const salespersons = ref([]);
 const groupsLoading = ref(false);
 const salesLoading = ref(false);
-
 const teamOptions = ref([]);
 const teamsLoading = ref(false);
+
+const customerLoaded = ref(false);
+const channelLoaded = ref(false);
+const teamsLoaded = ref(false);
+const salesLoaded = ref(false);
 
 const tableRef = ref(null);
 const selectedRows = ref([]);
 
 const financeSummary = ref(null);
+const summaryLoading = ref(false);
 const lastSummaryKey = ref("");
-
-function isSummaryRow(row) {
-  return Boolean(row?._is_summary);
-}
-
-function selectableRow(row) {
-  return !isSummaryRow(row);
-}
-
-function tableRowClassName({ row }) {
-  return isSummaryRow(row) ? "row-summary" : "";
-}
-
-function onSelectionChange(list) {
-  const arr = Array.isArray(list) ? list : [];
-  selectedRows.value = arr.filter((r) => !isSummaryRow(r));
-}
-
-function _clearSelection() {
-  selectedRows.value = [];
-  try {
-    tableRef.value?.clearSelection?.();
-  } catch {
-    // ignore
-  }
-}
+const lastListKey = ref("");
 
 function defaultOrdersFilters() {
   return {
@@ -785,32 +831,62 @@ function defaultFinanceFilters() {
 
 const filters = ref(isFinance.value ? defaultFinanceFilters() : defaultOrdersFilters());
 
-watch(
-  () => isFinance.value,
-  (val) => {
-    filters.value = val ? defaultFinanceFilters() : defaultOrdersFilters();
-  },
-  { immediate: false }
-);
+const pageContextKey = computed(() => {
+  return `${props.pageMode || ""}|${props.mode || ""}|${route.path || ""}`;
+});
 
-function dyn(row, key) {
-  const dd = row?.dynamic_data;
-  return dd && typeof dd === "object" ? dd[key] : undefined;
-}
+const hasMountedOnce = ref(false);
+const lastActivatedContextKey = ref("");
+const manualSearching = ref(false);
+
+let listRequestSeq = 0;
+let summaryRequestSeq = 0;
+let dropdownBootstrapSeq = 0;
 
 function _trimStr(v) {
   return String(v ?? "").trim();
 }
 
-function formatGroupLabel(g) {
-  const code = _trimStr(g?.channel_code || g?.customer_code || "");
-  const name = _trimStr(g?.channel_name || g?.customer_name || "");
-  const id = g?.id != null ? String(g.id) : "";
-
+function formatCustomerLabel(g) {
+  const code = _trimStr(g?.customer_code);
+  const name = _trimStr(g?.customer_name);
   if (code && name) return `${code} - ${name}`;
-  if (name) return name;
-  if (code) return code;
-  return id || "-";
+  return name || code || String(g?.id ?? "-");
+}
+
+function formatChannelLabel(g) {
+  const code = _trimStr(g?.channel_code);
+  const name = _trimStr(g?.channel_name);
+  if (code && name) return `${code} - ${name}`;
+  return name || code || String(g?.id ?? "-");
+}
+
+function normalizeCustomers(resp) {
+  const data = resp?.data ?? resp ?? [];
+  if (Array.isArray(data?.items)) return data.items;
+  return Array.isArray(data) ? data : [];
+}
+
+function normalizeChannels(resp) {
+  const data = resp?.data ?? resp ?? [];
+  if (Array.isArray(data?.items)) return data.items;
+  return Array.isArray(data) ? data : [];
+}
+
+function normalizeItems(resp) {
+  const data = resp?.data ?? resp ?? {};
+  return Array.isArray(data?.items) ? data.items : [];
+}
+
+function normalizeTeamNames(resp) {
+  const data = resp?.data ?? resp ?? {};
+  const items = Array.isArray(data?.items) ? data.items : [];
+  const out = [];
+  for (const x of items) {
+    const t = String(x?.team_name ?? "").trim();
+    if (t) out.push(t);
+  }
+  return Array.from(new Set(out)).sort((a, b) => String(a).localeCompare(String(b), "zh-CN"));
 }
 
 function toNum(x) {
@@ -857,10 +933,8 @@ function _formatYmdInShanghai(dateObj) {
 
 function fmtYmdSafe(anyVal) {
   if (!anyVal) return "-";
-
   const raw = String(anyVal).trim();
   if (!raw) return "-";
-
   if (/^\d{8}$/.test(raw)) return `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}`;
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
   if (/^\d{4}-\d{2}-\d{2}\s+/.test(raw) && !raw.includes("T")) return raw.slice(0, 10);
@@ -885,6 +959,17 @@ function orderInfo(row) {
   return oi && typeof oi === "object" ? oi : null;
 }
 
+function dyn(row, key) {
+  const dd = row?.dynamic_data;
+  return dd && typeof dd === "object" ? dd[key] : undefined;
+}
+
+function _joinTeams(v) {
+  const arr = Array.isArray(v) ? v : v ? [v] : [];
+  const cleaned = [...new Set(arr.map((x) => String(x || "").trim()).filter(Boolean))];
+  return cleaned.length ? cleaned.join("、") : "";
+}
+
 const salespersonMap = computed(() => {
   const mp = new Map();
   const arr = Array.isArray(salespersons.value) ? salespersons.value : [];
@@ -902,82 +987,316 @@ function _getSalespersonByRow(row) {
   return salespersonMap.value.get(sid) || null;
 }
 
-function _joinTeams(v) {
-  const arr = Array.isArray(v) ? v : [];
-  const cleaned = [...new Set(arr.map((x) => String(x || "").trim()).filter(Boolean))];
-  return cleaned.length ? cleaned.join("、") : "";
+function pickCreatedAt(row) {
+  return row?.created_at || null;
 }
 
-function normalizeItems(resp) {
-  const data = resp?.data ?? resp ?? {};
-  return Array.isArray(data?.items) ? data.items : [];
+function pickFinished(row) {
+  return Boolean(row?.is_finished);
 }
 
-function normalizeTeamNames(resp) {
-  const data = resp?.data ?? resp ?? {};
-  const items = Array.isArray(data?.items) ? data.items : [];
-  const out = [];
-  for (const x of items) {
-    const t = String(x?.team_name ?? "").trim();
-    if (t) out.push(t);
+function pickChannelName(row) {
+  return String(row?.channel_group_name ?? "").trim() || "-";
+}
+
+function pickCustomerName(row) {
+  return String(row?.customer_group_name ?? "").trim() || "-";
+}
+
+function pickMarket(row) {
+  return String(row?.customer_group_market ?? "").trim() || "-";
+}
+
+function pickSalespersonName(row) {
+  const v = String(row?.salesperson_name ?? "").trim();
+  if (v) return v;
+  const sp = _getSalespersonByRow(row);
+  if (sp) return String(sp.real_name || sp.username || "-");
+  return "-";
+}
+
+function pickOwner(row) {
+  return String(dyn(row, "owner_name") ?? "").trim() || "-";
+}
+
+function pickPlate(row) {
+  return String(dyn(row, "plate_no") ?? "").trim() || "-";
+}
+
+function pickInsuranceExpire(row) {
+  return normalizeCompactYmd(orderInfo(row)?.insurance_expire_date) || "-";
+}
+
+function pickVin(row) {
+  return String(dyn(row, "vin") ?? "").trim() || "-";
+}
+
+function pickEngine(row) {
+  return String(dyn(row, "engine_no") ?? "").trim() || "-";
+}
+
+function pickVehicleModel(row) {
+  return String(dyn(row, "vehicle_model") ?? "").trim() || "-";
+}
+
+function pickFirstRegister(row) {
+  return normalizeCompactYmd(dyn(row, "first_register_date")) || "-";
+}
+
+function pickIdNumber(row) {
+  return String(dyn(row, "id_number") ?? "").trim() || "-";
+}
+
+function pickPhone(row) {
+  return String(orderInfo(row)?.owner_phone ?? "").trim() || "-";
+}
+
+function pickManagerName(row) {
+  const v = String(row?.manager_name ?? "").trim();
+  if (v) return v;
+  const sp = _getSalespersonByRow(row);
+  const v2 = String(sp?.manager_name ?? sp?.parent_name ?? "").trim();
+  return v2 || "-";
+}
+
+function pickTeamName(row) {
+  const teamsRow = _joinTeams(row?.team_names);
+  if (teamsRow) return teamsRow;
+
+  const v = String(row?.team_name ?? "").trim();
+  if (v) return v;
+
+  const sp = _getSalespersonByRow(row);
+  const teamsSp = _joinTeams(sp?.team_names);
+  if (teamsSp) return teamsSp;
+
+  const v2 = String(sp?.team_name ?? "").trim();
+  return v2 || "-";
+}
+
+function pickPaid(row) {
+  return Boolean(row?.is_paid);
+}
+
+function pickRebate(row) {
+  return Boolean(row?.is_rebate);
+}
+
+function setPaid(row, val) {
+  if (!row || typeof row !== "object") return;
+  row.is_paid = Boolean(val);
+}
+
+function setRebate(row, val) {
+  if (!row || typeof row !== "object") return;
+  row.is_rebate = Boolean(val);
+}
+
+function _moneyRaw(row, logicalKey) {
+  const oi = orderInfo(row);
+  return oi ? oi[logicalKey] : null;
+}
+
+function _pointRaw(row, logicalKey) {
+  const oi = orderInfo(row);
+  return oi ? oi[logicalKey] : null;
+}
+
+function pickMoney(row, logicalKey) {
+  return fmtMoney(_moneyRaw(row, logicalKey));
+}
+
+function pickPoint(row, logicalKey) {
+  return fmtPoint(_pointRaw(row, logicalKey));
+}
+
+function pickRewardMoney(row, key) {
+  const oi = orderInfo(row);
+  return fmtMoney(oi ? oi[key] : null);
+}
+
+function pickReceivable(row) {
+  return fmtMoney(orderInfo(row)?.channel_total);
+}
+
+function pickPayable(row) {
+  return fmtMoney(orderInfo(row)?.customer_total);
+}
+
+function pickProfit(row) {
+  return fmtMoney(orderInfo(row)?.profit);
+}
+
+function _asDateRange(v) {
+  if (!Array.isArray(v)) return null;
+  const s = _trimStr(v[0]);
+  const e = _trimStr(v[1]);
+  if (!s && !e) return null;
+  return {start: s || "", end: e || ""};
+}
+
+function _applyRangeParams(p, baseKey, v) {
+  const r0 = _asDateRange(v);
+  if (!r0) return;
+
+  const r = {start: _trimStr(r0.start), end: _trimStr(r0.end)};
+  if (r.start && !r.end) r.end = r.start;
+  if (r.end && !r.start) r.start = r.end;
+  if (!r.start || !r.end) return;
+
+  p[`${baseKey}_start`] = r.start;
+  p[`${baseKey}_end`] = r.end;
+}
+
+function buildFinanceFilterParams() {
+  const p = {};
+  const f = filters.value || {};
+
+  if (f.team_name) p.team_name = String(f.team_name).trim();
+  if (f.customer_group_id) p.customer_group_id = f.customer_group_id;
+  if (f.channel_group_id) p.channel_group_id = f.channel_group_id;
+
+  _applyRangeParams(p, "created_date", f.created_date);
+
+  const market = _trimStr(f.market);
+  if (market) p.market = market;
+
+  const owner = _trimStr(f.owner_name);
+  if (owner) p.owner_name = owner;
+
+  if (f.insurance_expire_date) p.insurance_expire_date = f.insurance_expire_date;
+  _applyRangeParams(p, "first_register_date", f.first_register_date);
+
+  if (f.is_paid === true || f.is_paid === false) p.is_paid = f.is_paid;
+  if (f.is_rebate === true || f.is_rebate === false) p.is_rebate = f.is_rebate;
+
+  return p;
+}
+
+function buildListParams() {
+  const p = {page: page.value, page_size: pageSize.value};
+  const f = filters.value || {};
+
+  if (f.team_name) p.team_name = String(f.team_name).trim();
+
+  if (props.mode === "finished") p.is_finished = true;
+  if (props.mode === "unfinished") p.is_finished = false;
+
+  if (f.customer_group_id) p.customer_group_id = f.customer_group_id;
+  if (f.channel_group_id) p.channel_group_id = f.channel_group_id;
+
+  _applyRangeParams(p, "created_date", f.created_date);
+
+  if (isFinance.value) {
+    return {
+      ...p,
+      ...buildFinanceFilterParams(),
+      is_finished: true,
+    };
   }
-  return Array.from(new Set(out)).sort((a, b) => String(a).localeCompare(String(b), "zh-CN"));
+
+  if (f.owner_name) p.owner_name = f.owner_name;
+  if (f.id_number) p.id_number = f.id_number;
+  if (f.vin) p.vin = f.vin;
+  if (f.engine_no) p.engine_no = f.engine_no;
+  if (f.plate_no) p.plate_no = f.plate_no;
+  if (f.vehicle_model) p.vehicle_model = f.vehicle_model;
+  if (f.remark) p.remark = f.remark;
+  if (f.salesperson_id) p.salesperson_id = f.salesperson_id;
+
+  return p;
 }
 
-async function apiGetTeams() {
-  return http.get("/orders/teams");
+function buildSummaryParams() {
+  if (isFinance.value) {
+    return buildFinanceFilterParams();
+  }
+
+  const p = {...buildListParams()};
+  delete p.page;
+  delete p.page_size;
+  return p;
 }
 
-async function apiListSalespersonsOrders(params = {}) {
-  return http.get("/orders/salespersons", { params });
-}
+function stableStringify(obj) {
+  const seen = new Set();
+  const sort = (o) => {
+    if (o === null || typeof o !== "object") return o;
+    if (seen.has(o)) return null;
+    seen.add(o);
 
-async function apiListSalespersonsFinance(params = {}) {
-  return http.get("/finance/salespersons", { params });
-}
+    if (Array.isArray(o)) return o.map(sort);
+    return Object.keys(o)
+        .sort()
+        .reduce((acc, k) => {
+          acc[k] = sort(o[k]);
+          return acc;
+        }, {});
+  };
 
-async function apiGetCustomerGroupsAny() {
-  if (isFinance.value) return http.get("/finance/customer-groups");
-  return getCustomerGroups();
-}
-
-async function apiGetChannelGroupsAny() {
-  if (isFinance.value) return http.get("/finance/channel-groups");
-  return getChannelGroups();
-}
-
-async function loadTeams() {
-  teamsLoading.value = true;
   try {
-    const resp = await apiGetTeams();
-    teamOptions.value = normalizeTeamNames(resp);
-  } catch (e) {
-    console.error(e);
-    teamOptions.value = [];
-  } finally {
-    teamsLoading.value = false;
+    return JSON.stringify(sort(obj));
+  } catch {
+    return "";
   }
 }
 
-async function loadSalespersonsForTeam(teamName) {
-  salesLoading.value = true;
+function isSummaryRow(row) {
+  return Boolean(row?._is_summary);
+}
+
+function selectableRow(row) {
+  return !isSummaryRow(row);
+}
+
+function tableRowClassName({row}) {
+  return isSummaryRow(row) ? "row-summary" : "";
+}
+
+function onSelectionChange(list) {
+  const arr = Array.isArray(list) ? list : [];
+  selectedRows.value = arr.filter((r) => !isSummaryRow(r));
+}
+
+function _clearSelection() {
+  selectedRows.value = [];
   try {
-    if (isFinance.value) {
-      const resp = await apiListSalespersonsFinance({ status: 1 });
-      salespersons.value = normalizeItems(resp);
-      return;
-    }
-
-    const tf = String(teamName || "").trim();
-    const resp = await apiListSalespersonsOrders(tf ? { team_name: tf } : {});
-    salespersons.value = normalizeItems(resp);
-  } catch (e) {
-    console.error(e);
-    salespersons.value = [];
-  } finally {
-    salesLoading.value = false;
+    tableRef.value?.clearSelection?.();
+  } catch {
+    // ignore
   }
 }
+
+function buildSummaryRow(sum) {
+  const n = (v) => {
+    const x = Number(v);
+    return Number.isFinite(x) ? x : 0;
+  };
+
+  return {
+    id: -1,
+    _is_summary: true,
+    order_info: {
+      commercial_amount: n(sum?.commercial_amount),
+      compulsory_amount: n(sum?.compulsory_amount),
+      vehicle_tax_amount: n(sum?.vehicle_tax_amount),
+      non_vehicle_amount: n(sum?.non_vehicle_amount),
+      channel_reward: n(sum?.channel_reward),
+      customer_reward: n(sum?.customer_reward),
+      channel_total: n(sum?.receivable),
+      customer_total: n(sum?.payable),
+      profit: n(sum?.profit),
+    },
+  };
+}
+
+const tableData = computed(() => {
+  const base = Array.isArray(orders.value) ? [...orders.value] : [];
+  if (isFinance.value && financeSummary.value) {
+    base.push(buildSummaryRow(financeSummary.value));
+  }
+  return base;
+});
 
 const filteredSalespersons = computed(() => {
   return Array.isArray(salespersons.value) ? salespersons.value : [];
@@ -985,9 +1304,12 @@ const filteredSalespersons = computed(() => {
 
 function _currentUserId() {
   const candidates = [
-    sessionUser.value?.id,
-    sessionUser.value?.user_id,
-    sessionUser.value?.uid,
+    session?.userId,
+    session?.user_id,
+    session?.id,
+    session?.user?.id,
+    session?.user?.user_id,
+    session?.user?.uid,
   ];
   for (const c of candidates) {
     const n = Number(c);
@@ -996,148 +1318,274 @@ function _currentUserId() {
   return null;
 }
 
-function initTeamForSalesRoleIfPossible() {
-  if (isFinance.value) return;
+function initSalesDefaultIfNeeded() {
   if (!isSales.value) return;
-
   const uid = _currentUserId();
-  if (uid) {
+  if (uid && !isFinance.value) {
     filters.value.salesperson_id = uid;
   }
+}
 
-  if (!filters.value.team_name && Array.isArray(teamOptions.value) && teamOptions.value.length === 1) {
-    filters.value.team_name = teamOptions.value[0];
+async function loadCustomerGroups(force = false) {
+  if (customerLoaded.value && !force) return;
+  groupsLoading.value = true;
+  try {
+    const resp = await getCustomerGroups();
+    customerGroups.value = normalizeCustomers(resp);
+    customerLoaded.value = true;
+  } catch (e) {
+    console.error(e);
+    customerGroups.value = [];
+  } finally {
+    groupsLoading.value = channelLoaded.value ? false : groupsLoading.value;
+    if (customerLoaded.value || channelLoaded.value) {
+      groupsLoading.value = false;
+    }
   }
+}
+
+async function loadChannelGroups(force = false) {
+  if (channelLoaded.value && !force) return;
+  groupsLoading.value = true;
+  try {
+    const resp = await getChannelGroups();
+    channelGroups.value = normalizeChannels(resp);
+    channelLoaded.value = true;
+  } catch (e) {
+    console.error(e);
+    channelGroups.value = [];
+  } finally {
+    if (customerLoaded.value || channelLoaded.value) {
+      groupsLoading.value = false;
+    }
+  }
+}
+
+async function loadTeamsOnly(force = false) {
+  if (teamsLoaded.value && !force) return;
+  teamsLoading.value = true;
+  try {
+    const resp = await getTeams();
+    teamOptions.value = normalizeTeamNames(resp);
+    teamsLoaded.value = true;
+  } catch (e) {
+    console.error(e);
+    teamOptions.value = [];
+  } finally {
+    teamsLoading.value = false;
+  }
+}
+
+async function loadSalespersonsForTeam(teamName, force = false) {
+  if (isFinance.value) {
+    salespersons.value = [];
+    salesLoaded.value = true;
+    return;
+  }
+
+  salesLoading.value = true;
+  try {
+    const tf = String(teamName || "").trim();
+    const resp = await listSalespersons(tf ? {status: 1, team_name: tf} : {status: 1});
+    salespersons.value = normalizeItems(resp);
+    salesLoaded.value = true;
+  } catch (e) {
+    console.error(e);
+    salespersons.value = [];
+  } finally {
+    salesLoading.value = false;
+  }
+}
+
+async function bootstrapDropdowns(force = false) {
+  const seq = ++dropdownBootstrapSeq;
+
+  const tasks = [
+    loadCustomerGroups(force),
+    loadChannelGroups(force),
+    loadTeamsOnly(force),
+  ];
+
+  if (!isFinance.value) {
+    tasks.push(loadSalespersonsForTeam(filters.value?.team_name, force));
+  }
+
+  await Promise.allSettled(tasks);
+
+  if (seq !== dropdownBootstrapSeq) return;
 }
 
 watch(
-  () => filters.value?.team_name,
-  async (team) => {
-    if (isFinance.value) return;
+    () => filters.value?.team_name,
+    async (team) => {
+      if (isFinance.value) return;
+      if (!hasMountedOnce.value) return;
 
-    const prevSid = filters.value?.salesperson_id;
-    if (!isSales.value) {
-      filters.value.salesperson_id = null;
-    } else {
-      const uid = _currentUserId();
-      if (uid) filters.value.salesperson_id = uid;
+      const prevSid = filters.value?.salesperson_id;
+
+      if (!isSales.value) {
+        filters.value.salesperson_id = null;
+      } else {
+        const uid = _currentUserId();
+        if (uid) filters.value.salesperson_id = uid;
+      }
+
+      await loadSalespersonsForTeam(team, true);
+
+      if (!isSales.value && prevSid) {
+        const ok = (Array.isArray(salespersons.value) ? salespersons.value : []).some(
+            (u) => Number(u?.id) === Number(prevSid)
+        );
+        if (ok) filters.value.salesperson_id = prevSid;
+      }
     }
-
-    await loadSalespersonsForTeam(team);
-
-    if (!isSales.value && prevSid) {
-      const ok = (Array.isArray(salespersons.value) ? salespersons.value : []).some(
-        (u) => Number(u?.id) === Number(prevSid)
-      );
-      if (ok) filters.value.salesperson_id = prevSid;
-    }
-  }
 );
 
-async function loadGroupsAndSalespersonsIfNeeded() {
-  groupsLoading.value = true;
+watch(
+    () => pageContextKey.value,
+    async (next, prev) => {
+      if (!next) return;
+      if (next === prev) return;
+      if (!hasMountedOnce.value) return;
 
-  const tasks = [apiGetCustomerGroupsAny(), apiGetChannelGroupsAny(), apiGetTeams()];
-  const results = await Promise.allSettled(tasks);
+      filters.value = isFinance.value ? defaultFinanceFilters() : defaultOrdersFilters();
+      initSalesDefaultIfNeeded();
 
-  const cg = results[0];
-  customerGroups.value = cg?.status === "fulfilled" ? normalizeItems(cg.value) : [];
-  if (cg?.status !== "fulfilled") console.error(cg?.reason);
+      page.value = 1;
+      financeSummary.value = null;
+      lastSummaryKey.value = "";
+      lastListKey.value = "";
+      _clearSelection();
 
-  const ch = results[1];
-  channelGroups.value = ch?.status === "fulfilled" ? normalizeItems(ch.value) : [];
-  if (ch?.status !== "fulfilled") console.error(ch?.reason);
+      loadList(true);
+      bootstrapDropdowns(true);
 
-  const t = results[2];
-  teamOptions.value = t?.status === "fulfilled" ? normalizeTeamNames(t.value) : [];
-  if (t?.status !== "fulfilled") console.error(t?.reason);
+      lastActivatedContextKey.value = next;
+    },
+    {flush: "post"}
+);
 
-  groupsLoading.value = false;
-
-  initTeamForSalesRoleIfPossible();
-  await loadSalespersonsForTeam(filters.value?.team_name);
-}
-
-async function loadSummaryIfNeeded() {
+async function loadSummaryIfNeeded(force = false) {
   if (!isFinance.value) return;
-
   const params = buildSummaryParams();
   const key = stableStringify(params);
 
-  if (key && key === lastSummaryKey.value && financeSummary.value) return;
+  if (!force && key && key === lastSummaryKey.value && financeSummary.value) return;
+
+  const currentSeq = ++summaryRequestSeq;
+  summaryLoading.value = true;
 
   try {
     const resp = await getFinanceOrdersSummary(params);
+    if (currentSeq !== summaryRequestSeq) return;
+
     const data = resp?.data ?? resp ?? {};
     financeSummary.value = data && typeof data === "object" ? data : null;
     lastSummaryKey.value = key || "";
   } catch (e) {
+    if (currentSeq !== summaryRequestSeq) return;
     console.error(e);
     financeSummary.value = null;
     lastSummaryKey.value = key || "";
+  } finally {
+    if (currentSeq === summaryRequestSeq) {
+      summaryLoading.value = false;
+    }
   }
 }
 
-async function loadList() {
+async function loadList(force = false) {
+  const currentSeq = ++listRequestSeq;
+  const params = buildListParams();
+  const key = stableStringify(params);
+
+  if (!force && key && key === lastListKey.value) {
+    if (isFinance.value) {
+      loadSummaryIfNeeded(false);
+    }
+    return;
+  }
+
   loading.value = true;
   try {
-    const resp = isFinance.value ? await listFinanceOrders(buildListParams()) : await listOrders(buildListParams());
+    const resp = await listOrders(params);
+    if (currentSeq !== listRequestSeq) return;
+
     const data = resp?.data ?? resp ?? {};
     orders.value = Array.isArray(data?.items) ? data.items : [];
     total.value = Number(data?.total ?? 0);
-
+    lastListKey.value = key || "";
     _clearSelection();
 
     if (isFinance.value) {
-      await loadSummaryIfNeeded();
+      loadSummaryIfNeeded(force);
     }
   } catch (e) {
+    if (currentSeq !== listRequestSeq) return;
     console.error(e);
     ElMessage.error(isFinance.value ? "加载财务列表失败" : "加载订单列表失败");
   } finally {
-    loading.value = false;
+    if (currentSeq === listRequestSeq) {
+      loading.value = false;
+    }
   }
 }
 
-function search() {
-  page.value = 1;
-  financeSummary.value = null;
-  lastSummaryKey.value = "";
-  loadList();
+async function search() {
+  if (manualSearching.value) return;
+  manualSearching.value = true;
+
+  try {
+    page.value = 1;
+    financeSummary.value = null;
+    lastSummaryKey.value = "";
+    lastListKey.value = "";
+    await loadList(true);
+  } finally {
+    manualSearching.value = false;
+  }
 }
 
-function resetFilters() {
+async function resetFilters() {
   filters.value = isFinance.value ? defaultFinanceFilters() : defaultOrdersFilters();
-
-  initTeamForSalesRoleIfPossible();
+  initSalesDefaultIfNeeded();
 
   page.value = 1;
   financeSummary.value = null;
   lastSummaryKey.value = "";
-  loadList();
+  lastListKey.value = "";
 
-  loadSalespersonsForTeam(filters.value?.team_name);
+  await loadList(true);
+
+  if (!isFinance.value) {
+    loadSalespersonsForTeam(filters.value?.team_name, true);
+  }
 }
 
 function onPageChange(p) {
   page.value = p;
-  loadList();
+  lastListKey.value = "";
+  loadList(true);
 }
 
 function onPageSizeChange(size) {
   pageSize.value = size;
   page.value = 1;
-  loadList();
+  lastListKey.value = "";
+  loadList(true);
 }
 
 function goDetail(id) {
   const from = route.fullPath;
-  if (isFinance.value) router.push(`/finance/orders/${id}?from=${encodeURIComponent(from)}&source=finance`);
-  else router.push(`/orders/${id}?from=${encodeURIComponent(from)}`);
+  if (isFinance.value) {
+    router.push(`/finance/orders/${id}?from=${encodeURIComponent(from)}&source=finance`);
+  } else {
+    router.push(`/orders/${id}?from=${encodeURIComponent(from)}`);
+  }
 }
 
 function _isMyOrder(row) {
-  const uid = currentUserId.value;
+  const uid = _currentUserId();
   if (!uid) return true;
   const sid = Number(row?.salesperson_id ?? 0);
   if (!Number.isFinite(sid) || sid <= 0) return true;
@@ -1195,9 +1643,9 @@ async function _updateFinished(row, nextFinished) {
   row.is_finished = next;
 
   try {
-    await updateOrderStatus(row.id, { is_finished: next });
+    await updateOrderStatus(row.id, {is_finished: next});
     ElMessage.success(next ? "已标记完成" : "已退回未完成");
-    await loadList();
+    await loadList(true);
   } catch (e) {
     console.error(e);
     row.is_finished = prev;
@@ -1272,7 +1720,7 @@ async function confirmReturnToUnfinished(row) {
   try {
     await returnFinanceOrder(row.id);
     ElMessage.success("已退回未完成");
-    await loadList();
+    await loadList(true);
   } catch (e) {
     console.error(e);
     ElMessage.error("操作失败");
@@ -1315,7 +1763,7 @@ async function onPaidSwitch(row, nextVal) {
   setPaid(row, next);
 
   try {
-    await updateFinanceOrderStatus(row.id, { is_paid: next });
+    await updateFinanceOrderStatus(row.id, {is_paid: next});
     ElMessage.success("已更新回款状态");
   } catch (e) {
     console.error(e);
@@ -1350,7 +1798,7 @@ async function onRebateSwitch(row, nextVal) {
   setRebate(row, next);
 
   try {
-    await updateFinanceOrderStatus(row.id, { is_rebate: next });
+    await updateFinanceOrderStatus(row.id, {is_rebate: next});
     ElMessage.success("已更新返点状态");
   } catch (e) {
     console.error(e);
@@ -1359,27 +1807,6 @@ async function onRebateSwitch(row, nextVal) {
   } finally {
     row._saving_rebate = false;
   }
-}
-
-function _nowShanghaiFileStamp() {
-  const parts = new Intl.DateTimeFormat("zh-CN", {
-    timeZone: "Asia/Shanghai",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).formatToParts(new Date());
-
-  const y = parts.find((p) => p.type === "year")?.value || "0000";
-  const m = parts.find((p) => p.type === "month")?.value || "00";
-  const d = parts.find((p) => p.type === "day")?.value || "00";
-  const hh = parts.find((p) => p.type === "hour")?.value || "00";
-  const mm = parts.find((p) => p.type === "minute")?.value || "00";
-  const ss = parts.find((p) => p.type === "second")?.value || "00";
-  return `${y}-${m}-${d}_${hh}${mm}${ss}`;
 }
 
 function _parseFilenameFromDisposition(disposition) {
@@ -1425,14 +1852,6 @@ function _triggerDownloadBlob(blob, filename) {
   }, 1200);
 }
 
-function _appendParam(sp, k, v) {
-  if (!k) return;
-  if (v === null || v === undefined) return;
-  const s = String(v).trim();
-  if (!s) return;
-  sp.append(k, s);
-}
-
 async function downloadFinanceExcel() {
   if (!isFinance.value) return;
   if (!canFinanceDownload.value) {
@@ -1445,42 +1864,17 @@ async function downloadFinanceExcel() {
 
   try {
     const baseParams = buildSummaryParams();
-
     const ids = (Array.isArray(selectedRows.value) ? selectedRows.value : [])
-      .filter((r) => !isSummaryRow(r))
-      .map((r) => Number(r?.id))
-      .filter((n) => Number.isFinite(n) && n > 0);
+        .filter((r) => !isSummaryRow(r))
+        .map((r) => Number(r?.id))
+        .filter((n) => Number.isFinite(n) && n > 0);
 
-    const sp = new URLSearchParams();
+    const reqParams = {
+      ...baseParams,
+      ...(ids.length ? {ids} : {}),
+    };
 
-    if (ids.length) {
-      for (const id of ids) sp.append("ids", String(id));
-    }
-
-    for (const [k, v] of Object.entries(baseParams || {})) {
-      if (k === "owner_name") {
-        if (v !== null && v !== undefined && String(v).trim()) _appendParam(sp, "owner", v);
-        continue;
-      }
-      if (k === "page" || k === "page_size") continue;
-
-      if (v === true || v === false) {
-        sp.append(k, v ? "true" : "false");
-        continue;
-      }
-
-      if (Array.isArray(v)) {
-        for (const it of v) _appendParam(sp, k, it);
-        continue;
-      }
-
-      _appendParam(sp, k, v);
-    }
-
-    const url = `/finance/orders/export?${sp.toString()}`;
-
-    const resp = await http.get(url, {
-      responseType: "blob",
+    const resp = await exportFinanceOrders(reqParams, {
       validateStatus: (status) => status >= 200 && status < 500,
     });
 
@@ -1516,11 +1910,12 @@ async function downloadFinanceExcel() {
     }
 
     const disp = headers["content-disposition"] || headers["Content-Disposition"] || "";
-    const filename = _parseFilenameFromDisposition(disp) || `财务管理_订单_${_nowShanghaiFileStamp()}.xls`;
+    const filename = _parseFilenameFromDisposition(disp) || "财务管理_订单.xls";
+    const blob = resp.data instanceof Blob
+        ? resp.data
+        : new Blob([resp.data], {type: ct || "application/octet-stream"});
 
-    const blob = resp.data instanceof Blob ? resp.data : new Blob([resp.data], { type: ct || "application/octet-stream" });
     _triggerDownloadBlob(blob, filename);
-
     ElMessage.success(ids.length ? "已下载勾选数据" : "已下载全部符合条件数据");
   } catch (e) {
     console.error(e);
@@ -1530,426 +1925,27 @@ async function downloadFinanceExcel() {
   }
 }
 
-const FINANCE_MONEY_COL = {
-  commercial_amount: "col_14_commercial_amount",
-  compulsory_amount: "col_15_compulsory_amount",
-  vehicle_tax_amount: "col_16_tax_amount",
-  noncar_amount: "col_17_noncar_amount",
-  receivable: "col_26_receivable",
-  payable: "col_27_payable",
-  profit: "col_28_profit",
-};
+onMounted(async () => {
+  initSalesDefaultIfNeeded();
 
-const FINANCE_POINT_COL = {
-  channel_commercial_point: "col_18_ch_commercial_point",
-  channel_compulsory_point: "col_19_ch_compulsory_point",
-  channel_vehicle_tax_point: "col_20_ch_tax_point",
-  channel_noncar_point: "col_21_ch_noncar_point",
-  customer_commercial_point: "col_22_cu_commercial_point",
-  customer_compulsory_point: "col_23_cu_compulsory_point",
-  customer_vehicle_tax_point: "col_24_cu_tax_point",
-  customer_noncar_point: "col_25_cu_noncar_point",
-};
+  loadList(true);
+  bootstrapDropdowns(true);
 
-const ORDER_INFO_MONEY_KEY = {
-  commercial_amount: "commercial_amount",
-  compulsory_amount: "compulsory_amount",
-  vehicle_tax_amount: "vehicle_tax_amount",
-  noncar_amount: "non_vehicle_amount",
-};
-
-const ORDER_INFO_POINT_KEY = {
-  channel_commercial_point: "channel_commercial_point",
-  channel_commercial_supplement_point: "channel_commercial_supplement_point",
-  channel_compulsory_point: "channel_compulsory_point",
-  channel_vehicle_tax_point: "channel_vehicle_tax_point",
-  channel_noncar_point: "channel_non_vehicle_point",
-
-  customer_commercial_point: "customer_commercial_point",
-  customer_commercial_supplement_point: "customer_commercial_supplement_point",
-  customer_compulsory_point: "customer_compulsory_point",
-  customer_vehicle_tax_point: "customer_vehicle_tax_point",
-  customer_noncar_point: "customer_non_vehicle_point",
-};
-
-function pickCreatedAt(row) {
-  if (isFinance.value) return row?.col_01_date || row?.created_at || row?.updated_at || null;
-  return row?.created_at || row?.updated_at || null;
-}
-
-function pickFinished(row) {
-  return Boolean(row?.is_finished);
-}
-
-function pickChannelName(row) {
-  return String(isFinance.value ? row?.col_02_channel || "" : row?.channel_group_name || "").trim() || "-";
-}
-
-function pickCustomerName(row) {
-  return String(isFinance.value ? row?.col_03_customer || "" : row?.customer_group_name || "").trim() || "-";
-}
-
-function pickMarket(row) {
-  const v = isFinance.value ? row?.col_04_market : row?.customer_group_market;
-  return String(v ?? "").trim() || "-";
-}
-
-function pickSalespersonName(row) {
-  const v = String(row?.salesperson_name ?? "").trim();
-  if (v) return v;
-
-  const sp = _getSalespersonByRow(row);
-  if (sp) return String(sp.real_name || sp.username || "-");
-  return "-";
-}
-
-function pickOwner(row) {
-  const v = isFinance.value ? row?.col_05_owner : dyn(row, "id_name") || dyn(row, "owner_name");
-  return String(v ?? "").trim() || "-";
-}
-
-function pickPlate(row) {
-  const v = isFinance.value ? row?.col_06_plate_no : dyn(row, "plate_no");
-  return String(v ?? "").trim() || "-";
-}
-
-function pickInsuranceExpire(row) {
-  const v = isFinance.value ? row?.col_07_insurance_expire_date : orderInfo(row)?.insurance_expire_date;
-  return normalizeCompactYmd(v) || "-";
-}
-
-function pickVin(row) {
-  const v = isFinance.value ? row?.col_08_vin : dyn(row, "vin");
-  return String(v ?? "").trim() || "-";
-}
-
-function pickEngine(row) {
-  const v = isFinance.value ? row?.col_09_engine_no : dyn(row, "engine_no");
-  return String(v ?? "").trim() || "-";
-}
-
-function pickVehicleModel(row) {
-  const v = isFinance.value ? row?.col_10_vehicle_model : dyn(row, "vehicle_model");
-  return String(v ?? "").trim() || "-";
-}
-
-function pickFirstRegister(row) {
-  const v = isFinance.value ? row?.col_11_first_register_date : dyn(row, "first_register_date");
-  return normalizeCompactYmd(v) || "-";
-}
-
-function pickIdNumber(row) {
-  const v = isFinance.value ? row?.col_12_id_number : dyn(row, "id_number");
-  return String(v ?? "").trim() || "-";
-}
-
-function pickPhone(row) {
-  const v = isFinance.value ? row?.col_13_owner_phone : orderInfo(row)?.owner_phone;
-  return String(v ?? "").trim() || "-";
-}
-
-function pickManagerName(row) {
-  const v = String(row?.manager_name ?? "").trim();
-  if (v) return v;
-
-  const sp = _getSalespersonByRow(row);
-  const v2 = String(sp?.manager_name ?? sp?.parent_name ?? "").trim();
-  return v2 || "-";
-}
-
-function pickTeamName(row) {
-  const teamsRow = _joinTeams(row?.team_names);
-  if (teamsRow) return teamsRow;
-
-  const v = String(row?.team_name ?? "").trim();
-  if (v) return v;
-
-  const sp = _getSalespersonByRow(row);
-  const teamsSp = _joinTeams(sp?.team_names);
-  if (teamsSp) return teamsSp;
-
-  const v2 = String(sp?.team_name ?? "").trim();
-  return v2 || "-";
-}
-
-function pickPaid(row) {
-  if (!isFinance.value) return Boolean(row?.is_paid);
-  return Boolean(row?.col_29_is_paid);
-}
-
-function pickRebate(row) {
-  if (!isFinance.value) return Boolean(row?.is_rebate);
-  return Boolean(row?.col_30_is_rebate);
-}
-
-function setPaid(row, val) {
-  if (!row || typeof row !== "object") return;
-  if (isFinance.value) row.col_29_is_paid = Boolean(val);
-  row.is_paid = Boolean(val);
-}
-
-function setRebate(row, val) {
-  if (!row || typeof row !== "object") return;
-  if (isFinance.value) row.col_30_is_rebate = Boolean(val);
-  row.is_rebate = Boolean(val);
-}
-
-function _moneyRaw(row, logicalKey) {
-  if (isFinance.value) return row?.[FINANCE_MONEY_COL[logicalKey] || logicalKey];
-  const oi = orderInfo(row);
-  const key = ORDER_INFO_MONEY_KEY[logicalKey] || logicalKey;
-  return oi ? oi[key] : null;
-}
-
-function _pointRaw(row, logicalKey) {
-  if (isFinance.value) return row?.[FINANCE_POINT_COL[logicalKey] || logicalKey];
-  const oi = orderInfo(row);
-  const key = ORDER_INFO_POINT_KEY[logicalKey] || logicalKey;
-  return oi ? oi[key] : null;
-}
-
-function pickMoney(row, logicalKey) {
-  return fmtMoney(_moneyRaw(row, logicalKey));
-}
-
-function pickPoint(row, logicalKey) {
-  return fmtPoint(_pointRaw(row, logicalKey));
-}
-
-function _rewardRaw(row, key) {
-  const k = String(key || "").trim();
-  if (!k) return null;
-
-  if (isFinance.value) {
-    if (k === "channel_reward") {
-      return row?.col_31_channel_reward ?? row?.channel_reward ?? null;
-    }
-    if (k === "customer_reward") {
-      return row?.col_32_customer_reward ?? row?.customer_reward ?? null;
-    }
-    return row?.[k] ?? null;
-  }
-
-  const oi = orderInfo(row);
-  if (!oi) return null;
-  return oi?.[k] ?? null;
-}
-
-function pickRewardMoney(row, key) {
-  return fmtMoney(_rewardRaw(row, key));
-}
-
-function hasSupplementPoint(row) {
-  if (isFinance.value) return false;
-  const oi = orderInfo(row);
-  if (!oi) return false;
-  const ch = toNum(oi.channel_commercial_supplement_point) || 0;
-  const cu = toNum(oi.customer_commercial_supplement_point) || 0;
-  return Math.abs(ch) > 1e-9 || Math.abs(cu) > 1e-9;
-}
-
-function computeTotals(row) {
-  const oi = orderInfo(row) || {};
-
-  const cm = toNum(oi.commercial_amount) || 0;
-  const jq = toNum(oi.compulsory_amount) || 0;
-  const tax = toNum(oi.vehicle_tax_amount) || 0;
-  const nc = toNum(oi.non_vehicle_amount) || 0;
-
-  const ch_cm_p = toNum(oi.channel_commercial_point) || 0;
-  const ch_cm_sup_p = toNum(oi.channel_commercial_supplement_point) || 0;
-  const ch_jq_p = toNum(oi.channel_compulsory_point) || 0;
-  const ch_tax_p = toNum(oi.channel_vehicle_tax_point) || 0;
-  const ch_nc_p = toNum(oi.channel_non_vehicle_point) || 0;
-  const ch_bonus = toNum(oi.channel_reward) || 0;
-
-  const cu_cm_p = toNum(oi.customer_commercial_point) || 0;
-  const cu_cm_sup_p = toNum(oi.customer_commercial_supplement_point) || 0;
-  const cu_jq_p = toNum(oi.customer_compulsory_point) || 0;
-  const cu_tax_p = toNum(oi.customer_vehicle_tax_point) || 0;
-  const cu_nc_p = toNum(oi.customer_non_vehicle_point) || 0;
-  const cu_bonus = toNum(oi.customer_reward) || 0;
-
-  const channel_total =
-    cm * (ch_cm_p / 100) +
-    cm * (ch_cm_sup_p / 100) +
-    jq * (ch_jq_p / 100) +
-    tax * (ch_tax_p / 100) +
-    nc * (ch_nc_p / 100) +
-    ch_bonus;
-
-  const customer_total =
-    cm * (cu_cm_p / 100) +
-    cm * (cu_cm_sup_p / 100) +
-    jq * (cu_jq_p / 100) +
-    tax * (cu_tax_p / 100) +
-    nc * (cu_nc_p / 100) +
-    cu_bonus;
-
-  return { channel_total, customer_total, profit: channel_total - customer_total };
-}
-
-function pickReceivable(row) {
-  if (isFinance.value) return fmtMoney(_moneyRaw(row, "receivable"));
-  const oi = orderInfo(row);
-  if (!oi) return fmtMoney(0);
-  if (hasSupplementPoint(row)) return fmtMoney(computeTotals(row).channel_total);
-  return fmtMoney(oi.channel_total);
-}
-
-function pickPayable(row) {
-  if (isFinance.value) return fmtMoney(_moneyRaw(row, "payable"));
-  const oi = orderInfo(row);
-  if (!oi) return fmtMoney(0);
-  if (hasSupplementPoint(row)) return fmtMoney(computeTotals(row).customer_total);
-  return fmtMoney(oi.customer_total);
-}
-
-function pickProfit(row) {
-  if (isFinance.value) return fmtMoney(_moneyRaw(row, "profit"));
-  const oi = orderInfo(row);
-  if (!oi) return fmtMoney(0);
-  if (hasSupplementPoint(row)) return fmtMoney(computeTotals(row).profit);
-  return fmtMoney(oi.profit);
-}
-
-function _asDateRange(v) {
-  if (!Array.isArray(v)) return null;
-  const s = _trimStr(v[0]);
-  const e = _trimStr(v[1]);
-  if (!s && !e) return null;
-  return { start: s || "", end: e || "" };
-}
-
-function _applyRangeParams(p, baseKey, v) {
-  const r0 = _asDateRange(v);
-  if (!r0) return;
-
-  const r = { start: _trimStr(r0.start), end: _trimStr(r0.end) };
-  if (r.start && !r.end) r.end = r.start;
-  if (r.end && !r.start) r.start = r.end;
-  if (!r.start || !r.end) return;
-
-  p[`${baseKey}_start`] = r.start;
-  p[`${baseKey}_end`] = r.end;
-}
-
-function buildListParams() {
-  const p = { page: page.value, page_size: pageSize.value };
-  const f = filters.value || {};
-
-  if (f.team_name) p.team_name = String(f.team_name).trim();
-
-  if (isFinance.value) {
-    _applyRangeParams(p, "created_date", f.created_date);
-
-    if (f.channel_group_id) p.channel_group_id = f.channel_group_id;
-    if (f.customer_group_id) p.customer_group_id = f.customer_group_id;
-
-    const market = _trimStr(f.market);
-    if (market) p.market = market;
-
-    const owner = _trimStr(f.owner_name);
-    if (owner) p.owner_name = owner;
-
-    if (f.insurance_expire_date) p.insurance_expire_date = f.insurance_expire_date;
-
-    _applyRangeParams(p, "first_register_date", f.first_register_date);
-
-    if (f.is_paid === true || f.is_paid === false) p.is_paid = f.is_paid;
-    if (f.is_rebate === true || f.is_rebate === false) p.is_rebate = f.is_rebate;
-
-    return p;
-  }
-
-  if (props.mode === "finished") p.is_finished = true;
-  if (props.mode === "unfinished") p.is_finished = false;
-
-  if (f.owner_name) p.owner_name = f.owner_name;
-  if (f.id_number) p.id_number = f.id_number;
-  if (f.vin) p.vin = f.vin;
-  if (f.engine_no) p.engine_no = f.engine_no;
-  if (f.plate_no) p.plate_no = f.plate_no;
-  if (f.vehicle_model) p.vehicle_model = f.vehicle_model;
-  if (f.remark) p.remark = f.remark;
-
-  if (f.customer_group_id) p.customer_group_id = f.customer_group_id;
-  if (f.channel_group_id) p.channel_group_id = f.channel_group_id;
-  if (f.salesperson_id) p.salesperson_id = f.salesperson_id;
-
-  _applyRangeParams(p, "created_date", f.created_date);
-
-  return p;
-}
-
-function buildSummaryParams() {
-  const p = { ...buildListParams() };
-  delete p.page;
-  delete p.page_size;
-  return p;
-}
-
-function stableStringify(obj) {
-  const seen = new Set();
-  const sort = (o) => {
-    if (o === null || typeof o !== "object") return o;
-    if (seen.has(o)) return null;
-    seen.add(o);
-
-    if (Array.isArray(o)) return o.map(sort);
-    return Object.keys(o)
-      .sort()
-      .reduce((acc, k) => {
-        acc[k] = sort(o[k]);
-        return acc;
-      }, {});
-  };
-
-  try {
-    return JSON.stringify(sort(obj));
-  } catch {
-    return "";
-  }
-}
-
-function buildSummaryRow(sum) {
-  const n = (v) => {
-    const x = Number(v);
-    return Number.isFinite(x) ? x : 0;
-  };
-
-  const chReward = n(sum?.channel_reward ?? 0);
-  const cuReward = n(sum?.customer_reward ?? 0);
-
-  return {
-    id: -1,
-    _is_summary: true,
-    col_01_date: "汇总",
-    col_14_commercial_amount: n(sum?.commercial_amount),
-    col_15_compulsory_amount: n(sum?.compulsory_amount),
-    col_16_tax_amount: n(sum?.vehicle_tax_amount),
-    col_17_noncar_amount: n(sum?.noncar_amount),
-
-    col_31_channel_reward: chReward,
-    col_32_customer_reward: cuReward,
-    channel_reward: chReward,
-    customer_reward: cuReward,
-
-    col_26_receivable: n(sum?.payable),
-    col_27_payable: n(sum?.receivable),
-    col_28_profit: n(sum?.profit),
-  };
-}
-
-const tableData = computed(() => {
-  const base = Array.isArray(orders.value) ? [...orders.value] : [];
-  if (isFinance.value && financeSummary.value) base.push(buildSummaryRow(financeSummary.value));
-  return base;
+  hasMountedOnce.value = true;
+  lastActivatedContextKey.value = pageContextKey.value;
 });
 
-onMounted(async () => {
-  await loadGroupsAndSalespersonsIfNeeded();
-  await loadList();
+onActivated(async () => {
+  if (!hasMountedOnce.value) return;
+
+  const currentKey = pageContextKey.value;
+
+  if (currentKey !== lastActivatedContextKey.value) {
+    lastActivatedContextKey.value = currentKey;
+    return;
+  }
+
+  await loadList(true);
 });
 </script>
 
@@ -1999,11 +1995,6 @@ onMounted(async () => {
   border-radius: 999px;
   border: 1px solid rgba(60, 60, 60, 0.12);
   background: rgba(255, 255, 255, 0.65);
-}
-
-.table-scroll {
-  width: 100%;
-  overflow-x: auto;
 }
 
 .main-table {
