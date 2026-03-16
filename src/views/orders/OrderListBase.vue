@@ -5,9 +5,9 @@
     </div>
 
     <el-card
-        shadow="never"
-        class="toolbar-card"
-        :body-style="{ padding: '10px 12px' }"
+      shadow="never"
+      class="toolbar-card"
+      :body-style="{ padding: '10px 12px' }"
     >
       <el-form :model="filters" class="filters-form" label-width="88px">
         <template v-if="isFinance">
@@ -15,14 +15,14 @@
             <el-col :span="6">
               <el-form-item label="日期">
                 <el-date-picker
-                    v-model="filters.created_date"
-                    type="daterange"
-                    value-format="YYYY-MM-DD"
-                    range-separator="至"
-                    start-placeholder="开始日期"
-                    end-placeholder="结束日期"
-                    style="width: 100%"
-                    clearable
+                  v-model="filters.created_date"
+                  type="daterange"
+                  value-format="YYYY-MM-DD"
+                  range-separator="至"
+                  start-placeholder="开始日期"
+                  end-placeholder="结束日期"
+                  style="width: 100%"
+                  clearable
                 />
               </el-form-item>
             </el-col>
@@ -30,19 +30,19 @@
             <el-col :span="6">
               <el-form-item label="渠道">
                 <el-select
-                    v-model="filters.channel_group_id"
-                    clearable
-                    filterable
-                    placeholder="选择渠道"
-                    style="width: 100%"
-                    :loading="groupsLoading"
-                    :disabled="groupsLoading"
+                  v-model="filters.channel_group_id"
+                  clearable
+                  filterable
+                  placeholder="选择渠道"
+                  style="width: 100%"
+                  :loading="groupsLoading"
+                  :disabled="groupsLoading"
                 >
                   <el-option
-                      v-for="g in channelGroups"
-                      :key="String(g.id)"
-                      :label="formatChannelLabel(g)"
-                      :value="g.id"
+                    v-for="g in channelGroups"
+                    :key="String(g.id)"
+                    :label="formatChannelLabel(g)"
+                    :value="g.id"
                   />
                 </el-select>
               </el-form-item>
@@ -51,19 +51,19 @@
             <el-col :span="6">
               <el-form-item label="客户">
                 <el-select
-                    v-model="filters.customer_group_id"
-                    clearable
-                    filterable
-                    placeholder="选择客户"
-                    style="width: 100%"
-                    :loading="groupsLoading"
-                    :disabled="groupsLoading"
+                  v-model="filters.customer_group_id"
+                  clearable
+                  filterable
+                  placeholder="选择客户"
+                  style="width: 100%"
+                  :loading="groupsLoading"
+                  :disabled="groupsLoading"
                 >
                   <el-option
-                      v-for="g in customerGroups"
-                      :key="String(g.id)"
-                      :label="formatCustomerLabel(g)"
-                      :value="g.id"
+                    v-for="g in customerGroups"
+                    :key="String(g.id)"
+                    :label="formatCustomerLabel(g)"
+                    :value="g.id"
                   />
                 </el-select>
               </el-form-item>
@@ -72,10 +72,10 @@
             <el-col :span="6">
               <el-form-item label="市场">
                 <el-input
-                    v-model="filters.market"
-                    clearable
-                    placeholder="市场（模糊）"
-                    @keyup.enter="search"
+                  v-model="filters.market"
+                  clearable
+                  placeholder="市场（模糊）"
+                  @keyup.enter="search"
                 />
               </el-form-item>
             </el-col>
@@ -85,15 +85,15 @@
             <el-col :span="6">
               <el-form-item label="团队">
                 <el-select
-                    v-model="filters.team_name"
-                    clearable
-                    filterable
-                    placeholder="选择团队"
-                    style="width: 100%"
-                    :loading="teamsLoading"
-                    :disabled="teamsLoading || !canChooseTeam"
+                  v-model="filters.team_name"
+                  clearable
+                  filterable
+                  placeholder="选择团队"
+                  style="width: 100%"
+                  :loading="teamsLoading"
+                  :disabled="teamsLoading || !canChooseTeam"
                 >
-                  <el-option v-for="t in teamOptions" :key="t" :label="t" :value="t"/>
+                  <el-option v-for="t in teamOptions" :key="t" :label="t" :value="t" />
                 </el-select>
               </el-form-item>
             </el-col>
@@ -105,10 +105,10 @@
             <el-col :span="6">
               <el-form-item label="车主">
                 <el-input
-                    v-model="filters.owner_name"
-                    clearable
-                    placeholder="车主（模糊）"
-                    @keyup.enter="search"
+                  v-model="filters.owner_name"
+                  clearable
+                  placeholder="车主（模糊）"
+                  @keyup.enter="search"
                 />
               </el-form-item>
             </el-col>
@@ -116,12 +116,12 @@
             <el-col :span="6">
               <el-form-item label="保险到期日">
                 <el-date-picker
-                    v-model="filters.insurance_expire_date"
-                    type="date"
-                    value-format="YYYY-MM-DD"
-                    placeholder="选择日期"
-                    style="width: 100%"
-                    clearable
+                  v-model="filters.insurance_expire_date"
+                  type="date"
+                  value-format="YYYY-MM-DD"
+                  placeholder="选择日期"
+                  style="width: 100%"
+                  clearable
                 />
               </el-form-item>
             </el-col>
@@ -129,14 +129,14 @@
             <el-col :span="6">
               <el-form-item label="初登日期">
                 <el-date-picker
-                    v-model="filters.first_register_date"
-                    type="daterange"
-                    value-format="YYYY-MM-DD"
-                    range-separator="至"
-                    start-placeholder="开始日期"
-                    end-placeholder="结束日期"
-                    style="width: 100%"
-                    clearable
+                  v-model="filters.first_register_date"
+                  type="daterange"
+                  value-format="YYYY-MM-DD"
+                  range-separator="至"
+                  start-placeholder="开始日期"
+                  end-placeholder="结束日期"
+                  style="width: 100%"
+                  clearable
                 />
               </el-form-item>
             </el-col>
@@ -144,8 +144,8 @@
             <el-col :span="6">
               <el-form-item label="是否回款">
                 <el-select v-model="filters.is_paid" clearable placeholder="全部" style="width: 100%">
-                  <el-option label="是" :value="true"/>
-                  <el-option label="否" :value="false"/>
+                  <el-option label="是" :value="true" />
+                  <el-option label="否" :value="false" />
                 </el-select>
               </el-form-item>
             </el-col>
@@ -155,8 +155,8 @@
             <el-col :span="6">
               <el-form-item label="是否返点">
                 <el-select v-model="filters.is_rebate" clearable placeholder="全部" style="width: 100%">
-                  <el-option label="是" :value="true"/>
-                  <el-option label="否" :value="false"/>
+                  <el-option label="是" :value="true" />
+                  <el-option label="否" :value="false" />
                 </el-select>
               </el-form-item>
             </el-col>
@@ -169,10 +169,10 @@
 
                 <template v-if="canFinanceDownload">
                   <el-button
-                      native-type="button"
-                      :disabled="loading || downloading || (Number(total) || 0) <= 0"
-                      :loading="downloading"
-                      @click.stop.prevent="downloadFinanceExcel"
+                    native-type="button"
+                    :disabled="loading || downloading || (Number(total) || 0) <= 0"
+                    :loading="downloading"
+                    @click.stop.prevent="downloadFinanceExcel"
                   >
                     下载
                   </el-button>
@@ -189,14 +189,14 @@
             <el-col :span="6">
               <el-form-item label="日期">
                 <el-date-picker
-                    v-model="filters.created_date"
-                    type="daterange"
-                    value-format="YYYY-MM-DD"
-                    range-separator="至"
-                    start-placeholder="开始日期"
-                    end-placeholder="结束日期"
-                    style="width: 100%"
-                    clearable
+                  v-model="filters.created_date"
+                  type="daterange"
+                  value-format="YYYY-MM-DD"
+                  range-separator="至"
+                  start-placeholder="开始日期"
+                  end-placeholder="结束日期"
+                  style="width: 100%"
+                  clearable
                 />
               </el-form-item>
             </el-col>
@@ -204,19 +204,19 @@
             <el-col :span="6">
               <el-form-item label="渠道">
                 <el-select
-                    v-model="filters.channel_group_id"
-                    clearable
-                    filterable
-                    placeholder="选择渠道"
-                    style="width: 100%"
-                    :loading="groupsLoading"
-                    :disabled="groupsLoading"
+                  v-model="filters.channel_group_id"
+                  clearable
+                  filterable
+                  placeholder="选择渠道"
+                  style="width: 100%"
+                  :loading="groupsLoading"
+                  :disabled="groupsLoading"
                 >
                   <el-option
-                      v-for="g in channelGroups"
-                      :key="String(g.id)"
-                      :label="formatChannelLabel(g)"
-                      :value="g.id"
+                    v-for="g in channelGroups"
+                    :key="String(g.id)"
+                    :label="formatChannelLabel(g)"
+                    :value="g.id"
                   />
                 </el-select>
               </el-form-item>
@@ -225,19 +225,19 @@
             <el-col :span="6">
               <el-form-item label="客户">
                 <el-select
-                    v-model="filters.customer_group_id"
-                    clearable
-                    filterable
-                    placeholder="选择客户"
-                    style="width: 100%"
-                    :loading="groupsLoading"
-                    :disabled="groupsLoading"
+                  v-model="filters.customer_group_id"
+                  clearable
+                  filterable
+                  placeholder="选择客户"
+                  style="width: 100%"
+                  :loading="groupsLoading"
+                  :disabled="groupsLoading"
                 >
                   <el-option
-                      v-for="g in customerGroups"
-                      :key="String(g.id)"
-                      :label="formatCustomerLabel(g)"
-                      :value="g.id"
+                    v-for="g in customerGroups"
+                    :key="String(g.id)"
+                    :label="formatCustomerLabel(g)"
+                    :value="g.id"
                   />
                 </el-select>
               </el-form-item>
@@ -246,19 +246,19 @@
             <el-col :span="6">
               <el-form-item label="业务员">
                 <el-select
-                    v-model="filters.salesperson_id"
-                    clearable
-                    filterable
-                    placeholder="选择业务员"
-                    style="width: 100%"
-                    :loading="salesLoading"
-                    :disabled="salesLoading"
+                  v-model="filters.salesperson_id"
+                  clearable
+                  filterable
+                  placeholder="选择业务员"
+                  style="width: 100%"
+                  :loading="salesLoading"
+                  :disabled="salesLoading"
                 >
                   <el-option
-                      v-for="u in filteredSalespersons"
-                      :key="String(u.id)"
-                      :label="u.real_name || u.username"
-                      :value="u.id"
+                    v-for="u in filteredSalespersons"
+                    :key="String(u.id)"
+                    :label="u.real_name || u.username"
+                    :value="u.id"
                   />
                 </el-select>
               </el-form-item>
@@ -269,15 +269,15 @@
             <el-col :span="6">
               <el-form-item label="团队">
                 <el-select
-                    v-model="filters.team_name"
-                    clearable
-                    filterable
-                    placeholder="选择团队"
-                    style="width: 100%"
-                    :loading="teamsLoading"
-                    :disabled="teamsLoading || !canChooseTeam"
+                  v-model="filters.team_name"
+                  clearable
+                  filterable
+                  placeholder="选择团队"
+                  style="width: 100%"
+                  :loading="teamsLoading"
+                  :disabled="teamsLoading || !canChooseTeam"
                 >
-                  <el-option v-for="t in teamOptions" :key="t" :label="t" :value="t"/>
+                  <el-option v-for="t in teamOptions" :key="t" :label="t" :value="t" />
                 </el-select>
               </el-form-item>
             </el-col>
@@ -289,40 +289,40 @@
             <el-col :span="6">
               <el-form-item label="车主">
                 <el-input
-                    v-model="filters.owner_name"
-                    clearable
-                    placeholder="车主（模糊）"
-                    @keyup.enter="search"
+                  v-model="filters.owner_name"
+                  clearable
+                  placeholder="车主（模糊）"
+                  @keyup.enter="search"
                 />
               </el-form-item>
             </el-col>
             <el-col :span="6">
               <el-form-item label="身份证号">
                 <el-input
-                    v-model="filters.id_number"
-                    clearable
-                    placeholder="身份证号（模糊）"
-                    @keyup.enter="search"
+                  v-model="filters.id_number"
+                  clearable
+                  placeholder="身份证号（模糊）"
+                  @keyup.enter="search"
                 />
               </el-form-item>
             </el-col>
             <el-col :span="6">
               <el-form-item label="车牌">
                 <el-input
-                    v-model="filters.plate_no"
-                    clearable
-                    placeholder="车牌（模糊）"
-                    @keyup.enter="search"
+                  v-model="filters.plate_no"
+                  clearable
+                  placeholder="车牌（模糊）"
+                  @keyup.enter="search"
                 />
               </el-form-item>
             </el-col>
             <el-col :span="6">
               <el-form-item label="发动机号">
                 <el-input
-                    v-model="filters.engine_no"
-                    clearable
-                    placeholder="发动机号（模糊）"
-                    @keyup.enter="search"
+                  v-model="filters.engine_no"
+                  clearable
+                  placeholder="发动机号（模糊）"
+                  @keyup.enter="search"
                 />
               </el-form-item>
             </el-col>
@@ -332,30 +332,30 @@
             <el-col :span="6">
               <el-form-item label="车架号">
                 <el-input
-                    v-model="filters.vin"
-                    clearable
-                    placeholder="车架号（模糊）"
-                    @keyup.enter="search"
+                  v-model="filters.vin"
+                  clearable
+                  placeholder="车架号（模糊）"
+                  @keyup.enter="search"
                 />
               </el-form-item>
             </el-col>
             <el-col :span="6">
               <el-form-item label="车型">
                 <el-input
-                    v-model="filters.vehicle_model"
-                    clearable
-                    placeholder="车型（模糊）"
-                    @keyup.enter="search"
+                  v-model="filters.vehicle_model"
+                  clearable
+                  placeholder="车型（模糊）"
+                  @keyup.enter="search"
                 />
               </el-form-item>
             </el-col>
             <el-col :span="6">
               <el-form-item label="备注">
                 <el-input
-                    v-model="filters.remark"
-                    clearable
-                    placeholder="备注（模糊）"
-                    @keyup.enter="search"
+                  v-model="filters.remark"
+                  clearable
+                  placeholder="备注（模糊）"
+                  @keyup.enter="search"
                 />
               </el-form-item>
             </el-col>
@@ -372,226 +372,198 @@
 
     <div class="table-scroll">
       <el-table
-          ref="tableRef"
-          v-loading="loading"
-          :data="tableData"
-          border
-          stripe
-          class="main-table"
-          :row-class-name="tableRowClassName"
-          @selection-change="onSelectionChange"
+        ref="tableRef"
+        v-loading="loading"
+        :data="tableData"
+        border
+        stripe
+        class="main-table"
+        :row-class-name="tableRowClassName"
+        @selection-change="onSelectionChange"
       >
         <el-table-column
-            v-if="isFinance && canFinanceDownload"
-            type="selection"
-            width="44"
-            fixed="left"
-            align="center"
-            header-align="center"
-            :selectable="selectableRow"
+          v-if="isFinance && canFinanceDownload"
+          type="selection"
+          width="44"
+          fixed="left"
+          align="center"
+          header-align="center"
+          :selectable="selectableRow"
         />
 
         <el-table-column label="日期" min-width="110" show-overflow-tooltip>
           <template #default="{ row }">
-            {{ isSummaryRow(row) ? "汇总" : fmtYmdSafe(pickCreatedAt(row)) }}
+            {{ row._is_summary ? "汇总" : row._view_created_at }}
           </template>
         </el-table-column>
 
         <el-table-column
-            v-if="showFinishedColumn"
-            label="完成状态"
-            min-width="92"
-            align="center"
-            header-align="center"
-            show-overflow-tooltip
+          v-if="showFinishedColumn"
+          label="完成状态"
+          min-width="92"
+          align="center"
+          header-align="center"
+          show-overflow-tooltip
         >
-          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickFinished(row) ? "是" : "否" }}</template>
+          <template #default="{ row }">{{ row._is_summary ? "" : row._view_finished_text }}</template>
         </el-table-column>
 
         <el-table-column label="渠道" min-width="140" show-overflow-tooltip>
-          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickChannelName(row) }}</template>
+          <template #default="{ row }">{{ row._is_summary ? "" : row._view_channel_name }}</template>
         </el-table-column>
 
         <el-table-column label="客户" min-width="140" show-overflow-tooltip>
-          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickCustomerName(row) }}</template>
+          <template #default="{ row }">{{ row._is_summary ? "" : row._view_customer_name }}</template>
         </el-table-column>
 
         <el-table-column label="市场" min-width="110" show-overflow-tooltip>
-          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickMarket(row) }}</template>
+          <template #default="{ row }">{{ row._is_summary ? "" : row._view_market }}</template>
         </el-table-column>
 
         <el-table-column v-if="isFinance" label="业务员" min-width="120" show-overflow-tooltip>
-          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickSalespersonName(row) }}</template>
+          <template #default="{ row }">{{ row._is_summary ? "" : row._view_salesperson_name }}</template>
         </el-table-column>
 
         <el-table-column label="车主" min-width="120" show-overflow-tooltip>
-          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickOwner(row) }}</template>
+          <template #default="{ row }">{{ row._is_summary ? "" : row._view_owner }}</template>
         </el-table-column>
 
         <el-table-column label="车牌" min-width="120" show-overflow-tooltip>
-          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPlate(row) }}</template>
+          <template #default="{ row }">{{ row._is_summary ? "" : row._view_plate }}</template>
         </el-table-column>
 
         <el-table-column label="保险到期日" min-width="120" show-overflow-tooltip>
-          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickInsuranceExpire(row) }}</template>
+          <template #default="{ row }">{{ row._is_summary ? "" : row._view_insurance_expire }}</template>
         </el-table-column>
 
         <el-table-column label="车架号" min-width="160" show-overflow-tooltip>
-          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickVin(row) }}</template>
+          <template #default="{ row }">{{ row._is_summary ? "" : row._view_vin }}</template>
         </el-table-column>
 
         <el-table-column label="发动机号" min-width="150" show-overflow-tooltip>
-          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickEngine(row) }}</template>
+          <template #default="{ row }">{{ row._is_summary ? "" : row._view_engine }}</template>
         </el-table-column>
 
         <el-table-column label="车型" min-width="160" show-overflow-tooltip>
-          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickVehicleModel(row) }}</template>
+          <template #default="{ row }">{{ row._is_summary ? "" : row._view_vehicle_model }}</template>
         </el-table-column>
 
         <el-table-column label="初登日期" min-width="120" show-overflow-tooltip>
-          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickFirstRegister(row) }}</template>
+          <template #default="{ row }">{{ row._is_summary ? "" : row._view_first_register }}</template>
         </el-table-column>
 
         <el-table-column label="身份证号" min-width="170" show-overflow-tooltip>
-          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickIdNumber(row) }}</template>
+          <template #default="{ row }">{{ row._is_summary ? "" : row._view_id_number }}</template>
         </el-table-column>
 
         <el-table-column label="电话" min-width="130" show-overflow-tooltip>
-          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickPhone(row) }}</template>
+          <template #default="{ row }">{{ row._is_summary ? "" : row._view_phone }}</template>
         </el-table-column>
 
         <el-table-column label="商业金额" min-width="110" show-overflow-tooltip>
-          <template #default="{ row }">{{ pickMoney(row, "commercial_amount") }}</template>
+          <template #default="{ row }">{{ row._view_money_commercial_amount }}</template>
         </el-table-column>
 
         <el-table-column label="交强金额" min-width="110" show-overflow-tooltip>
-          <template #default="{ row }">{{ pickMoney(row, "compulsory_amount") }}</template>
+          <template #default="{ row }">{{ row._view_money_compulsory_amount }}</template>
         </el-table-column>
 
         <el-table-column label="车船税金额" min-width="120" show-overflow-tooltip>
-          <template #default="{ row }">{{ pickMoney(row, "vehicle_tax_amount") }}</template>
+          <template #default="{ row }">{{ row._view_money_vehicle_tax_amount }}</template>
         </el-table-column>
 
         <el-table-column label="非车金额" min-width="110" show-overflow-tooltip>
-          <template #default="{ row }">{{ pickMoney(row, "non_vehicle_amount") }}</template>
+          <template #default="{ row }">{{ row._view_money_non_vehicle_amount }}</template>
         </el-table-column>
 
         <el-table-column label="渠道商业点位" min-width="120" show-overflow-tooltip>
-          <template #default="{ row }">{{
-              isSummaryRow(row) ? "" : pickPoint(row, "channel_commercial_point")
-            }}
-          </template>
+          <template #default="{ row }">{{ row._is_summary ? "" : row._view_point_channel_commercial_point }}</template>
         </el-table-column>
 
         <el-table-column label="渠道商业后补点位" min-width="140" show-overflow-tooltip>
-          <template #default="{ row }">
-            {{ isSummaryRow(row) ? "" : pickPoint(row, "channel_commercial_supplement_point") }}
-          </template>
+          <template #default="{ row }">{{ row._is_summary ? "" : row._view_point_channel_commercial_supplement_point }}</template>
         </el-table-column>
 
         <el-table-column label="渠道交强点位" min-width="120" show-overflow-tooltip>
-          <template #default="{ row }">{{
-              isSummaryRow(row) ? "" : pickPoint(row, "channel_compulsory_point")
-            }}
-          </template>
+          <template #default="{ row }">{{ row._is_summary ? "" : row._view_point_channel_compulsory_point }}</template>
         </el-table-column>
 
         <el-table-column label="渠道车船税点位" min-width="130" show-overflow-tooltip>
-          <template #default="{ row }">{{
-              isSummaryRow(row) ? "" : pickPoint(row, "channel_vehicle_tax_point")
-            }}
-          </template>
+          <template #default="{ row }">{{ row._is_summary ? "" : row._view_point_channel_vehicle_tax_point }}</template>
         </el-table-column>
 
         <el-table-column label="渠道非车点位" min-width="120" show-overflow-tooltip>
-          <template #default="{ row }">{{
-              isSummaryRow(row) ? "" : pickPoint(row, "channel_non_vehicle_point")
-            }}
-          </template>
+          <template #default="{ row }">{{ row._is_summary ? "" : row._view_point_channel_non_vehicle_point }}</template>
         </el-table-column>
 
         <el-table-column v-if="isFinance" label="渠道奖励" min-width="110" show-overflow-tooltip>
-          <template #default="{ row }">{{ pickRewardMoney(row, "channel_reward") }}</template>
+          <template #default="{ row }">{{ row._view_reward_channel_reward }}</template>
         </el-table-column>
 
         <el-table-column label="客户商业点位" min-width="120" show-overflow-tooltip>
-          <template #default="{ row }">{{
-              isSummaryRow(row) ? "" : pickPoint(row, "customer_commercial_point")
-            }}
-          </template>
+          <template #default="{ row }">{{ row._is_summary ? "" : row._view_point_customer_commercial_point }}</template>
         </el-table-column>
 
         <el-table-column label="客户商业后补点位" min-width="140" show-overflow-tooltip>
-          <template #default="{ row }">
-            {{ isSummaryRow(row) ? "" : pickPoint(row, "customer_commercial_supplement_point") }}
-          </template>
+          <template #default="{ row }">{{ row._is_summary ? "" : row._view_point_customer_commercial_supplement_point }}</template>
         </el-table-column>
 
         <el-table-column label="客户交强点位" min-width="120" show-overflow-tooltip>
-          <template #default="{ row }">{{
-              isSummaryRow(row) ? "" : pickPoint(row, "customer_compulsory_point")
-            }}
-          </template>
+          <template #default="{ row }">{{ row._is_summary ? "" : row._view_point_customer_compulsory_point }}</template>
         </el-table-column>
 
         <el-table-column label="客户车船税点位" min-width="130" show-overflow-tooltip>
-          <template #default="{ row }">{{
-              isSummaryRow(row) ? "" : pickPoint(row, "customer_vehicle_tax_point")
-            }}
-          </template>
+          <template #default="{ row }">{{ row._is_summary ? "" : row._view_point_customer_vehicle_tax_point }}</template>
         </el-table-column>
 
         <el-table-column label="客户非车点位" min-width="120" show-overflow-tooltip>
-          <template #default="{ row }">{{
-              isSummaryRow(row) ? "" : pickPoint(row, "customer_non_vehicle_point")
-            }}
-          </template>
+          <template #default="{ row }">{{ row._is_summary ? "" : row._view_point_customer_non_vehicle_point }}</template>
         </el-table-column>
 
         <el-table-column v-if="isFinance" label="客户奖励" min-width="110" show-overflow-tooltip>
-          <template #default="{ row }">{{ pickRewardMoney(row, "customer_reward") }}</template>
+          <template #default="{ row }">{{ row._view_reward_customer_reward }}</template>
         </el-table-column>
 
         <el-table-column label="应收" min-width="110" show-overflow-tooltip>
-          <template #default="{ row }">{{ pickReceivable(row) }}</template>
+          <template #default="{ row }">{{ row._view_receivable }}</template>
         </el-table-column>
 
         <el-table-column label="应付" min-width="110" show-overflow-tooltip>
-          <template #default="{ row }">{{ pickPayable(row) }}</template>
+          <template #default="{ row }">{{ row._view_payable }}</template>
         </el-table-column>
 
         <el-table-column label="利润" min-width="110" show-overflow-tooltip>
-          <template #default="{ row }">{{ pickProfit(row) }}</template>
+          <template #default="{ row }">{{ row._view_profit }}</template>
         </el-table-column>
 
         <el-table-column label="所属经理" min-width="130" show-overflow-tooltip>
-          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickManagerName(row) }}</template>
+          <template #default="{ row }">{{ row._is_summary ? "" : row._view_manager_name }}</template>
         </el-table-column>
 
         <el-table-column label="所属团队" min-width="120" show-overflow-tooltip>
-          <template #default="{ row }">{{ isSummaryRow(row) ? "" : pickTeamName(row) }}</template>
+          <template #default="{ row }">{{ row._is_summary ? "" : row._view_team_name }}</template>
         </el-table-column>
 
         <el-table-column
-            v-if="isFinance"
-            label="是否回款"
-            width="108"
-            fixed="right"
-            align="center"
-            header-align="center"
-            class-name="col-switch"
+          v-if="isFinance"
+          label="是否回款"
+          width="108"
+          fixed="right"
+          align="center"
+          header-align="center"
+          class-name="col-switch"
         >
           <template #default="{ row }">
-            <div class="switch-cell" v-if="!isSummaryRow(row)">
+            <div class="switch-cell" v-if="!row._is_summary">
               <el-switch
-                  size="medium"
-                  inline-prompt
-                  inactive-text="否"
-                  active-text="是"
-                  :model-value="pickPaid(row)"
-                  :loading="Boolean(row?._saving_paid)"
-                  :disabled="!canFinanceEdit"
-                  @change="(val) => onPaidSwitch(row, val)"
+                size="medium"
+                inline-prompt
+                inactive-text="否"
+                active-text="是"
+                :model-value="Boolean(row.is_paid)"
+                :loading="Boolean(row?._saving_paid)"
+                :disabled="!canFinanceEdit"
+                @change="(val) => onPaidSwitch(row, val)"
               />
             </div>
             <span v-else></span>
@@ -599,25 +571,25 @@
         </el-table-column>
 
         <el-table-column
-            v-if="isFinance"
-            label="是否返点"
-            width="108"
-            fixed="right"
-            align="center"
-            header-align="center"
-            class-name="col-switch"
+          v-if="isFinance"
+          label="是否返点"
+          width="108"
+          fixed="right"
+          align="center"
+          header-align="center"
+          class-name="col-switch"
         >
           <template #default="{ row }">
-            <div class="switch-cell" v-if="!isSummaryRow(row)">
+            <div class="switch-cell" v-if="!row._is_summary">
               <el-switch
-                  size="medium"
-                  inline-prompt
-                  inactive-text="否"
-                  active-text="是"
-                  :model-value="pickRebate(row)"
-                  :loading="Boolean(row?._saving_rebate)"
-                  :disabled="!canFinanceEdit"
-                  @change="(val) => onRebateSwitch(row, val)"
+                size="medium"
+                inline-prompt
+                inactive-text="否"
+                active-text="是"
+                :model-value="Boolean(row.is_rebate)"
+                :loading="Boolean(row?._saving_rebate)"
+                :disabled="!canFinanceEdit"
+                @change="(val) => onRebateSwitch(row, val)"
               />
             </div>
             <span v-else></span>
@@ -625,15 +597,15 @@
         </el-table-column>
 
         <el-table-column
-            label="操作"
-            :width="isFinance ? 110 : 130"
-            fixed="right"
-            align="center"
-            header-align="center"
-            class-name="col-actions"
+          label="操作"
+          :width="isFinance ? 110 : 130"
+          fixed="right"
+          align="center"
+          header-align="center"
+          class-name="col-actions"
         >
           <template #default="{ row }">
-            <template v-if="isSummaryRow(row)">
+            <template v-if="row._is_summary">
               <span></span>
             </template>
 
@@ -642,15 +614,15 @@
                 <el-button native-type="button" size="small" link @click.stop="goDetail(row.id)">详情</el-button>
 
                 <el-dropdown
-                    trigger="click"
-                    :teleported="true"
-                    placement="bottom-end"
-                    popper-class="order-actions-popper"
-                    @command="(cmd) => onFinanceAction(cmd, row)"
+                  trigger="click"
+                  :teleported="true"
+                  placement="bottom-end"
+                  popper-class="order-actions-popper"
+                  @command="(cmd) => onFinanceAction(cmd, row)"
                 >
                   <el-button native-type="button" size="small" circle @click.stop>
                     <el-icon>
-                      <MoreFilled/>
+                      <MoreFilled />
                     </el-icon>
                   </el-button>
 
@@ -669,23 +641,22 @@
                 <el-button native-type="button" size="small" link @click.stop="goDetail(row.id)">详情</el-button>
 
                 <el-dropdown
-                    trigger="click"
-                    :teleported="true"
-                    placement="bottom-end"
-                    popper-class="order-actions-popper"
-                    @command="(cmd) => onAction(cmd, row)"
+                  trigger="click"
+                  :teleported="true"
+                  placement="bottom-end"
+                  popper-class="order-actions-popper"
+                  @command="(cmd) => onAction(cmd, row)"
                 >
                   <el-button native-type="button" size="small" circle @click.stop>
                     <el-icon>
-                      <MoreFilled/>
+                      <MoreFilled />
                     </el-icon>
                   </el-button>
 
                   <template #dropdown>
                     <el-dropdown-menu>
                       <el-dropdown-item command="detail">详情</el-dropdown-item>
-                      <el-dropdown-item v-if="canMarkFinished(row)" command="markFinished" divided>标记完成
-                      </el-dropdown-item>
+                      <el-dropdown-item v-if="canMarkFinished(row)" command="markFinished" divided>标记完成</el-dropdown-item>
                       <el-dropdown-item v-if="canReopen(row)" command="reopen" divided>退回未完成</el-dropdown-item>
                     </el-dropdown-menu>
                   </template>
@@ -699,24 +670,24 @@
 
     <div class="pagination-wrapper">
       <el-pagination
-          background
-          layout="total, prev, pager, next, sizes"
-          :total="total"
-          :current-page="page"
-          :page-size="pageSize"
-          :page-sizes="[10, 20, 50, 100]"
-          @current-change="onPageChange"
-          @size-change="onPageSizeChange"
+        background
+        layout="total, prev, pager, next, sizes"
+        :total="total"
+        :current-page="page"
+        :page-size="pageSize"
+        :page-sizes="[10, 20, 50, 100]"
+        @current-change="onPageChange"
+        @size-change="onPageSizeChange"
       />
     </div>
   </div>
 </template>
 
 <script setup>
-import {computed, onActivated, onMounted, ref, watch} from "vue";
-import {useRoute, useRouter} from "vue-router";
-import {ElMessage, ElMessageBox} from "element-plus";
-import {MoreFilled} from "@element-plus/icons-vue";
+import { computed, onActivated, onMounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { ElMessage, ElMessageBox } from "element-plus";
+import { MoreFilled } from "@element-plus/icons-vue";
 
 import {
   getChannelGroups,
@@ -732,13 +703,13 @@ import {
   returnFinanceOrder,
   updateFinanceOrderStatus,
 } from "../../api/finance";
-import {useSessionStore} from "../../store/session";
-import {ROLE} from "../../constants";
+import { useSessionStore } from "../../store/session";
+import { ROLE } from "../../constants";
 
 const props = defineProps({
-  title: {type: String, default: "订单列表"},
-  mode: {type: String, default: "all"},
-  pageMode: {type: String, default: "orders"},
+  title: { type: String, default: "订单列表" },
+  mode: { type: String, default: "all" },
+  pageMode: { type: String, default: "orders" },
 });
 
 const router = useRouter();
@@ -779,6 +750,7 @@ const pageSize = ref(20);
 const customerGroups = ref([]);
 const channelGroups = ref([]);
 const salespersons = ref([]);
+const salespersonMapRef = ref(new Map());
 const groupsLoading = ref(false);
 const salesLoading = ref(false);
 const teamOptions = ref([]);
@@ -793,7 +765,6 @@ const tableRef = ref(null);
 const selectedRows = ref([]);
 
 const financeSummary = ref(null);
-const summaryLoading = ref(false);
 const lastSummaryKey = ref("");
 const lastListKey = ref("");
 
@@ -831,9 +802,7 @@ function defaultFinanceFilters() {
 
 const filters = ref(isFinance.value ? defaultFinanceFilters() : defaultOrdersFilters());
 
-const pageContextKey = computed(() => {
-  return `${props.pageMode || ""}|${props.mode || ""}|${route.path || ""}`;
-});
+const pageContextKey = computed(() => `${props.pageMode || ""}|${props.mode || ""}|${route.path || ""}`);
 
 const hasMountedOnce = ref(false);
 const lastActivatedContextKey = ref("");
@@ -845,6 +814,11 @@ let dropdownBootstrapSeq = 0;
 
 function _trimStr(v) {
   return String(v ?? "").trim();
+}
+
+function _toDisplay(v, fallback = "-") {
+  const s = _trimStr(v);
+  return s || fallback;
 }
 
 function formatCustomerLabel(g) {
@@ -882,11 +856,15 @@ function normalizeTeamNames(resp) {
   const data = resp?.data ?? resp ?? {};
   const items = Array.isArray(data?.items) ? data.items : [];
   const out = [];
+  const seen = new Set();
   for (const x of items) {
     const t = String(x?.team_name ?? "").trim();
-    if (t) out.push(t);
+    if (t && !seen.has(t)) {
+      seen.add(t);
+      out.push(t);
+    }
   }
-  return Array.from(new Set(out)).sort((a, b) => String(a).localeCompare(String(b), "zh-CN"));
+  return out.sort((a, b) => String(a).localeCompare(String(b), "zh-CN"));
 }
 
 function toNum(x) {
@@ -944,363 +922,28 @@ function fmtYmdSafe(anyVal) {
     if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?$/.test(raw)) {
       toParse = `${raw}Z`;
     }
-
     const d = new Date(toParse);
     if (!Number.isFinite(d.getTime())) return "-";
     return _formatYmdInShanghai(d);
   } catch {
-    const s = normalizeCompactYmd(anyVal);
-    return s || "-";
+    return normalizeCompactYmd(anyVal) || "-";
   }
-}
-
-function orderInfo(row) {
-  const oi = row?.order_info;
-  return oi && typeof oi === "object" ? oi : null;
-}
-
-function dyn(row, key) {
-  const dd = row?.dynamic_data;
-  return dd && typeof dd === "object" ? dd[key] : undefined;
 }
 
 function _joinTeams(v) {
   const arr = Array.isArray(v) ? v : v ? [v] : [];
-  const cleaned = [...new Set(arr.map((x) => String(x || "").trim()).filter(Boolean))];
+  if (!arr.length) return "";
+  const seen = new Set();
+  const cleaned = [];
+  for (const item of arr) {
+    const s = String(item || "").trim();
+    if (s && !seen.has(s)) {
+      seen.add(s);
+      cleaned.push(s);
+    }
+  }
   return cleaned.length ? cleaned.join("、") : "";
 }
-
-const salespersonMap = computed(() => {
-  const mp = new Map();
-  const arr = Array.isArray(salespersons.value) ? salespersons.value : [];
-  for (const u of arr) {
-    const id = Number(u?.id);
-    if (!Number.isFinite(id) || id <= 0) continue;
-    mp.set(id, u);
-  }
-  return mp;
-});
-
-function _getSalespersonByRow(row) {
-  const sid = Number(row?.salesperson_id);
-  if (!Number.isFinite(sid) || sid <= 0) return null;
-  return salespersonMap.value.get(sid) || null;
-}
-
-function pickCreatedAt(row) {
-  return row?.created_at || null;
-}
-
-function pickFinished(row) {
-  return Boolean(row?.is_finished);
-}
-
-function pickChannelName(row) {
-  return String(row?.channel_group_name ?? "").trim() || "-";
-}
-
-function pickCustomerName(row) {
-  return String(row?.customer_group_name ?? "").trim() || "-";
-}
-
-function pickMarket(row) {
-  return String(row?.customer_group_market ?? "").trim() || "-";
-}
-
-function pickSalespersonName(row) {
-  const v = String(row?.salesperson_name ?? "").trim();
-  if (v) return v;
-  const sp = _getSalespersonByRow(row);
-  if (sp) return String(sp.real_name || sp.username || "-");
-  return "-";
-}
-
-function pickOwner(row) {
-  return String(dyn(row, "owner_name") ?? "").trim() || "-";
-}
-
-function pickPlate(row) {
-  return String(dyn(row, "plate_no") ?? "").trim() || "-";
-}
-
-function pickInsuranceExpire(row) {
-  return normalizeCompactYmd(orderInfo(row)?.insurance_expire_date) || "-";
-}
-
-function pickVin(row) {
-  return String(dyn(row, "vin") ?? "").trim() || "-";
-}
-
-function pickEngine(row) {
-  return String(dyn(row, "engine_no") ?? "").trim() || "-";
-}
-
-function pickVehicleModel(row) {
-  return String(dyn(row, "vehicle_model") ?? "").trim() || "-";
-}
-
-function pickFirstRegister(row) {
-  return normalizeCompactYmd(dyn(row, "first_register_date")) || "-";
-}
-
-function pickIdNumber(row) {
-  return String(dyn(row, "id_number") ?? "").trim() || "-";
-}
-
-function pickPhone(row) {
-  return String(orderInfo(row)?.owner_phone ?? "").trim() || "-";
-}
-
-function pickManagerName(row) {
-  const v = String(row?.manager_name ?? "").trim();
-  if (v) return v;
-  const sp = _getSalespersonByRow(row);
-  const v2 = String(sp?.manager_name ?? sp?.parent_name ?? "").trim();
-  return v2 || "-";
-}
-
-function pickTeamName(row) {
-  const teamsRow = _joinTeams(row?.team_names);
-  if (teamsRow) return teamsRow;
-
-  const v = String(row?.team_name ?? "").trim();
-  if (v) return v;
-
-  const sp = _getSalespersonByRow(row);
-  const teamsSp = _joinTeams(sp?.team_names);
-  if (teamsSp) return teamsSp;
-
-  const v2 = String(sp?.team_name ?? "").trim();
-  return v2 || "-";
-}
-
-function pickPaid(row) {
-  return Boolean(row?.is_paid);
-}
-
-function pickRebate(row) {
-  return Boolean(row?.is_rebate);
-}
-
-function setPaid(row, val) {
-  if (!row || typeof row !== "object") return;
-  row.is_paid = Boolean(val);
-}
-
-function setRebate(row, val) {
-  if (!row || typeof row !== "object") return;
-  row.is_rebate = Boolean(val);
-}
-
-function _moneyRaw(row, logicalKey) {
-  const oi = orderInfo(row);
-  return oi ? oi[logicalKey] : null;
-}
-
-function _pointRaw(row, logicalKey) {
-  const oi = orderInfo(row);
-  return oi ? oi[logicalKey] : null;
-}
-
-function pickMoney(row, logicalKey) {
-  return fmtMoney(_moneyRaw(row, logicalKey));
-}
-
-function pickPoint(row, logicalKey) {
-  return fmtPoint(_pointRaw(row, logicalKey));
-}
-
-function pickRewardMoney(row, key) {
-  const oi = orderInfo(row);
-  return fmtMoney(oi ? oi[key] : null);
-}
-
-function pickReceivable(row) {
-  return fmtMoney(orderInfo(row)?.channel_total);
-}
-
-function pickPayable(row) {
-  return fmtMoney(orderInfo(row)?.customer_total);
-}
-
-function pickProfit(row) {
-  return fmtMoney(orderInfo(row)?.profit);
-}
-
-function _asDateRange(v) {
-  if (!Array.isArray(v)) return null;
-  const s = _trimStr(v[0]);
-  const e = _trimStr(v[1]);
-  if (!s && !e) return null;
-  return {start: s || "", end: e || ""};
-}
-
-function _applyRangeParams(p, baseKey, v) {
-  const r0 = _asDateRange(v);
-  if (!r0) return;
-
-  const r = {start: _trimStr(r0.start), end: _trimStr(r0.end)};
-  if (r.start && !r.end) r.end = r.start;
-  if (r.end && !r.start) r.start = r.end;
-  if (!r.start || !r.end) return;
-
-  p[`${baseKey}_start`] = r.start;
-  p[`${baseKey}_end`] = r.end;
-}
-
-function buildFinanceFilterParams() {
-  const p = {};
-  const f = filters.value || {};
-
-  if (f.team_name) p.team_name = String(f.team_name).trim();
-  if (f.customer_group_id) p.customer_group_id = f.customer_group_id;
-  if (f.channel_group_id) p.channel_group_id = f.channel_group_id;
-
-  _applyRangeParams(p, "created_date", f.created_date);
-
-  const market = _trimStr(f.market);
-  if (market) p.market = market;
-
-  const owner = _trimStr(f.owner_name);
-  if (owner) p.owner_name = owner;
-
-  if (f.insurance_expire_date) p.insurance_expire_date = f.insurance_expire_date;
-  _applyRangeParams(p, "first_register_date", f.first_register_date);
-
-  if (f.is_paid === true || f.is_paid === false) p.is_paid = f.is_paid;
-  if (f.is_rebate === true || f.is_rebate === false) p.is_rebate = f.is_rebate;
-
-  return p;
-}
-
-function buildListParams() {
-  const p = {page: page.value, page_size: pageSize.value};
-  const f = filters.value || {};
-
-  if (f.team_name) p.team_name = String(f.team_name).trim();
-
-  if (props.mode === "finished") p.is_finished = true;
-  if (props.mode === "unfinished") p.is_finished = false;
-
-  if (f.customer_group_id) p.customer_group_id = f.customer_group_id;
-  if (f.channel_group_id) p.channel_group_id = f.channel_group_id;
-
-  _applyRangeParams(p, "created_date", f.created_date);
-
-  if (isFinance.value) {
-    return {
-      ...p,
-      ...buildFinanceFilterParams(),
-      is_finished: true,
-    };
-  }
-
-  if (f.owner_name) p.owner_name = f.owner_name;
-  if (f.id_number) p.id_number = f.id_number;
-  if (f.vin) p.vin = f.vin;
-  if (f.engine_no) p.engine_no = f.engine_no;
-  if (f.plate_no) p.plate_no = f.plate_no;
-  if (f.vehicle_model) p.vehicle_model = f.vehicle_model;
-  if (f.remark) p.remark = f.remark;
-  if (f.salesperson_id) p.salesperson_id = f.salesperson_id;
-
-  return p;
-}
-
-function buildSummaryParams() {
-  if (isFinance.value) {
-    return buildFinanceFilterParams();
-  }
-
-  const p = {...buildListParams()};
-  delete p.page;
-  delete p.page_size;
-  return p;
-}
-
-function stableStringify(obj) {
-  const seen = new Set();
-  const sort = (o) => {
-    if (o === null || typeof o !== "object") return o;
-    if (seen.has(o)) return null;
-    seen.add(o);
-
-    if (Array.isArray(o)) return o.map(sort);
-    return Object.keys(o)
-        .sort()
-        .reduce((acc, k) => {
-          acc[k] = sort(o[k]);
-          return acc;
-        }, {});
-  };
-
-  try {
-    return JSON.stringify(sort(obj));
-  } catch {
-    return "";
-  }
-}
-
-function isSummaryRow(row) {
-  return Boolean(row?._is_summary);
-}
-
-function selectableRow(row) {
-  return !isSummaryRow(row);
-}
-
-function tableRowClassName({row}) {
-  return isSummaryRow(row) ? "row-summary" : "";
-}
-
-function onSelectionChange(list) {
-  const arr = Array.isArray(list) ? list : [];
-  selectedRows.value = arr.filter((r) => !isSummaryRow(r));
-}
-
-function _clearSelection() {
-  selectedRows.value = [];
-  try {
-    tableRef.value?.clearSelection?.();
-  } catch {
-    // ignore
-  }
-}
-
-function buildSummaryRow(sum) {
-  const n = (v) => {
-    const x = Number(v);
-    return Number.isFinite(x) ? x : 0;
-  };
-
-  return {
-    id: -1,
-    _is_summary: true,
-    order_info: {
-      commercial_amount: n(sum?.commercial_amount),
-      compulsory_amount: n(sum?.compulsory_amount),
-      vehicle_tax_amount: n(sum?.vehicle_tax_amount),
-      non_vehicle_amount: n(sum?.non_vehicle_amount),
-      channel_reward: n(sum?.channel_reward),
-      customer_reward: n(sum?.customer_reward),
-      channel_total: n(sum?.receivable),
-      customer_total: n(sum?.payable),
-      profit: n(sum?.profit),
-    },
-  };
-}
-
-const tableData = computed(() => {
-  const base = Array.isArray(orders.value) ? [...orders.value] : [];
-  if (isFinance.value && financeSummary.value) {
-    base.push(buildSummaryRow(financeSummary.value));
-  }
-  return base;
-});
-
-const filteredSalespersons = computed(() => {
-  return Array.isArray(salespersons.value) ? salespersons.value : [];
-});
 
 function _currentUserId() {
   const candidates = [
@@ -1326,6 +969,294 @@ function initSalesDefaultIfNeeded() {
   }
 }
 
+function _rebuildSalespersonMap() {
+  const mp = new Map();
+  const arr = Array.isArray(salespersons.value) ? salespersons.value : [];
+  for (const u of arr) {
+    const id = Number(u?.id);
+    if (Number.isFinite(id) && id > 0) {
+      mp.set(id, u);
+    }
+  }
+  salespersonMapRef.value = mp;
+}
+
+function _getSalespersonByRow(row) {
+  const sid = Number(row?.salesperson_id);
+  if (!Number.isFinite(sid) || sid <= 0) return null;
+  return salespersonMapRef.value.get(sid) || null;
+}
+
+function _safeOrderInfo(row) {
+  const oi = row?.order_info;
+  return oi && typeof oi === "object" ? oi : EMPTY_OBJ;
+}
+
+function _safeDynamicData(row) {
+  const dd = row?.dynamic_data;
+  return dd && typeof dd === "object" ? dd : EMPTY_OBJ;
+}
+
+const EMPTY_OBJ = Object.freeze({});
+
+function _decorateRow(row) {
+  if (!row || typeof row !== "object") return row;
+
+  const dd = _safeDynamicData(row);
+  const oi = _safeOrderInfo(row);
+  const sp = _getSalespersonByRow(row);
+
+  const salespersonName = _trimStr(row?.salesperson_name) || _trimStr(sp?.real_name) || _trimStr(sp?.username) || "-";
+  const managerName = _trimStr(row?.manager_name) || _trimStr(sp?.manager_name) || _trimStr(sp?.parent_name) || "-";
+
+  const rowTeams = _joinTeams(row?.team_names);
+  const spTeams = _joinTeams(sp?.team_names);
+  const teamName = rowTeams || _trimStr(row?.team_name) || spTeams || _trimStr(sp?.team_name) || "-";
+
+  row._view_created_at = fmtYmdSafe(row?.created_at);
+  row._view_finished_text = Boolean(row?.is_finished) ? "是" : "否";
+  row._view_channel_name = _toDisplay(row?.channel_group_name);
+  row._view_customer_name = _toDisplay(row?.customer_group_name);
+  row._view_market = _toDisplay(row?.customer_group_market);
+  row._view_salesperson_name = salespersonName;
+  row._view_owner = _toDisplay(dd?.owner_name);
+  row._view_plate = _toDisplay(dd?.plate_no);
+  row._view_insurance_expire = normalizeCompactYmd(oi?.insurance_expire_date) || "-";
+  row._view_vin = _toDisplay(dd?.vin);
+  row._view_engine = _toDisplay(dd?.engine_no);
+  row._view_vehicle_model = _toDisplay(dd?.vehicle_model);
+  row._view_first_register = normalizeCompactYmd(dd?.first_register_date) || "-";
+  row._view_id_number = _toDisplay(dd?.id_number);
+  row._view_phone = _toDisplay(oi?.owner_phone);
+  row._view_manager_name = managerName;
+  row._view_team_name = teamName;
+
+  row._view_money_commercial_amount = fmtMoney(oi?.commercial_amount);
+  row._view_money_compulsory_amount = fmtMoney(oi?.compulsory_amount);
+  row._view_money_vehicle_tax_amount = fmtMoney(oi?.vehicle_tax_amount);
+  row._view_money_non_vehicle_amount = fmtMoney(oi?.non_vehicle_amount);
+
+  row._view_point_channel_commercial_point = fmtPoint(oi?.channel_commercial_point);
+  row._view_point_channel_commercial_supplement_point = fmtPoint(oi?.channel_commercial_supplement_point);
+  row._view_point_channel_compulsory_point = fmtPoint(oi?.channel_compulsory_point);
+  row._view_point_channel_vehicle_tax_point = fmtPoint(oi?.channel_vehicle_tax_point);
+  row._view_point_channel_non_vehicle_point = fmtPoint(oi?.channel_non_vehicle_point);
+
+  row._view_reward_channel_reward = fmtMoney(oi?.channel_reward);
+
+  row._view_point_customer_commercial_point = fmtPoint(oi?.customer_commercial_point);
+  row._view_point_customer_commercial_supplement_point = fmtPoint(oi?.customer_commercial_supplement_point);
+  row._view_point_customer_compulsory_point = fmtPoint(oi?.customer_compulsory_point);
+  row._view_point_customer_vehicle_tax_point = fmtPoint(oi?.customer_vehicle_tax_point);
+  row._view_point_customer_non_vehicle_point = fmtPoint(oi?.customer_non_vehicle_point);
+
+  row._view_reward_customer_reward = fmtMoney(oi?.customer_reward);
+  row._view_receivable = fmtMoney(oi?.channel_total);
+  row._view_payable = fmtMoney(oi?.customer_total);
+  row._view_profit = fmtMoney(oi?.profit);
+
+  return row;
+}
+
+function _decorateRows(rows) {
+  if (!Array.isArray(rows) || !rows.length) return [];
+  const out = new Array(rows.length);
+  for (let i = 0; i < rows.length; i += 1) {
+    out[i] = _decorateRow(rows[i]);
+  }
+  return out;
+}
+
+function _asDateRange(v) {
+  if (!Array.isArray(v)) return null;
+  const s = _trimStr(v[0]);
+  const e = _trimStr(v[1]);
+  if (!s && !e) return null;
+  return { start: s || "", end: e || "" };
+}
+
+function _applyRangeParams(p, baseKey, v) {
+  const r0 = _asDateRange(v);
+  if (!r0) return;
+
+  let start = _trimStr(r0.start);
+  let end = _trimStr(r0.end);
+  if (start && !end) end = start;
+  if (end && !start) start = end;
+  if (!start || !end) return;
+
+  p[`${baseKey}_start`] = start;
+  p[`${baseKey}_end`] = end;
+}
+
+function buildFinanceFilterParams() {
+  const p = {};
+  const f = filters.value || EMPTY_OBJ;
+
+  if (f.team_name) p.team_name = String(f.team_name).trim();
+  if (f.customer_group_id) p.customer_group_id = f.customer_group_id;
+  if (f.channel_group_id) p.channel_group_id = f.channel_group_id;
+
+  _applyRangeParams(p, "created_date", f.created_date);
+
+  const market = _trimStr(f.market);
+  if (market) p.market = market;
+
+  const owner = _trimStr(f.owner_name);
+  if (owner) p.owner_name = owner;
+
+  if (f.insurance_expire_date) p.insurance_expire_date = f.insurance_expire_date;
+  _applyRangeParams(p, "first_register_date", f.first_register_date);
+
+  if (f.is_paid === true || f.is_paid === false) p.is_paid = f.is_paid;
+  if (f.is_rebate === true || f.is_rebate === false) p.is_rebate = f.is_rebate;
+
+  return p;
+}
+
+function buildListParams() {
+  const p = { page: page.value, page_size: pageSize.value };
+  const f = filters.value || EMPTY_OBJ;
+
+  if (f.team_name) p.team_name = String(f.team_name).trim();
+
+  if (props.mode === "finished") p.is_finished = true;
+  if (props.mode === "unfinished") p.is_finished = false;
+
+  if (f.customer_group_id) p.customer_group_id = f.customer_group_id;
+  if (f.channel_group_id) p.channel_group_id = f.channel_group_id;
+
+  _applyRangeParams(p, "created_date", f.created_date);
+
+  if (isFinance.value) {
+    const fp = buildFinanceFilterParams();
+    fp.page = p.page;
+    fp.page_size = p.page_size;
+    fp.is_finished = true;
+    return fp;
+  }
+
+  if (f.owner_name) p.owner_name = f.owner_name;
+  if (f.id_number) p.id_number = f.id_number;
+  if (f.vin) p.vin = f.vin;
+  if (f.engine_no) p.engine_no = f.engine_no;
+  if (f.plate_no) p.plate_no = f.plate_no;
+  if (f.vehicle_model) p.vehicle_model = f.vehicle_model;
+  if (f.remark) p.remark = f.remark;
+  if (f.salesperson_id) p.salesperson_id = f.salesperson_id;
+
+  return p;
+}
+
+function buildSummaryParams() {
+  if (isFinance.value) {
+    return buildFinanceFilterParams();
+  }
+  const p = buildListParams();
+  delete p.page;
+  delete p.page_size;
+  return p;
+}
+
+function stableStringify(obj) {
+  const seen = new Set();
+  const sort = (o) => {
+    if (o === null || typeof o !== "object") return o;
+    if (seen.has(o)) return null;
+    seen.add(o);
+
+    if (Array.isArray(o)) return o.map(sort);
+
+    const keys = Object.keys(o).sort();
+    const out = {};
+    for (let i = 0; i < keys.length; i += 1) {
+      const k = keys[i];
+      out[k] = sort(o[k]);
+    }
+    return out;
+  };
+
+  try {
+    return JSON.stringify(sort(obj));
+  } catch {
+    return "";
+  }
+}
+
+function isSummaryRow(row) {
+  return Boolean(row?._is_summary);
+}
+
+function selectableRow(row) {
+  return !row?._is_summary;
+}
+
+function tableRowClassName({ row }) {
+  return row?._is_summary ? "row-summary" : "";
+}
+
+function onSelectionChange(list) {
+  const arr = Array.isArray(list) ? list : [];
+  selectedRows.value = arr.filter((r) => !r?._is_summary);
+}
+
+function _clearSelection() {
+  selectedRows.value = [];
+  try {
+    tableRef.value?.clearSelection?.();
+  } catch {
+    // ignore
+  }
+}
+
+function buildSummaryRow(sum) {
+  const n = (v) => {
+    const x = Number(v);
+    return Number.isFinite(x) ? x : 0;
+  };
+
+  const row = {
+    id: -1,
+    _is_summary: true,
+    order_info: {
+      commercial_amount: n(sum?.commercial_amount),
+      compulsory_amount: n(sum?.compulsory_amount),
+      vehicle_tax_amount: n(sum?.vehicle_tax_amount),
+      non_vehicle_amount: n(sum?.non_vehicle_amount),
+      channel_reward: n(sum?.channel_reward),
+      customer_reward: n(sum?.customer_reward),
+      channel_total: n(sum?.receivable),
+      customer_total: n(sum?.payable),
+      profit: n(sum?.profit),
+    },
+  };
+
+  row._view_created_at = "汇总";
+  row._view_money_commercial_amount = fmtMoney(row.order_info.commercial_amount);
+  row._view_money_compulsory_amount = fmtMoney(row.order_info.compulsory_amount);
+  row._view_money_vehicle_tax_amount = fmtMoney(row.order_info.vehicle_tax_amount);
+  row._view_money_non_vehicle_amount = fmtMoney(row.order_info.non_vehicle_amount);
+  row._view_reward_channel_reward = fmtMoney(row.order_info.channel_reward);
+  row._view_reward_customer_reward = fmtMoney(row.order_info.customer_reward);
+  row._view_receivable = fmtMoney(row.order_info.channel_total);
+  row._view_payable = fmtMoney(row.order_info.customer_total);
+  row._view_profit = fmtMoney(row.order_info.profit);
+
+  return row;
+}
+
+const tableData = computed(() => {
+  const base = Array.isArray(orders.value) ? orders.value : [];
+  if (isFinance.value && financeSummary.value) {
+    return [...base, buildSummaryRow(financeSummary.value)];
+  }
+  return base;
+});
+
+const filteredSalespersons = computed(() => {
+  return Array.isArray(salespersons.value) ? salespersons.value : [];
+});
+
 async function loadCustomerGroups(force = false) {
   if (customerLoaded.value && !force) return;
   groupsLoading.value = true;
@@ -1337,7 +1268,6 @@ async function loadCustomerGroups(force = false) {
     console.error(e);
     customerGroups.value = [];
   } finally {
-    groupsLoading.value = channelLoaded.value ? false : groupsLoading.value;
     if (customerLoaded.value || channelLoaded.value) {
       groupsLoading.value = false;
     }
@@ -1379,19 +1309,26 @@ async function loadTeamsOnly(force = false) {
 async function loadSalespersonsForTeam(teamName, force = false) {
   if (isFinance.value) {
     salespersons.value = [];
+    _rebuildSalespersonMap();
     salesLoaded.value = true;
+    return;
+  }
+
+  if (salesLoaded.value && !force && _trimStr(teamName) === _trimStr(filters.value?.team_name)) {
     return;
   }
 
   salesLoading.value = true;
   try {
     const tf = String(teamName || "").trim();
-    const resp = await listSalespersons(tf ? {status: 1, team_name: tf} : {status: 1});
+    const resp = await listSalespersons(tf ? { status: 1, team_name: tf } : { status: 1 });
     salespersons.value = normalizeItems(resp);
+    _rebuildSalespersonMap();
     salesLoaded.value = true;
   } catch (e) {
     console.error(e);
     salespersons.value = [];
+    _rebuildSalespersonMap();
   } finally {
     salesLoading.value = false;
   }
@@ -1416,64 +1353,62 @@ async function bootstrapDropdowns(force = false) {
 }
 
 watch(
-    () => filters.value?.team_name,
-    async (team) => {
-      if (isFinance.value) return;
-      if (!hasMountedOnce.value) return;
+  () => filters.value?.team_name,
+  async (team) => {
+    if (isFinance.value) return;
+    if (!hasMountedOnce.value) return;
 
-      const prevSid = filters.value?.salesperson_id;
+    const prevSid = filters.value?.salesperson_id;
 
-      if (!isSales.value) {
-        filters.value.salesperson_id = null;
-      } else {
-        const uid = _currentUserId();
-        if (uid) filters.value.salesperson_id = uid;
-      }
-
-      await loadSalespersonsForTeam(team, true);
-
-      if (!isSales.value && prevSid) {
-        const ok = (Array.isArray(salespersons.value) ? salespersons.value : []).some(
-            (u) => Number(u?.id) === Number(prevSid)
-        );
-        if (ok) filters.value.salesperson_id = prevSid;
-      }
+    if (!isSales.value) {
+      filters.value.salesperson_id = null;
+    } else {
+      const uid = _currentUserId();
+      if (uid) filters.value.salesperson_id = uid;
     }
+
+    await loadSalespersonsForTeam(team, true);
+
+    if (!isSales.value && prevSid) {
+      const ok = (Array.isArray(salespersons.value) ? salespersons.value : []).some(
+        (u) => Number(u?.id) === Number(prevSid)
+      );
+      if (ok) filters.value.salesperson_id = prevSid;
+    }
+  }
 );
 
 watch(
-    () => pageContextKey.value,
-    async (next, prev) => {
-      if (!next) return;
-      if (next === prev) return;
-      if (!hasMountedOnce.value) return;
+  () => pageContextKey.value,
+  async (next, prev) => {
+    if (!next || next === prev || !hasMountedOnce.value) return;
 
-      filters.value = isFinance.value ? defaultFinanceFilters() : defaultOrdersFilters();
-      initSalesDefaultIfNeeded();
+    filters.value = isFinance.value ? defaultFinanceFilters() : defaultOrdersFilters();
+    initSalesDefaultIfNeeded();
 
-      page.value = 1;
-      financeSummary.value = null;
-      lastSummaryKey.value = "";
-      lastListKey.value = "";
-      _clearSelection();
+    page.value = 1;
+    financeSummary.value = null;
+    lastSummaryKey.value = "";
+    lastListKey.value = "";
+    _clearSelection();
 
-      loadList(true);
-      bootstrapDropdowns(true);
+    loadList(true);
+    bootstrapDropdowns(true);
 
-      lastActivatedContextKey.value = next;
-    },
-    {flush: "post"}
+    lastActivatedContextKey.value = next;
+  },
+  { flush: "post" }
 );
 
 async function loadSummaryIfNeeded(force = false) {
   if (!isFinance.value) return;
+
   const params = buildSummaryParams();
   const key = stableStringify(params);
 
   if (!force && key && key === lastSummaryKey.value && financeSummary.value) return;
 
   const currentSeq = ++summaryRequestSeq;
-  summaryLoading.value = true;
 
   try {
     const resp = await getFinanceOrdersSummary(params);
@@ -1487,10 +1422,6 @@ async function loadSummaryIfNeeded(force = false) {
     console.error(e);
     financeSummary.value = null;
     lastSummaryKey.value = key || "";
-  } finally {
-    if (currentSeq === summaryRequestSeq) {
-      summaryLoading.value = false;
-    }
   }
 }
 
@@ -1512,7 +1443,8 @@ async function loadList(force = false) {
     if (currentSeq !== listRequestSeq) return;
 
     const data = resp?.data ?? resp ?? {};
-    orders.value = Array.isArray(data?.items) ? data.items : [];
+    const items = Array.isArray(data?.items) ? data.items : [];
+    orders.value = _decorateRows(items);
     total.value = Number(data?.total ?? 0);
     lastListKey.value = key || "";
     _clearSelection();
@@ -1593,9 +1525,8 @@ function _isMyOrder(row) {
 }
 
 function canMarkFinished(row) {
-  if (isFinance.value) return false;
-  if (!row || isSummaryRow(row)) return false;
-  if (pickFinished(row)) return false;
+  if (isFinance.value || !row || row._is_summary) return false;
+  if (Boolean(row?.is_finished)) return false;
 
   const rn = roleName.value;
   if (rn === ROLE.MARKET || rn === ROLE.FINANCE) return false;
@@ -1604,9 +1535,8 @@ function canMarkFinished(row) {
 }
 
 function canReopen(row) {
-  if (isFinance.value) return false;
-  if (!row || isSummaryRow(row)) return false;
-  if (!pickFinished(row)) return false;
+  if (isFinance.value || !row || row._is_summary) return false;
+  if (!Boolean(row?.is_finished)) return false;
 
   const rn = roleName.value;
   return rn === ROLE.SUPER_ADMIN || rn === ROLE.MANAGER;
@@ -1641,14 +1571,16 @@ async function _updateFinished(row, nextFinished) {
 
   row._saving_finished = true;
   row.is_finished = next;
+  row._view_finished_text = next ? "是" : "否";
 
   try {
-    await updateOrderStatus(row.id, {is_finished: next});
+    await updateOrderStatus(row.id, { is_finished: next });
     ElMessage.success(next ? "已标记完成" : "已退回未完成");
     await loadList(true);
   } catch (e) {
     console.error(e);
     row.is_finished = prev;
+    row._view_finished_text = prev ? "是" : "否";
     ElMessage.error("操作失败");
   } finally {
     row._saving_finished = false;
@@ -1656,7 +1588,7 @@ async function _updateFinished(row, nextFinished) {
 }
 
 async function onAction(cmd, row) {
-  if (!row || isSummaryRow(row)) return;
+  if (!row || row._is_summary) return;
 
   if (cmd === "detail") {
     goDetail(row.id);
@@ -1694,14 +1626,13 @@ async function _alertReturnBlocked() {
 }
 
 async function confirmReturnToUnfinished(row) {
-  if (!isFinance.value || !row?.id) return;
-  if (isSummaryRow(row)) return;
+  if (!isFinance.value || !row?.id || row._is_summary) return;
   if (!canFinanceEdit.value) {
     ElMessage.error("无权限操作");
     return;
   }
 
-  if (pickPaid(row) || pickRebate(row)) {
+  if (Boolean(row?.is_paid) || Boolean(row?.is_rebate)) {
     await _alertReturnBlocked();
     return;
   }
@@ -1728,7 +1659,7 @@ async function confirmReturnToUnfinished(row) {
 }
 
 async function onFinanceAction(cmd, row) {
-  if (!row || isSummaryRow(row)) return;
+  if (!row || row._is_summary) return;
 
   if (cmd === "detail") {
     goDetail(row.id);
@@ -1740,11 +1671,9 @@ async function onFinanceAction(cmd, row) {
 }
 
 async function onPaidSwitch(row, nextVal) {
-  if (!isFinance.value || !row?.id) return;
-  if (isSummaryRow(row)) return;
-  if (!canFinanceEdit.value) return;
+  if (!isFinance.value || !row?.id || row._is_summary || !canFinanceEdit.value) return;
 
-  const prev = pickPaid(row);
+  const prev = Boolean(row?.is_paid);
   const next = Boolean(nextVal);
   if (prev === next) return;
 
@@ -1760,14 +1689,14 @@ async function onPaidSwitch(row, nextVal) {
   }
 
   row._saving_paid = true;
-  setPaid(row, next);
+  row.is_paid = next;
 
   try {
-    await updateFinanceOrderStatus(row.id, {is_paid: next});
+    await updateFinanceOrderStatus(row.id, { is_paid: next });
     ElMessage.success("已更新回款状态");
   } catch (e) {
     console.error(e);
-    setPaid(row, prev);
+    row.is_paid = prev;
     ElMessage.error("操作失败");
   } finally {
     row._saving_paid = false;
@@ -1775,11 +1704,9 @@ async function onPaidSwitch(row, nextVal) {
 }
 
 async function onRebateSwitch(row, nextVal) {
-  if (!isFinance.value || !row?.id) return;
-  if (isSummaryRow(row)) return;
-  if (!canFinanceEdit.value) return;
+  if (!isFinance.value || !row?.id || row._is_summary || !canFinanceEdit.value) return;
 
-  const prev = pickRebate(row);
+  const prev = Boolean(row?.is_rebate);
   const next = Boolean(nextVal);
   if (prev === next) return;
 
@@ -1795,14 +1722,14 @@ async function onRebateSwitch(row, nextVal) {
   }
 
   row._saving_rebate = true;
-  setRebate(row, next);
+  row.is_rebate = next;
 
   try {
-    await updateFinanceOrderStatus(row.id, {is_rebate: next});
+    await updateFinanceOrderStatus(row.id, { is_rebate: next });
     ElMessage.success("已更新返点状态");
   } catch (e) {
     console.error(e);
-    setRebate(row, prev);
+    row.is_rebate = prev;
     ElMessage.error("操作失败");
   } finally {
     row._saving_rebate = false;
@@ -1865,13 +1792,13 @@ async function downloadFinanceExcel() {
   try {
     const baseParams = buildSummaryParams();
     const ids = (Array.isArray(selectedRows.value) ? selectedRows.value : [])
-        .filter((r) => !isSummaryRow(r))
-        .map((r) => Number(r?.id))
-        .filter((n) => Number.isFinite(n) && n > 0);
+      .filter((r) => !r?._is_summary)
+      .map((r) => Number(r?.id))
+      .filter((n) => Number.isFinite(n) && n > 0);
 
     const reqParams = {
       ...baseParams,
-      ...(ids.length ? {ids} : {}),
+      ...(ids.length ? { ids } : {}),
     };
 
     const resp = await exportFinanceOrders(reqParams, {
@@ -1912,8 +1839,8 @@ async function downloadFinanceExcel() {
     const disp = headers["content-disposition"] || headers["Content-Disposition"] || "";
     const filename = _parseFilenameFromDisposition(disp) || "财务管理_订单.xls";
     const blob = resp.data instanceof Blob
-        ? resp.data
-        : new Blob([resp.data], {type: ct || "application/octet-stream"});
+      ? resp.data
+      : new Blob([resp.data], { type: ct || "application/octet-stream" });
 
     _triggerDownloadBlob(blob, filename);
     ElMessage.success(ids.length ? "已下载勾选数据" : "已下载全部符合条件数据");
@@ -1927,10 +1854,8 @@ async function downloadFinanceExcel() {
 
 onMounted(async () => {
   initSalesDefaultIfNeeded();
-
   loadList(true);
   bootstrapDropdowns(true);
-
   hasMountedOnce.value = true;
   lastActivatedContextKey.value = pageContextKey.value;
 });
@@ -1939,7 +1864,6 @@ onActivated(async () => {
   if (!hasMountedOnce.value) return;
 
   const currentKey = pageContextKey.value;
-
   if (currentKey !== lastActivatedContextKey.value) {
     lastActivatedContextKey.value = currentKey;
     return;
