@@ -50,7 +50,9 @@
               </el-input>
             </el-form-item>
 
-            <el-button class="login-btn" type="primary" :loading="loading" @click="doLogin"> 登录 </el-button>
+            <el-button class="login-btn" type="primary" :loading="loading" @click="doLogin">
+              登录
+            </el-button>
 
             <div class="footer-note">登录即表示你同意系统的使用规范与审计记录。</div>
           </el-form>
@@ -80,26 +82,28 @@ const form = reactive({
 
 const loading = ref(false);
 
+function normalizeStr(v) {
+  return v == null ? "" : String(v).trim();
+}
+
 function defaultHomeByRole(roleName) {
-  // ✅ 市场账号默认进入渠道管理
   if (roleName === ROLE.MARKET) return "/channels";
-  // ✅ 财务默认进入财务管理，避免卡在“订单无权限”
   if (roleName === ROLE.FINANCE) return "/finance";
   return "/orders/all";
 }
 
 function isAllowedPath(roleName, path) {
-  const p = String(path || "");
+  const p = normalizeStr(path);
   if (!p.startsWith("/")) return false;
+  if (p.startsWith("/login")) return false;
 
-  // ✅ 财务不能看订单
   if (roleName === ROLE.FINANCE && p.startsWith("/orders")) return false;
-
-  // ✅ 业务员不能看财务
   if (roleName === ROLE.SALES && p.startsWith("/finance")) return false;
 
-  // ✅ 账号管理（后端也限制：仅 super_admin / manager）
-  if ((roleName === ROLE.SALES || roleName === ROLE.FINANCE) && p.startsWith("/users")) {
+  if (
+    (roleName === ROLE.SALES || roleName === ROLE.FINANCE) &&
+    p.startsWith("/users")
+  ) {
     return false;
   }
 
@@ -133,19 +137,47 @@ function getLoginErrorMessage(e) {
   return "登录失败，请检查网络后重试";
 }
 
+function buildLoginStateFromResponse(resp) {
+  const data = resp?.data ?? {};
+  const token = normalizeStr(data?.token);
+  const roleName = normalizeStr(data?.role_name);
+
+  const user = {
+    user_id: data?.user_id ?? null,
+    username: normalizeStr(data?.username),
+    real_name: normalizeStr(data?.real_name),
+    full_name: normalizeStr(data?.full_name),
+    role_name: roleName,
+    team_name: normalizeStr(data?.team_name),
+    team_names: Array.isArray(data?.team_names) ? data.team_names : [],
+  };
+
+  if (!token) {
+    throw new Error("LOGIN_RESPONSE_MISSING_TOKEN");
+  }
+  if (!roleName) {
+    throw new Error("LOGIN_RESPONSE_MISSING_ROLE");
+  }
+  if (!user.username) {
+    throw new Error("LOGIN_RESPONSE_MISSING_USERNAME");
+  }
+
+  return { token, roleName, user };
+}
+
 async function redirectAfterLogin(roleName) {
   const redirect = route.query.redirect;
-  const redirectPath = typeof redirect === "string" && redirect.startsWith("/") ? redirect : "";
+  const redirectPath = typeof redirect === "string" ? redirect : "";
 
   if (redirectPath && isAllowedPath(roleName, redirectPath)) {
     await router.replace(redirectPath);
-  } else {
-    await router.replace(defaultHomeByRole(roleName));
+    return;
   }
+
+  await router.replace(defaultHomeByRole(roleName));
 }
 
 onMounted(async () => {
-  // ✅ 登录页确保不带主壳子的 body 锁
   document.body.classList.remove("app-shell-lock");
 
   if (!store.isLoggedIn) return;
@@ -155,7 +187,7 @@ onMounted(async () => {
 async function doLogin() {
   if (loading.value) return;
 
-  const username = String(form.username || "").trim();
+  const username = normalizeStr(form.username);
   const password = String(form.password || "");
 
   if (!username || !password) {
@@ -166,29 +198,21 @@ async function doLogin() {
   loading.value = true;
   try {
     const resp = await login({ username, password });
+    const nextState = buildLoginStateFromResponse(resp);
 
-    const token = resp?.data?.token || "";
-    const user = resp?.data || null;
-    const roleName = user?.role_name || "";
-
-    if (!token) {
-      ElMessage.error("登录失败：登录信息异常，请联系管理员");
-      return;
-    }
-    if (!roleName) {
-      ElMessage.error("登录失败：账号权限信息异常，请联系管理员");
-      return;
-    }
-
-    store.setToken(token);
-    store.setRoleName(roleName);
-    store.setUser(user);
+    store.commitLogin(nextState);
 
     ElMessage.success("登录成功");
-    await redirectAfterLogin(roleName);
+    await redirectAfterLogin(nextState.roleName);
   } catch (e) {
     console.error(e);
-    ElMessage.error(getLoginErrorMessage(e));
+    store.clearSession();
+
+    if (String(e?.message || "").includes("LOGIN_RESPONSE_MISSING_")) {
+      ElMessage.error("登录失败：登录返回结构异常，请联系管理员");
+    } else {
+      ElMessage.error(getLoginErrorMessage(e));
+    }
   } finally {
     loading.value = false;
   }
@@ -261,174 +285,72 @@ async function doLogin() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
 .brand-left {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-width: 0;
 }
 
 .logo-wrap {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   border-radius: 12px;
+  background: #f6f8ff;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
   overflow: hidden;
-  border: 1px solid rgba(60, 60, 60, 0.08);
-  flex-shrink: 0;
 }
 
 .logo {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
-  border-radius: inherit;
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
 }
 
 .brand-text {
-  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .brand-title {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
-  letter-spacing: 0.2px;
-  color: #1f2a44;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  color: #1f2d3d;
 }
 
 .brand-subtitle {
-  font-size: 12px;
-  color: rgba(31, 42, 68, 0.65);
-  margin-top: 2px;
+  font-size: 13px;
+  color: #7a8599;
 }
 
 .brand-tag {
-  border-radius: 10px;
   flex-shrink: 0;
 }
 
 .login-form {
-  margin-top: 6px;
+  margin-top: 10px;
 }
 
-.login-form :deep(.el-form-item) {
-  align-items: center;
-}
-
-.login-form :deep(.el-form-item__content) {
-  flex: 1;
-}
-
-.login-form :deep(.el-input) {
-  width: 100%;
-}
-
-.form-item :deep(.el-form-item__label) {
-  color: rgba(31, 42, 68, 0.8);
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-}
-
-.login-form :deep(.el-input__wrapper) {
-  border-radius: 10px;
-  min-height: 40px;
+.form-item {
+  margin-bottom: 18px;
 }
 
 .login-btn {
   width: 100%;
+  margin-top: 4px;
+  height: 42px;
   border-radius: 10px;
-  height: 40px;
-  font-weight: 600;
-  margin-top: 2px;
 }
 
 .footer-note {
-  margin-top: 12px;
-  text-align: center;
+  margin-top: 14px;
   font-size: 12px;
-  color: rgba(31, 42, 68, 0.55);
-  line-height: 1.45;
-}
-
-@media (max-width: 768px) {
-  .login-shell {
-    padding: 14px;
-    padding-top: max(40px, env(safe-area-inset-top));
-    align-items: center;
-  }
-
-  .login-card {
-    width: 100%;
-    max-width: 100%;
-    border-radius: 12px;
-  }
-
-  .card-inner {
-    padding: 18px 14px 16px;
-  }
-
-  .brand {
-    align-items: flex-start;
-    gap: 8px;
-    margin-bottom: 12px;
-  }
-
-  .brand-left {
-    gap: 10px;
-  }
-
-  .logo-wrap {
-    width: 42px;
-    height: 42px;
-    border-radius: 10px;
-  }
-
-  .brand-title {
-    font-size: 16px;
-  }
-
-  .brand-subtitle {
-    font-size: 11px;
-  }
-
-  .login-form :deep(.el-form-item) {
-    display: block;
-    margin-bottom: 14px;
-  }
-
-  .login-form :deep(.el-form-item__label) {
-    width: auto !important;
-    justify-content: flex-start;
-    margin-bottom: 6px;
-    line-height: 1.2;
-    padding: 0;
-    float: none;
-  }
-
-  .login-form :deep(.el-form-item__content) {
-    margin-left: 0 !important;
-  }
-
-  .login-btn {
-    height: 42px;
-  }
-
-  .footer-note {
-    font-size: 11px;
-    margin-top: 10px;
-  }
+  color: #8f98a8;
+  text-align: center;
 }
 </style>

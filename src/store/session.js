@@ -3,7 +3,7 @@ import { defineStore } from "pinia";
 
 const TOKEN_KEY = "sessionToken";
 const ROLE_KEY = "roleName";
-const USER_KEY = "userInfo"; // 保存当前登录用户信息（用于显示“当前账号”）
+const USER_KEY = "userInfo";
 
 function getSessionStorageSafe() {
   try {
@@ -29,15 +29,34 @@ function normalizeStr(v) {
   return String(v).trim();
 }
 
+function normalizeInt(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.trunc(n) : null;
+}
+
+function normalizeStringArray(v) {
+  if (!Array.isArray(v)) return [];
+  const out = [];
+  for (const item of v) {
+    const s = normalizeStr(item);
+    if (!s) continue;
+    out.push(s);
+  }
+  return out;
+}
+
 function normalizeUser(user) {
   if (!isPlainObject(user)) return null;
 
-  // 严格按后端当前字段保留；仅做轻量字符串清洗
   const out = { ...user };
 
   if ("id" in out) {
-    const n = Number(out.id);
-    out.id = Number.isFinite(n) ? Math.trunc(n) : out.id;
+    const n = normalizeInt(out.id);
+    if (n !== null) out.id = n;
+  }
+  if ("user_id" in out) {
+    const n = normalizeInt(out.user_id);
+    if (n !== null) out.user_id = n;
   }
 
   if ("username" in out) out.username = normalizeStr(out.username);
@@ -45,6 +64,8 @@ function normalizeUser(user) {
   if ("full_name" in out) out.full_name = normalizeStr(out.full_name);
   if ("role_name" in out) out.role_name = normalizeStr(out.role_name);
   if ("role_label" in out) out.role_label = normalizeStr(out.role_label);
+  if ("team_name" in out) out.team_name = normalizeStr(out.team_name);
+  if ("team_names" in out) out.team_names = normalizeStringArray(out.team_names);
 
   return out;
 }
@@ -63,73 +84,117 @@ function readUserInfo() {
   }
 }
 
+function writeString(ss, key, value) {
+  if (!ss) return;
+  const s = normalizeStr(value);
+  if (s) ss.setItem(key, s);
+  else ss.removeItem(key);
+}
+
+function writeUser(ss, user) {
+  if (!ss) return;
+  if (!user) {
+    ss.removeItem(USER_KEY);
+    return;
+  }
+  ss.setItem(USER_KEY, JSON.stringify(user));
+}
+
+function extractRoleName(user, explicitRoleName = "") {
+  const roleFromArg = normalizeStr(explicitRoleName);
+  if (roleFromArg) return roleFromArg;
+  return normalizeStr(user?.role_name);
+}
+
 export const useSessionStore = defineStore("session", {
   state: () => ({
     sessionToken: readString(TOKEN_KEY),
     roleName: readString(ROLE_KEY),
-    user: readUserInfo(), // { id, username, real_name, full_name, role_name, role_label }
+    user: readUserInfo(),
+    authVersion: 0,
   }),
 
   getters: {
     isLoggedIn: (state) => !!normalizeStr(state.sessionToken),
 
-    // 展示用：优先 full_name / real_name / username
+    hasCompleteSession: (state) => {
+      return (
+        !!normalizeStr(state.sessionToken) &&
+        !!normalizeStr(state.roleName) &&
+        !!normalizeStr(state.user?.username)
+      );
+    },
+
     displayName: (state) =>
       normalizeStr(state.user?.full_name) ||
       normalizeStr(state.user?.real_name) ||
       normalizeStr(state.user?.username),
 
-    // 展示用：优先后端 role_label
-    roleLabel: (state) => normalizeStr(state.user?.role_label) || normalizeStr(state.roleName),
+    roleLabel: (state) =>
+      normalizeStr(state.user?.role_label) || normalizeStr(state.roleName),
   },
 
   actions: {
+    commitLogin(payload = {}) {
+      const ss = getSessionStorageSafe();
+
+      const token = normalizeStr(payload.token);
+      const user = normalizeUser(payload.user);
+      const roleName = extractRoleName(user, payload.roleName);
+
+      if (!token) {
+        throw new Error("commitLogin requires token");
+      }
+      if (!roleName) {
+        throw new Error("commitLogin requires roleName");
+      }
+      if (!user) {
+        throw new Error("commitLogin requires user");
+      }
+
+      this.sessionToken = token;
+      this.roleName = roleName;
+      this.user = {
+        ...user,
+        role_name: roleName,
+      };
+      this.authVersion += 1;
+
+      writeString(ss, TOKEN_KEY, this.sessionToken);
+      writeString(ss, ROLE_KEY, this.roleName);
+      writeUser(ss, this.user);
+    },
+
     setToken(token) {
       const ss = getSessionStorageSafe();
-      const t = normalizeStr(token);
-
-      this.sessionToken = t;
-
-      if (!ss) return;
-      if (t) ss.setItem(TOKEN_KEY, t);
-      else ss.removeItem(TOKEN_KEY);
+      this.sessionToken = normalizeStr(token);
+      writeString(ss, TOKEN_KEY, this.sessionToken);
+      this.authVersion += 1;
     },
 
     setRoleName(roleName) {
       const ss = getSessionStorageSafe();
-      const r = normalizeStr(roleName);
-
-      this.roleName = r;
-
-      if (!ss) return;
-      if (r) ss.setItem(ROLE_KEY, r);
-      else ss.removeItem(ROLE_KEY);
+      this.roleName = normalizeStr(roleName);
+      writeString(ss, ROLE_KEY, this.roleName);
+      this.authVersion += 1;
     },
 
-    // 保存当前用户信息（用于 header / 账号管理页显示）
     setUser(user) {
       const ss = getSessionStorageSafe();
-      const u = normalizeUser(user);
+      const normalized = normalizeUser(user);
+      this.user = normalized;
 
-      this.user = u;
-
-      // 关键修复：roleName 与 user.role_name 同步，避免路由守卫/权限判断读到旧角色
-      const roleFromUser = normalizeStr(u?.role_name);
+      const roleFromUser = normalizeStr(normalized?.role_name);
       if (roleFromUser) {
         this.roleName = roleFromUser;
       }
 
-      if (!ss) return;
-
-      try {
-        if (u) ss.setItem(USER_KEY, JSON.stringify(u));
-        else ss.removeItem(USER_KEY);
-
-        if (roleFromUser) ss.setItem(ROLE_KEY, roleFromUser);
-        else if (!this.roleName) ss.removeItem(ROLE_KEY);
-      } catch {
-        // ignore
+      writeUser(ss, normalized);
+      if (roleFromUser) {
+        writeString(ss, ROLE_KEY, roleFromUser);
       }
+
+      this.authVersion += 1;
     },
 
     clearSession() {
@@ -138,6 +203,7 @@ export const useSessionStore = defineStore("session", {
       this.sessionToken = "";
       this.roleName = "";
       this.user = null;
+      this.authVersion += 1;
 
       if (!ss) return;
       ss.removeItem(TOKEN_KEY);
