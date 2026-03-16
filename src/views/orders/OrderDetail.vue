@@ -849,8 +849,8 @@ import {CaretBottom, CaretTop} from "@element-plus/icons-vue";
 import VehicleCertTable from "./VehicleCertTable.vue";
 
 import http from "../../api/http";
-import {finalizeOrderUpload, getOrder, updateOrder, updateOrderStatus, uploadOrderImageProxy,} from "../../api/orders";
-import {finalizeFinanceUpload, getFinanceOrderDetail, uploadFinanceBosProxy} from "../../api/finance";
+import {finalizeOrderUpload, getOrder, updateOrder, updateOrderStatus, uploadOrderImageProxy} from "../../api/orders";
+import {getFinanceOrderDetail} from "../../api/finance";
 import {useSessionStore} from "../../store/session";
 import {useOrderFieldConfig} from "../../composables/useOrderFieldConfig";
 import {formatDynamicValue} from "../../utils/fieldFormat";
@@ -1898,7 +1898,7 @@ function _finalizeItemFromExistingImage(it, slotKey) {
 
 async function _uploadOne(slotKey, rawFile) {
   if (canFinanceOps.value && !canEditPermission.value) {
-    const resp = await uploadFinanceBosProxy({order_id: orderId, slot_key: slotKey, file: rawFile});
+    const resp = await uploadOrderImageProxy({slot_key: slotKey, file: rawFile});
     const meta = resp?.data;
     return {
       slot_key: slotKey,
@@ -1950,19 +1950,11 @@ async function _uploadOne(slotKey, rawFile) {
 }
 
 async function _finalizeSlot(slotKey, items, {clear = false} = {}) {
-  if (canFinanceOps.value && !canEditPermission.value) {
-    await finalizeFinanceUpload({
-      order_id: orderId,
-      images: items,
-      clear_slots: clear ? [slotKey] : [],
-    });
-  } else {
-    await finalizeOrderUpload({
-      order_id: orderId,
-      images: items,
-      clear_slots: clear ? [slotKey] : [],
-    });
-  }
+  await finalizeOrderUpload({
+    order_id: orderId,
+    images: items,
+    clear_slots: clear ? [slotKey] : [],
+  });
 
   await load({preserveEditDraft: true});
   ElMessage.success("图片已更新（如涉及证件将触发 OCR 任务）");

@@ -2,17 +2,24 @@
 import http from "./http";
 
 /**
- * 财务：只保留财务特有能力
+ * 财务模块：仅保留财务特有接口
  * - GET    /finance/orders/summary
  * - GET    /finance/orders/export
  * - GET    /finance/orders/{orderId}
  * - PATCH  /finance/orders/{orderId}/status
  * - POST   /finance/orders/{orderId}/return
- * - BOS / finalize 走 finance 域
+ *
+ * 说明：
+ * 财务页下的备用图上传 / 删除 / 清空，不再走 finance 域伪接口，
+ * 统一复用 orders 域现有接口：
+ * - POST /orders/bos-upload
+ * - POST /orders/finalize
+ *
+ * 原因：
+ * 后端真实实现集中在 orders.py，且已内置 finance 仅允许操作 related 的 ACL。
  */
 
 const TZ_BJ = "Asia/Shanghai";
-const FINANCE_ALLOWED_SLOT = new Set(["related"]);
 
 const FINANCE_QUERY_KEYS = new Set([
     "created_date",
@@ -39,14 +46,6 @@ function toValidId(orderId) {
     if (!Number.isInteger(n)) throw new Error("finance api: orderId must be an integer");
     if (n <= 0) throw new Error("finance api: invalid orderId");
     return n;
-}
-
-function cleanUndefined(obj) {
-    const out = {};
-    for (const [k, v] of Object.entries(obj || {})) {
-        if (v !== undefined) out[k] = v;
-    }
-    return out;
 }
 
 function isValidDate(d) {
@@ -219,66 +218,6 @@ function normalizeStatusPatch(data) {
     return out;
 }
 
-function sanitizeFinalizeImages(images) {
-    if (!Array.isArray(images)) return [];
-
-    const out = [];
-
-    for (const img of images) {
-        if (!img || typeof img !== "object") continue;
-
-        const slot_key = String(img.slot_key ?? "").trim();
-        const storage_key = String(img.storage_key ?? "").trim().replace(/^\/+/, "");
-        const md5 = String(img.md5 ?? "").trim();
-
-        if (!slot_key || !FINANCE_ALLOWED_SLOT.has(slot_key)) continue;
-        if (!storage_key) continue;
-
-        const item = {slot_key, storage_key};
-
-        if (md5) item.md5 = md5;
-        if (img.etag != null && String(img.etag).trim()) item.etag = String(img.etag).trim();
-
-        if (img.size != null && !Number.isNaN(Number(img.size))) {
-            const n = Number(img.size);
-            if (Number.isFinite(n)) item.size = Math.max(0, n);
-        }
-
-        if (img.content_type != null && String(img.content_type).trim()) {
-            item.content_type = String(img.content_type).trim();
-        }
-        if (img.original_name != null && String(img.original_name).trim()) {
-            item.original_name = String(img.original_name).trim();
-        }
-
-        if (img.url != null && String(img.url).trim()) {
-            item.url = String(img.url).trim();
-        }
-
-        out.push(item);
-    }
-
-    return out;
-}
-
-function sanitizeClearSlots(clear_slots) {
-    if (!Array.isArray(clear_slots)) return [];
-
-    const seen = new Set();
-    const out = [];
-
-    for (const x of clear_slots) {
-        const s = String(x ?? "").trim();
-        if (!s) continue;
-        if (!FINANCE_ALLOWED_SLOT.has(s)) continue;
-        if (seen.has(s)) continue;
-        seen.add(s);
-        out.push(s);
-    }
-
-    return out;
-}
-
 export function getFinanceOrdersSummary(params = {}, config = {}) {
     const p = normalizeFinanceParams(params);
     return http.get("/finance/orders/summary", {
@@ -315,47 +254,4 @@ export function updateFinanceOrderStatus(orderId, data = {}) {
 export function returnFinanceOrder(orderId) {
     const id = toValidId(orderId);
     return http.post(`/finance/orders/${id}/return`);
-}
-
-/** ===================== 财务 BOS 上传链路 ===================== */
-
-export function getFinanceBosSts() {
-    return http.get("/finance/bos-sts");
-}
-
-export function uploadFinanceBosProxy({order_id, slot_key = "related", file}) {
-    if (!file) {
-        throw new Error("finance api: upload requires file");
-    }
-
-    const sk = String(slot_key || "related").trim();
-    if (!FINANCE_ALLOWED_SLOT.has(sk)) {
-        throw new Error("finance api: invalid slot_key");
-    }
-
-    const fd = new FormData();
-    fd.append("order_id", String(toValidId(order_id)));
-    fd.append("slot_key", sk);
-    fd.append("file", file);
-
-    return http.post("/finance/bos-upload", fd);
-}
-
-export function finalizeFinanceUpload(payload = {}) {
-    const src = payload && typeof payload === "object" ? payload : {};
-
-    const images = sanitizeFinalizeImages(src.images);
-    const clear_slots = sanitizeClearSlots(src.clear_slots);
-
-    const safePayload = cleanUndefined({
-        order_id: src.order_id != null ? toValidId(src.order_id) : undefined,
-        images,
-        clear_slots: clear_slots.length ? clear_slots : undefined,
-    });
-
-    if (!safePayload.order_id) {
-        throw new Error("finance api: finalize requires order_id");
-    }
-
-    return http.post("/finance/finalize", safePayload);
 }
