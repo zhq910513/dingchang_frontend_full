@@ -1,4 +1,3 @@
-<!-- src/views/users/CreateUser.vue -->
 <template>
   <el-form ref="formRef" :model="form" :rules="rules" label-width="90px" autocomplete="off">
     <input type="text" style="display:none" autocomplete="off"/>
@@ -76,6 +75,10 @@
         <div v-if="isManager" style="margin-left: 8px; color: #999; font-size: 12px;">
           团队选项来自当前经理账号团队集合
         </div>
+        <div v-if="needChildTeam && !childTeamOptions.length"
+             style="margin-left: 8px; color: #f56c6c; font-size: 12px;">
+          当前账号没有可分配团队，无法创建该子账号
+        </div>
       </el-form-item>
     </template>
 
@@ -144,6 +147,10 @@
 
         <div v-if="isManager" style="margin-left: 8px; color: #999; font-size: 12px;">
           团队选项来自当前经理账号团队集合
+        </div>
+        <div v-if="needChildTeam && !childTeamOptions.length"
+             style="margin-left: 8px; color: #f56c6c; font-size: 12px;">
+          当前账号没有可分配团队，无法保存该子账号
         </div>
       </el-form-item>
     </template>
@@ -227,13 +234,8 @@ const isChildRole = computed(() => {
   );
 });
 
-const needManagerTeams = computed(() => {
-  return isManagerRole.value;
-});
-
-const needChildTeam = computed(() => {
-  return isChildRole.value;
-});
+const needManagerTeams = computed(() => isManagerRole.value);
+const needChildTeam = computed(() => isChildRole.value);
 
 function normalizeTeamName(v) {
   if (v === null || v === undefined) return null;
@@ -243,8 +245,7 @@ function normalizeTeamName(v) {
 
 function normalizeTeamNames(v) {
   const arr = Array.isArray(v) ? v : [];
-  const cleaned = [...new Set(arr.map((x) => String(x || "").trim()).filter(Boolean))];
-  return cleaned.sort();
+  return [...new Set(arr.map((x) => String(x || "").trim()).filter(Boolean))].sort();
 }
 
 function getMyTeams() {
@@ -259,17 +260,11 @@ function getMyTeams() {
 const childTeamOptions = computed(() => {
   if (!needChildTeam.value) return [];
   if (isManager.value) return getMyTeams();
-
-  // super_admin 创建子账号时，当前后端真源并没有“归属经理/经理团队联动”契约
-  // 因此零兼容收口：直接使用全量团队白名单
   if (isSuperAdmin.value) return [...TEAM_NAMES];
-
   return [];
 });
 
-const teamSelectDisabled = computed(() => {
-  return childTeamOptions.value.length <= 1;
-});
+const teamSelectDisabled = computed(() => childTeamOptions.value.length <= 1);
 
 function autoPickSingleTeam() {
   const options = childTeamOptions.value || [];
@@ -278,19 +273,43 @@ function autoPickSingleTeam() {
   }
 }
 
+function ensureChildTeamStillValid() {
+  if (!needChildTeam.value) return;
+
+  const current = normalizeTeamName(form.team_name);
+  const options = childTeamOptions.value || [];
+
+  if (!current) {
+    autoPickSingleTeam();
+    return;
+  }
+
+  if (!options.includes(current)) {
+    form.team_name = options.length === 1 ? options[0] : null;
+  }
+}
+
+function resetTeamFieldsByRole() {
+  form.team_name = null;
+  form.team_names = [];
+  autoPickSingleTeam();
+}
+
+function onRoleChange() {
+  resetTeamFieldsByRole();
+}
+
 watch(
     () => form.role_name,
     () => {
-      form.team_name = null;
-      form.team_names = [];
-      autoPickSingleTeam();
+      resetTeamFieldsByRole();
     }
 );
 
 watch(
     () => childTeamOptions.value.join("|"),
     () => {
-      autoPickSingleTeam();
+      ensureChildTeamStillValid();
     }
 );
 
@@ -327,8 +346,25 @@ const rules = computed(() => {
     ];
   }
 
-  if (needChildTeam.value && childTeamOptions.value.length > 0) {
-    base.team_name = [{required: true, message: "请选择所属团队", trigger: "change"}];
+  if (needChildTeam.value) {
+    base.team_name = [
+      {
+        validator: (_rule, val, cb) => {
+          const team = normalizeTeamName(val);
+          if (!team) {
+            return cb(new Error("请选择所属团队"));
+          }
+          if (!childTeamOptions.value.length) {
+            return cb(new Error("当前账号没有可分配团队"));
+          }
+          if (!childTeamOptions.value.includes(team)) {
+            return cb(new Error("所属团队不在可选范围内"));
+          }
+          return cb();
+        },
+        trigger: "change",
+      },
+    ];
   }
 
   return base;
@@ -377,7 +413,16 @@ function applyEditUser(u) {
     role_name: roleNameFromUser,
   };
 
-  autoPickSingleTeam();
+  ensureChildTeamStillValid();
+}
+
+function clearFormAfterCreate() {
+  form.username = "";
+  form.password = "";
+  form.role_name = "";
+  form.team_name = null;
+  form.team_names = [];
+  formRef.value?.clearValidate?.();
 }
 
 async function submit() {
@@ -393,17 +438,20 @@ async function submit() {
         return;
       }
 
+      if (needChildTeam.value && !childTeamOptions.value.length) {
+        ElMessage.error("当前账号没有可分配团队，无法创建该角色");
+        return;
+      }
+
       const payload = {
-        username: form.username,
-        password: form.password,
-        role_name: form.role_name,
+        username: String(form.username || "").trim(),
+        password: String(form.password || "").trim(),
+        role_name: String(form.role_name || "").trim().toLowerCase(),
       };
 
       if (needManagerTeams.value) {
         payload.team_names = normalizeTeamNames(form.team_names);
-        if (payload.team_names.length > 0) {
-          payload.team_name = payload.team_names[0];
-        }
+        payload.team_name = payload.team_names.length ? payload.team_names[0] : null;
       } else if (needChildTeam.value) {
         payload.team_name = normalizeTeamName(form.team_name);
       }
@@ -412,19 +460,18 @@ async function submit() {
 
       ElMessage.success("创建成功");
       emit("success");
-
-      form.username = "";
-      form.password = "";
-      form.role_name = "";
-      form.team_name = null;
-      form.team_names = [];
-      formRef.value?.clearValidate?.();
+      clearFormAfterCreate();
       return;
     }
 
     const uid = Number(origin.value?.id);
     if (!Number.isFinite(uid) || uid <= 0) {
       ElMessage.error("缺少 user.id，无法保存");
+      return;
+    }
+
+    if (needChildTeam.value && !childTeamOptions.value.length) {
+      ElMessage.error("当前账号没有可分配团队，无法保存");
       return;
     }
 

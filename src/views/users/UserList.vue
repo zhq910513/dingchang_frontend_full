@@ -1,4 +1,3 @@
-<!-- src/views/users/UserList.vue -->
 <template>
   <div>
     <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -77,6 +76,12 @@
           </template>
         </el-table-column>
 
+        <el-table-column prop="updated_at" label="更新时间" min-width="180" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span>{{ formatDateTime(row?.updated_at) }}</span>
+          </template>
+        </el-table-column>
+
         <el-table-column label="操作" width="220" align="center">
           <template #default="{ row }">
             <el-tooltip v-if="!canEdit" content="无权限" placement="top">
@@ -107,11 +112,23 @@
 
     <el-empty v-if="!loading && !list.length" description="暂无子账号" style="margin-top: 20px"/>
 
-    <el-dialog v-model="createDialogVisible" title="创建子账号" width="420px" destroy-on-close>
+    <el-dialog
+        v-model="createDialogVisible"
+        title="创建子账号"
+        width="420px"
+        destroy-on-close
+        @closed="onCreateDialogClosed"
+    >
       <CreateUser mode="create" @success="onCreateSuccess"/>
     </el-dialog>
 
-    <el-dialog v-model="editDialogVisible" title="编辑账号" width="420px" destroy-on-close>
+    <el-dialog
+        v-model="editDialogVisible"
+        title="编辑账号"
+        width="420px"
+        destroy-on-close
+        @closed="onEditDialogClosed"
+    >
       <CreateUser mode="edit" :initial-user="editingUser" @success="onEditSuccess"/>
     </el-dialog>
   </div>
@@ -184,6 +201,39 @@ function formatRoleName(role) {
   return r;
 }
 
+function formatDateTime(v) {
+  if (!v) return "-";
+  const d = v instanceof Date ? v : new Date(String(v).replace(" ", "T"));
+  if (Number.isNaN(d.getTime())) return String(v);
+
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
+  const ss = String(d.getSeconds()).padStart(2, "0");
+
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+}
+
+function toTimestamp(v) {
+  if (!v) return 0;
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  const d = v instanceof Date ? v : new Date(String(v).replace(" ", "T"));
+  const ts = d.getTime();
+  return Number.isNaN(ts) ? 0 : ts;
+}
+
+function sortUsersByUpdatedDesc(rows) {
+  const arr = Array.isArray(rows) ? [...rows] : [];
+  arr.sort((a, b) => {
+    const ta = toTimestamp(a?.updated_at) || toTimestamp(a?.created_at) || Number(a?.id || 0);
+    const tb = toTimestamp(b?.updated_at) || toTimestamp(b?.created_at) || Number(b?.id || 0);
+    return tb - ta;
+  });
+  return arr;
+}
+
 function isSelf(row) {
   const myId = Number(store.user?.id || 0);
   const rid = Number(row?.id || 0);
@@ -192,8 +242,12 @@ function isSelf(row) {
 }
 
 function normalizeList(resp) {
-  const data = resp?.data ?? resp ?? {};
-  return Array.isArray(data?.items) ? data.items : [];
+  const root = resp?.data ?? resp ?? {};
+  if (Array.isArray(root?.items)) return root.items;
+  if (Array.isArray(root?.list)) return root.list;
+  if (Array.isArray(root?.rows)) return root.rows;
+  if (Array.isArray(root)) return root;
+  return [];
 }
 
 function buildParams() {
@@ -212,7 +266,7 @@ async function load() {
   loading.value = true;
   try {
     const resp = await listUsers(buildParams());
-    list.value = normalizeList(resp);
+    list.value = sortUsersByUpdatedDesc(normalizeList(resp));
   } catch (e) {
     console.error(e);
     ElMessage.error(e?.response?.data?.detail || "加载账号失败");
@@ -260,6 +314,15 @@ async function onEditSuccess() {
   editDialogVisible.value = false;
   editingUser.value = null;
   await load();
+}
+
+function onCreateDialogClosed() {
+  createDialogVisible.value = false;
+}
+
+function onEditDialogClosed() {
+  editDialogVisible.value = false;
+  editingUser.value = null;
 }
 
 async function onDelete(row) {

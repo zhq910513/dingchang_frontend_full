@@ -5,10 +5,17 @@ function _trimStr(v) {
     return String(v ?? "").trim();
 }
 
-function _joinTeamNamesCsv(v) {
+function _lowerTrimStr(v) {
+    return _trimStr(v).toLowerCase();
+}
+
+function _normalizeTeamNames(v) {
     const arr = Array.isArray(v) ? v : [];
-    const cleaned = [...new Set(arr.map((x) => String(x || "").trim()).filter(Boolean))];
-    return cleaned.join(",");
+    return [...new Set(arr.map((x) => String(x || "").trim()).filter(Boolean))].sort();
+}
+
+function _joinTeamNamesCsv(v) {
+    return _normalizeTeamNames(v).join(",");
 }
 
 /**
@@ -24,7 +31,7 @@ export function listUsers(params = {}) {
     const keyword = _trimStr(params.keyword);
     if (keyword) query.keyword = keyword;
 
-    const role = _trimStr(params.role);
+    const role = _lowerTrimStr(params.role);
     if (role) query.role = role;
 
     return http.get("/users", {params: query});
@@ -37,14 +44,14 @@ export function listUsers(params = {}) {
  * - username: string
  * - password: string
  * - role_name: string
- * - team_name?: string
+ * - team_name?: string | null
  * - team_names?: string[] -> CSV
  */
 export function createUser(data = {}) {
     const payload = {
         username: _trimStr(data.username),
         password: _trimStr(data.password),
-        role_name: _trimStr(data.role_name),
+        role_name: _lowerTrimStr(data.role_name),
     };
 
     const teamName = _trimStr(data.team_name);
@@ -65,8 +72,8 @@ export function createUser(data = {}) {
  * PUT /users/{user_id}
  * data:
  * - password?: string
- * - team_name?: string
- * - team_names?: string[] -> CSV
+ * - team_name?: string | null
+ * - team_names?: string[] | null -> CSV | null
  */
 export function updateUser(userId, data = {}) {
     const uid = Number(userId);
@@ -87,7 +94,12 @@ export function updateUser(userId, data = {}) {
     }
 
     if (data.team_names !== undefined) {
-        payload.team_names = _joinTeamNamesCsv(data.team_names) || null;
+        if (data.team_names === null) {
+            payload.team_names = null;
+        } else {
+            const teamNamesCsv = _joinTeamNamesCsv(data.team_names);
+            payload.team_names = teamNamesCsv || null;
+        }
     }
 
     return http.put(`/users/${uid}`, payload);
