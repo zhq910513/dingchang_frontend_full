@@ -10,13 +10,14 @@ import http from "./http";
  * - POST   /finance/orders/{orderId}/return
  *
  * 说明：
- * 财务页下的备用图上传 / 删除 / 清空，不再走 finance 域伪接口，
- * 统一复用 orders 域现有接口：
+ * 财务页下的备用图上传 / 删除 / 清空，统一复用 orders 域现有接口：
  * - POST /orders/bos-upload
  * - POST /orders/finalize
  *
- * 原因：
- * 后端真实实现集中在 orders.py，且已内置 finance 仅允许操作 related 的 ACL。
+ * 不再保留不存在的：
+ * - /finance/bos-sts
+ * - /finance/bos-upload
+ * - /finance/finalize
  */
 
 const TZ_BJ = "Asia/Shanghai";

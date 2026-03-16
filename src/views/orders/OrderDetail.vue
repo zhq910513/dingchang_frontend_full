@@ -1591,6 +1591,11 @@ function buildSlotMaps(slotImages) {
         order_image_id: img?.order_image_id ?? null,
         image_file_id: img?.image_file_id ?? null,
         storage_key: String(img?.storage_key || "").trim(),
+        md5: String(img?.md5 || img?.image_md5 || "").trim().toLowerCase(),
+        etag: String(img?.etag || "").trim(),
+        size: img?.size ?? null,
+        content_type: String(img?.content_type || "").trim(),
+        original_name: String(img?.original_name || "").trim(),
         url,
         created_at: img?.created_at ?? null,
         updated_at: img?.updated_at ?? null,
@@ -1887,17 +1892,61 @@ function _finalizeItemFromExistingImage(it, slotKey) {
   const storage_key = String(it?.storage_key || "")
       .trim()
       .replace(/^\/+/, "");
-  if (!storage_key) return null;
+  const md5 = String(it?.md5 || "").trim().toLowerCase();
 
-  return {
+  if (!storage_key) return null;
+  if (!md5) return null;
+
+  const item = {
     slot_key: slotKey,
     storage_key,
-    url: String(it?.url || "").trim(),
+    md5,
   };
+
+  const etag = String(it?.etag || "").trim();
+  if (etag) item.etag = etag;
+
+  if (it?.size != null && !Number.isNaN(Number(it.size))) {
+    const n = Number(it.size);
+    if (Number.isFinite(n)) item.size = Math.max(0, n);
+  }
+
+  const content_type = String(it?.content_type || "").trim();
+  if (content_type) item.content_type = content_type;
+
+  const original_name = String(it?.original_name || "").trim();
+  if (original_name) item.original_name = original_name;
+
+  const url = String(it?.url || "").trim();
+  if (url) item.url = url;
+
+  return item;
+}
+
+function _assertFinanceRelatedOrderReadyForUpload() {
+  if (!(canFinanceOps.value && !canEditPermission.value)) return;
+
+  if (!order.value) {
+    throw new Error("订单不存在");
+  }
+
+  if (order.value.is_finished !== true) {
+    throw new Error("财务仅可对【已完成】订单编辑备用图");
+  }
+
+  if (!order.value.customer_group_id) {
+    throw new Error("订单缺少客户，无法保存备用图");
+  }
+
+  if (!order.value.channel_group_id) {
+    throw new Error("订单缺少渠道，无法保存备用图");
+  }
 }
 
 async function _uploadOne(slotKey, rawFile) {
   if (canFinanceOps.value && !canEditPermission.value) {
+    _assertFinanceRelatedOrderReadyForUpload();
+
     const resp = await uploadOrderImageProxy({slot_key: slotKey, file: rawFile});
     const meta = resp?.data;
     return {
@@ -1950,6 +1999,13 @@ async function _uploadOne(slotKey, rawFile) {
 }
 
 async function _finalizeSlot(slotKey, items, {clear = false} = {}) {
+  if (canFinanceOps.value && !canEditPermission.value) {
+    _assertFinanceRelatedOrderReadyForUpload();
+    if (slotKey !== "related") {
+      throw new Error("财务仅允许编辑备用图");
+    }
+  }
+
   await finalizeOrderUpload({
     order_id: orderId,
     images: items,
@@ -1969,6 +2025,7 @@ async function onReplaceSingleImage(slotKey, uploadFile) {
   try {
     const meta = await _uploadOne(slotKey, raw);
     if (!meta?.storage_key) throw new Error("upload meta invalid");
+    if (!meta?.md5) throw new Error("upload md5 missing");
 
     await _finalizeSlot(slotKey, [meta]);
   } catch (e) {
@@ -1978,6 +2035,7 @@ async function onReplaceSingleImage(slotKey, uploadFile) {
         try {
           const meta = await _uploadOne(slotKey, raw);
           if (!meta?.storage_key) throw new Error("upload meta invalid");
+          if (!meta?.md5) throw new Error("upload md5 missing");
           await _finalizeSlot(slotKey, [meta]);
           return;
         } catch (e2) {
@@ -2023,10 +2081,11 @@ async function _drainRelatedQueue() {
     for (const f of files) {
       const meta = await _uploadOne("related", f);
       if (!meta?.storage_key) throw new Error("upload meta invalid");
+      if (!meta?.md5) throw new Error("upload md5 missing");
       metas.push(meta);
     }
 
-    if (metas.length) {
+    if (metas.length || existing.length) {
       await _finalizeSlot("related", [...existing, ...metas]);
     }
     relatedRetryOnce.value = false;
@@ -2044,10 +2103,11 @@ async function _drainRelatedQueue() {
           for (const f of files) {
             const meta = await _uploadOne("related", f);
             if (!meta?.storage_key) throw new Error("upload meta invalid");
+            if (!meta?.md5) throw new Error("upload md5 missing");
             metas.push(meta);
           }
 
-          if (metas.length) {
+          if (metas.length || existing.length) {
             await _finalizeSlot("related", [...existing, ...metas]);
           }
           relatedRetryOnce.value = false;
