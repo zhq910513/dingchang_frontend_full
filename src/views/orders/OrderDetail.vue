@@ -7,79 +7,77 @@
       <div class="header-actions">
         <el-button size="small" @click="goBack">返回</el-button>
 
-        <!-- 仅当没有完整编辑权限、且处于财务视图时，才走财务只编辑 related 模式 -->
         <template v-if="canFinanceOps && !canEditPermission && order">
           <el-button
-              v-if="!financeEditMode"
-              size="small"
-              type="primary"
-              plain
-              :disabled="loading || saving || slotUploading.related"
-              @click="toggleFinanceEdit"
+            v-if="!financeEditMode"
+            size="small"
+            type="primary"
+            plain
+            :disabled="loading || saving || slotUploading.related"
+            @click="toggleFinanceEdit"
           >
             编辑
           </el-button>
 
           <template v-else>
             <el-button
-                size="small"
-                plain
-                :disabled="loading || saving || slotUploading.related"
-                @click="cancelFinanceEdit"
+              size="small"
+              plain
+              :disabled="loading || saving || slotUploading.related"
+              @click="cancelFinanceEdit"
             >
               取消编辑
             </el-button>
             <el-button
-                size="small"
-                type="primary"
-                :disabled="loading || saving || slotUploading.related"
-                @click="saveFinanceEdit"
+              size="small"
+              type="primary"
+              :disabled="loading || saving || slotUploading.related"
+              @click="saveFinanceEdit"
             >
               保存
             </el-button>
           </template>
         </template>
 
-        <!-- 具有完整编辑权限时，无论是否从财务页进入，都走完整编辑模式 -->
         <template v-else>
           <el-button
-              v-if="canReopen"
-              size="small"
-              type="warning"
-              plain
-              :loading="saving"
-              @click="reopenToUnfinishedConfirm"
+            v-if="canReopen"
+            size="small"
+            type="warning"
+            plain
+            :loading="saving"
+            @click="reopenToUnfinishedConfirm"
           >
             退回未完成
           </el-button>
 
           <el-button
-              v-if="canEditPermission && !editMode"
-              size="small"
-              type="primary"
-              plain
-              :disabled="loading || saving"
-              @click="toggleEdit"
+            v-if="canEditPermission && !editMode"
+            size="small"
+            type="primary"
+            plain
+            :disabled="loading || saving"
+            @click="toggleEdit"
           >
             编辑
           </el-button>
 
           <el-button
-              v-if="canEditPermission && editMode"
-              size="small"
-              plain
-              :disabled="loading || saving"
-              @click="toggleEdit"
+            v-if="canEditPermission && editMode"
+            size="small"
+            plain
+            :disabled="loading || saving"
+            @click="toggleEdit"
           >
             取消编辑
           </el-button>
 
           <el-button
-              v-if="canEdit"
-              size="small"
-              type="primary"
-              :loading="saving"
-              @click="save"
+            v-if="canEdit"
+            size="small"
+            type="primary"
+            :loading="saving"
+            @click="save"
           >
             保存
           </el-button>
@@ -100,18 +98,54 @@
           <div class="kv-item">
             <div class="kv-label">渠道</div>
             <div class="kv-value">
-              <span class="plain-value" :title="resolvedChannelName || '-'">
-                {{ resolvedChannelName || "-" }}
-              </span>
+              <template v-if="canEditMeta">
+                <el-select
+                  v-model="editMeta.channel_group_id"
+                  filterable
+                  clearable
+                  class="fv fv-select"
+                  placeholder="请选择渠道"
+                >
+                  <el-option
+                    v-for="item in channelGroupOptions"
+                    :key="item.id"
+                    :label="channelGroupLabel(item)"
+                    :value="item.id"
+                  />
+                </el-select>
+              </template>
+              <template v-else>
+                <span class="plain-value" :title="resolvedChannelName || '-'">
+                  {{ resolvedChannelName || "-" }}
+                </span>
+              </template>
             </div>
           </div>
 
           <div class="kv-item">
             <div class="kv-label">客户</div>
             <div class="kv-value">
-              <span class="plain-value" :title="resolvedCustomerName || '-'">
-                {{ resolvedCustomerName || "-" }}
-              </span>
+              <template v-if="canEditMeta">
+                <el-select
+                  v-model="editMeta.customer_group_id"
+                  filterable
+                  clearable
+                  class="fv fv-select"
+                  placeholder="请选择客户"
+                >
+                  <el-option
+                    v-for="item in customerGroupOptions"
+                    :key="item.id"
+                    :label="customerGroupLabel(item)"
+                    :value="item.id"
+                  />
+                </el-select>
+              </template>
+              <template v-else>
+                <span class="plain-value" :title="resolvedCustomerName || '-'">
+                  {{ resolvedCustomerName || "-" }}
+                </span>
+              </template>
             </div>
           </div>
         </div>
@@ -127,14 +161,14 @@
 
         <div v-if="canEditRelated" class="image-actions image-actions-wide">
           <el-upload
-              drag
-              :auto-upload="false"
-              :multiple="true"
-              :show-file-list="false"
-              accept="image/*"
-              :disabled="slotUploading.related"
-              :on-change="(file) => onAppendRelated(file)"
-              class="related-dragger"
+            drag
+            :auto-upload="false"
+            :multiple="true"
+            :show-file-list="false"
+            accept="image/*"
+            :disabled="slotUploading.related"
+            :on-change="(file) => onAppendRelated(file)"
+            class="related-dragger"
           >
             <div class="drag-inner">
               <div class="drag-title">拖拽图片到这里</div>
@@ -143,12 +177,12 @@
           </el-upload>
 
           <el-button
-              size="small"
-              type="danger"
-              plain
-              :disabled="slotUploading.related || !imagesBySlot.related.length"
-              :loading="slotUploading.related"
-              @click="clearRelatedAll"
+            size="small"
+            type="danger"
+            plain
+            :disabled="slotUploading.related || !imagesBySlot.related.length"
+            :loading="slotUploading.related"
+            @click="clearRelatedAll"
           >
             清空
           </el-button>
@@ -157,18 +191,18 @@
         <div v-if="canEditRelated || imagesBySlot.related.length" class="image-wall image-wall-wide">
           <div v-for="(url, idx) in imagesBySlot.related" :key="url + ':' + idx" class="thumb-wrap">
             <el-image
-                :src="url"
-                :preview-src-list="imagesBySlot.related"
-                :initial-index="idx"
-                fit="cover"
-                class="thumb"
+              :src="url"
+              :preview-src-list="imagesBySlot.related"
+              :initial-index="idx"
+              fit="cover"
+              class="thumb"
             />
             <button
-                v-if="canEditRelated"
-                type="button"
-                class="thumb-remove"
-                title="删除这张"
-                @click="removeRelatedByIndex(idx)"
+              v-if="canEditRelated"
+              type="button"
+              class="thumb-remove"
+              title="删除这张"
+              @click="removeRelatedByIndex(idx)"
             >
               ×
             </button>
@@ -265,9 +299,9 @@
             <div class="kv-label">商业后补%</div>
             <div class="kv-value">
               <InfoValue
-                  v-model="editOrderInfo.channel_commercial_supplement_point"
-                  type="point"
-                  :editable="canEdit"
+                v-model="editOrderInfo.channel_commercial_supplement_point"
+                type="point"
+                :editable="canEdit"
               />
             </div>
           </div>
@@ -323,9 +357,9 @@
             <div class="kv-label">商业后补%</div>
             <div class="kv-value">
               <InfoValue
-                  v-model="editOrderInfo.customer_commercial_supplement_point"
-                  type="point"
-                  :editable="canEdit"
+                v-model="editOrderInfo.customer_commercial_supplement_point"
+                type="point"
+                :editable="canEdit"
               />
             </div>
           </div>
@@ -421,9 +455,9 @@
                 <div class="kv-label">额定载客(人)</div>
                 <div class="kv-value">
                   <FieldValue
-                      v-model="editData.approved_passenger_count"
-                      :field="meta('approved_passenger_count')"
-                      :editable="canEdit"
+                    v-model="editData.approved_passenger_count"
+                    :field="meta('approved_passenger_count')"
+                    :editable="canEdit"
                   />
                 </div>
               </div>
@@ -437,11 +471,11 @@
           <div class="right">
             <div v-if="canEdit" class="image-actions">
               <el-upload
-                  :auto-upload="false"
-                  :multiple="false"
-                  :show-file-list="false"
-                  accept="image/*"
-                  :on-change="(file) => onReplaceSingleImage('vehicle_cert', file)"
+                :auto-upload="false"
+                :multiple="false"
+                :show-file-list="false"
+                accept="image/*"
+                :on-change="(file) => onReplaceSingleImage('vehicle_cert', file)"
               >
                 <el-button size="small" type="primary" plain :loading="slotUploading.vehicle_cert">
                   替换图片
@@ -458,11 +492,11 @@
             <div class="image-wall">
               <div v-for="(url, idx) in imagesBySlot.vehicle_cert" :key="url + ':' + idx" class="thumb-wrap">
                 <el-image
-                    :src="url"
-                    :preview-src-list="imagesBySlot.vehicle_cert"
-                    :initial-index="idx"
-                    fit="cover"
-                    class="thumb"
+                  :src="url"
+                  :preview-src-list="imagesBySlot.vehicle_cert"
+                  :initial-index="idx"
+                  fit="cover"
+                  class="thumb"
                 />
               </div>
               <div v-if="!imagesBySlot.vehicle_cert.length" class="thumb-empty"/>
@@ -498,9 +532,9 @@
                       <div class="kv-value" :ref="bindIdNameValueRef(row)">
                         <template v-if="row.key">
                           <FieldValue
-                              v-model="editData[row.key]"
-                              :field="rowField(row)"
-                              :editable="canEdit && !row.readonly"
+                            v-model="editData[row.key]"
+                            :field="rowField(row)"
+                            :editable="canEdit && !row.readonly"
                           />
                         </template>
                         <template v-else>
@@ -520,9 +554,9 @@
                       <div class="kv-value" :ref="bindIdNameValueRef(row)">
                         <template v-if="row.key">
                           <FieldValue
-                              v-model="editData[row.key]"
-                              :field="rowField(row)"
-                              :editable="canEdit && !row.readonly"
+                            v-model="editData[row.key]"
+                            :field="rowField(row)"
+                            :editable="canEdit && !row.readonly"
                           />
                         </template>
                         <template v-else>
@@ -539,11 +573,11 @@
               <div class="right">
                 <div v-if="canEdit" class="image-actions">
                   <el-upload
-                      :auto-upload="false"
-                      :multiple="false"
-                      :show-file-list="false"
-                      accept="image/*"
-                      :on-change="(file) => onReplaceSingleImage('idcard_front', file)"
+                    :auto-upload="false"
+                    :multiple="false"
+                    :show-file-list="false"
+                    accept="image/*"
+                    :on-change="(file) => onReplaceSingleImage('idcard_front', file)"
                   >
                     <el-button size="small" type="primary" plain :loading="slotUploading.idcard_front">
                       替换图片
@@ -560,11 +594,11 @@
                 <div class="image-wall">
                   <div v-for="(url, idx) in imagesBySlot.idcard_front" :key="url + ':' + idx" class="thumb-wrap">
                     <el-image
-                        :src="url"
-                        :preview-src-list="imagesBySlot.idcard_front"
-                        :initial-index="idx"
-                        fit="cover"
-                        class="thumb"
+                      :src="url"
+                      :preview-src-list="imagesBySlot.idcard_front"
+                      :initial-index="idx"
+                      fit="cover"
+                      class="thumb"
                     />
                   </div>
                   <div v-if="!imagesBySlot.idcard_front.length" class="thumb-empty"/>
@@ -584,9 +618,9 @@
                       <div class="kv-value">
                         <template v-if="row.key">
                           <FieldValue
-                              v-model="editData[row.key]"
-                              :field="rowField(row)"
-                              :editable="canEdit && !row.readonly"
+                            v-model="editData[row.key]"
+                            :field="rowField(row)"
+                            :editable="canEdit && !row.readonly"
                           />
                         </template>
                         <template v-else>
@@ -603,11 +637,11 @@
               <div class="right">
                 <div v-if="canEdit" class="image-actions">
                   <el-upload
-                      :auto-upload="false"
-                      :multiple="false"
-                      :show-file-list="false"
-                      accept="image/*"
-                      :on-change="(file) => onReplaceSingleImage('idcard_back', file)"
+                    :auto-upload="false"
+                    :multiple="false"
+                    :show-file-list="false"
+                    accept="image/*"
+                    :on-change="(file) => onReplaceSingleImage('idcard_back', file)"
                   >
                     <el-button size="small" type="primary" plain :loading="slotUploading.idcard_back">
                       替换图片
@@ -624,11 +658,11 @@
                 <div class="image-wall">
                   <div v-for="(url, idx) in imagesBySlot.idcard_back" :key="url + ':' + idx" class="thumb-wrap">
                     <el-image
-                        :src="url"
-                        :preview-src-list="imagesBySlot.idcard_back"
-                        :initial-index="idx"
-                        fit="cover"
-                        class="thumb"
+                      :src="url"
+                      :preview-src-list="imagesBySlot.idcard_back"
+                      :initial-index="idx"
+                      fit="cover"
+                      class="thumb"
                     />
                   </div>
                   <div v-if="!imagesBySlot.idcard_back.length" class="thumb-empty"/>
@@ -666,9 +700,9 @@
                       <div class="kv-value" :ref="bindDlOwnerValueRefForRow(row)">
                         <template v-if="row.key">
                           <FieldValue
-                              v-model="editData[row.key]"
-                              :field="rowField(row)"
-                              :editable="canEdit && !row.readonly"
+                            v-model="editData[row.key]"
+                            :field="rowField(row)"
+                            :editable="canEdit && !row.readonly"
                           />
                         </template>
                         <template v-else>
@@ -688,9 +722,9 @@
                       <div class="kv-value" :ref="bindDlOwnerValueRefForRow(row)">
                         <template v-if="row.key">
                           <FieldValue
-                              v-model="editData[row.key]"
-                              :field="rowField(row)"
-                              :editable="canEdit && !row.readonly"
+                            v-model="editData[row.key]"
+                            :field="rowField(row)"
+                            :editable="canEdit && !row.readonly"
                           />
                         </template>
                         <template v-else>
@@ -707,11 +741,11 @@
               <div class="right">
                 <div v-if="canEdit" class="image-actions">
                   <el-upload
-                      :auto-upload="false"
-                      :multiple="false"
-                      :show-file-list="false"
-                      accept="image/*"
-                      :on-change="(file) => onReplaceSingleImage('driving_license_main', file)"
+                    :auto-upload="false"
+                    :multiple="false"
+                    :show-file-list="false"
+                    accept="image/*"
+                    :on-change="(file) => onReplaceSingleImage('driving_license_main', file)"
                   >
                     <el-button size="small" type="primary" plain :loading="slotUploading.driving_license_main">
                       替换图片
@@ -727,16 +761,16 @@
 
                 <div class="image-wall">
                   <div
-                      v-for="(url, idx) in imagesBySlot.driving_license_main"
-                      :key="url + ':' + idx"
-                      class="thumb-wrap"
+                    v-for="(url, idx) in imagesBySlot.driving_license_main"
+                    :key="url + ':' + idx"
+                    class="thumb-wrap"
                   >
                     <el-image
-                        :src="url"
-                        :preview-src-list="imagesBySlot.driving_license_main"
-                        :initial-index="idx"
-                        fit="cover"
-                        class="thumb"
+                      :src="url"
+                      :preview-src-list="imagesBySlot.driving_license_main"
+                      :initial-index="idx"
+                      fit="cover"
+                      class="thumb"
                     />
                   </div>
                   <div v-if="!imagesBySlot.driving_license_main.length" class="thumb-empty"/>
@@ -756,9 +790,9 @@
                       <div class="kv-value">
                         <template v-if="row.key">
                           <FieldValue
-                              v-model="editData[row.key]"
-                              :field="rowField(row)"
-                              :editable="canEdit && !row.readonly"
+                            v-model="editData[row.key]"
+                            :field="rowField(row)"
+                            :editable="canEdit && !row.readonly"
                           />
                         </template>
                         <template v-else>
@@ -778,9 +812,9 @@
                       <div class="kv-value">
                         <template v-if="row.key">
                           <FieldValue
-                              v-model="editData[row.key]"
-                              :field="rowField(row)"
-                              :editable="canEdit && !row.readonly"
+                            v-model="editData[row.key]"
+                            :field="rowField(row)"
+                            :editable="canEdit && !row.readonly"
                           />
                         </template>
                         <template v-else>
@@ -797,11 +831,11 @@
               <div class="right">
                 <div v-if="canEdit" class="image-actions">
                   <el-upload
-                      :auto-upload="false"
-                      :multiple="false"
-                      :show-file-list="false"
-                      accept="image/*"
-                      :on-change="(file) => onReplaceSingleImage('driving_license_sub', file)"
+                    :auto-upload="false"
+                    :multiple="false"
+                    :show-file-list="false"
+                    accept="image/*"
+                    :on-change="(file) => onReplaceSingleImage('driving_license_sub', file)"
                   >
                     <el-button size="small" type="primary" plain :loading="slotUploading.driving_license_sub">
                       替换图片
@@ -817,16 +851,16 @@
 
                 <div class="image-wall">
                   <div
-                      v-for="(url, idx) in imagesBySlot.driving_license_sub"
-                      :key="url + ':' + idx"
-                      class="thumb-wrap"
+                    v-for="(url, idx) in imagesBySlot.driving_license_sub"
+                    :key="url + ':' + idx"
+                    class="thumb-wrap"
                   >
                     <el-image
-                        :src="url"
-                        :preview-src-list="imagesBySlot.driving_license_sub"
-                        :initial-index="idx"
-                        fit="cover"
-                        class="thumb"
+                      :src="url"
+                      :preview-src-list="imagesBySlot.driving_license_sub"
+                      :initial-index="idx"
+                      fit="cover"
+                      class="thumb"
                     />
                   </div>
                   <div v-if="!imagesBySlot.driving_license_sub.length" class="thumb-empty"/>
@@ -849,10 +883,17 @@ import {CaretBottom, CaretTop} from "@element-plus/icons-vue";
 import VehicleCertTable from "./VehicleCertTable.vue";
 
 import http from "../../api/http";
-import {finalizeOrderUpload, getOrder, updateOrder, updateOrderStatus, uploadOrderImageProxy} from "../../api/orders";
+import {
+  finalizeOrderUpload,
+  getOrder,
+  updateOrder,
+  updateOrderStatus,
+  uploadOrderImageProxy,
+} from "../../api/orders";
 import {getFinanceOrderDetail} from "../../api/finance";
 import {useSessionStore} from "../../store/session";
 import {useOrderFieldConfig} from "../../composables/useOrderFieldConfig";
+import {useCustomerChannelGroups} from "../../composables/useCustomerChannelGroups";
 import {formatDynamicValue} from "../../utils/fieldFormat";
 import {uploadOrReuseByMd5} from "../../utils/bosUpload";
 
@@ -895,6 +936,37 @@ const dlExpanded = ref(false);
 const editMode = ref(false);
 const financeEditMode = ref(false);
 
+const editMeta = reactive({
+  customer_group_id: null,
+  channel_group_id: null,
+});
+
+const {
+  DEFAULT_PAGE_SIZE,
+  getCustomerBucket,
+  getChannelBucket,
+  ensureCustomerGroupsLoaded,
+  ensureChannelGroupsLoaded,
+  loadMoreCustomerGroups,
+  loadMoreChannelGroups,
+  customerGroupLabel,
+  channelGroupLabel,
+} = useCustomerChannelGroups();
+
+const customerKeyword = ref("");
+const channelKeyword = ref("");
+
+const customerBucket = computed(() => getCustomerBucket(customerKeyword.value, DEFAULT_PAGE_SIZE));
+const channelBucket = computed(() => getChannelBucket(channelKeyword.value, DEFAULT_PAGE_SIZE));
+
+const customerGroupOptions = computed(() => {
+  return Array.isArray(customerBucket.value?.items) ? customerBucket.value.items : [];
+});
+
+const channelGroupOptions = computed(() => {
+  return Array.isArray(channelBucket.value?.items) ? channelBucket.value.items : [];
+});
+
 function toggleFinanceEdit() {
   if (!canFinanceOps.value || canEditPermission.value) return;
   financeEditMode.value = !financeEditMode.value;
@@ -918,11 +990,11 @@ async function saveFinanceEdit() {
 }
 
 watch(
-    () => canFinanceOps.value,
-    (v) => {
-      if (!v) financeEditMode.value = false;
-    },
-    {immediate: true}
+  () => canFinanceOps.value,
+  (v) => {
+    if (!v) financeEditMode.value = false;
+  },
+  {immediate: true}
 );
 
 const idNameValueRef = ref(null);
@@ -986,13 +1058,13 @@ async function _waitScrollStable({stableMs = 260, eps = 1.5, timeoutMs = 2000} =
 }
 
 async function _scrollCenterAndFlashThenConfirm({
-                                                  targetEl,
-                                                  flashEls = [],
-                                                  title = "提示",
-                                                  message = "",
-                                                  confirmText = "继续",
-                                                  cancelText = "取消",
-                                                } = {}) {
+  targetEl,
+  flashEls = [],
+  title = "提示",
+  message = "",
+  confirmText = "继续",
+  cancelText = "取消",
+} = {}) {
   const el = _closestKvItem(targetEl) || targetEl;
   if (el?.scrollIntoView) {
     el.scrollIntoView({behavior: "smooth", block: "center", inline: "nearest"});
@@ -1007,9 +1079,9 @@ async function _scrollCenterAndFlashThenConfirm({
 
   try {
     const msgNode =
-        typeof message === "string"
-            ? h("div", {style: "white-space: pre-line; line-height: 1.7;"}, message)
-            : message;
+      typeof message === "string"
+        ? h("div", {style: "white-space: pre-line; line-height: 1.7;"}, message)
+        : message;
 
     await ElMessageBox.confirm(msgNode, title, {
       confirmButtonText: confirmText,
@@ -1109,7 +1181,7 @@ function _fillOrderInfoFromOrder(o) {
 
   editOrderInfo.customer_commercial_point = _numOrNullZeroAsEmpty(oi.customer_commercial_point);
   editOrderInfo.customer_commercial_supplement_point = _numOrNullZeroAsEmpty(
-      oi.customer_commercial_supplement_point
+    oi.customer_commercial_supplement_point
   );
   editOrderInfo.customer_compulsory_point = _numOrNullZeroAsEmpty(oi.customer_compulsory_point);
   editOrderInfo.customer_vehicle_tax_point = _numOrNullZeroAsEmpty(oi.customer_vehicle_tax_point);
@@ -1121,6 +1193,11 @@ function _fillOrderInfoFromOrder(o) {
   editOrderInfo.profit = _numOrNullZeroAsEmpty(oi.profit);
 
   recalcOrderInfoDerived();
+}
+
+function _fillMetaFromOrder(o) {
+  editMeta.customer_group_id = o?.customer_group_id ?? null;
+  editMeta.channel_group_id = o?.channel_group_id ?? null;
 }
 
 function _sanitizeOrderInfoPayload() {
@@ -1177,7 +1254,7 @@ function recalcOrderInfoDerived() {
   const hasAnyMoney = [commercial, compulsory, vehicleTax, nonVehicle].some((x) => typeof x === "number");
 
   const premiumTotal =
-      _numOrZero(commercial) + _numOrZero(compulsory) + _numOrZero(vehicleTax) + _numOrZero(nonVehicle);
+    _numOrZero(commercial) + _numOrZero(compulsory) + _numOrZero(vehicleTax) + _numOrZero(nonVehicle);
   editOrderInfo.premium_total = hasAnyMoney ? premiumTotal : null;
 
   const chCommercialPoint = _numOrNull(editOrderInfo.channel_commercial_point);
@@ -1213,20 +1290,20 @@ function recalcOrderInfoDerived() {
   ].some((x) => typeof x === "number");
 
   const channelTotal =
-      _numOrZero(commercial) * (_numOrZero(chCommercialPoint) / 100) +
-      _numOrZero(commercial) * (_numOrZero(chCommercialSupplementPoint) / 100) +
-      _numOrZero(compulsory) * (_numOrZero(chCompulsoryPoint) / 100) +
-      _numOrZero(vehicleTax) * (_numOrZero(chVehicleTaxPoint) / 100) +
-      _numOrZero(nonVehicle) * (_numOrZero(chNonVehiclePoint) / 100) +
-      _numOrZero(chReward);
+    _numOrZero(commercial) * (_numOrZero(chCommercialPoint) / 100) +
+    _numOrZero(commercial) * (_numOrZero(chCommercialSupplementPoint) / 100) +
+    _numOrZero(compulsory) * (_numOrZero(chCompulsoryPoint) / 100) +
+    _numOrZero(vehicleTax) * (_numOrZero(chVehicleTaxPoint) / 100) +
+    _numOrZero(nonVehicle) * (_numOrZero(chNonVehiclePoint) / 100) +
+    _numOrZero(chReward);
 
   const customerTotal =
-      _numOrZero(commercial) * (_numOrZero(cuCommercialPoint) / 100) +
-      _numOrZero(commercial) * (_numOrZero(cuCommercialSupplementPoint) / 100) +
-      _numOrZero(compulsory) * (_numOrZero(cuCompulsoryPoint) / 100) +
-      _numOrZero(vehicleTax) * (_numOrZero(cuVehicleTaxPoint) / 100) +
-      _numOrZero(nonVehicle) * (_numOrZero(cuNonVehiclePoint) / 100) +
-      _numOrZero(cuReward);
+    _numOrZero(commercial) * (_numOrZero(cuCommercialPoint) / 100) +
+    _numOrZero(commercial) * (_numOrZero(cuCommercialSupplementPoint) / 100) +
+    _numOrZero(compulsory) * (_numOrZero(cuCompulsoryPoint) / 100) +
+    _numOrZero(vehicleTax) * (_numOrZero(cuVehicleTaxPoint) / 100) +
+    _numOrZero(nonVehicle) * (_numOrZero(cuNonVehiclePoint) / 100) +
+    _numOrZero(cuReward);
 
   editOrderInfo.channel_total = hasAnyMoney || hasAnyChannelCfg ? channelTotal : null;
   editOrderInfo.customer_total = hasAnyMoney || hasAnyCustomerCfg ? customerTotal : null;
@@ -1239,35 +1316,56 @@ function recalcOrderInfoDerived() {
 }
 
 watch(
-    () => [
-      editOrderInfo.commercial_amount,
-      editOrderInfo.compulsory_amount,
-      editOrderInfo.vehicle_tax_amount,
-      editOrderInfo.non_vehicle_amount,
+  () => [
+    editOrderInfo.commercial_amount,
+    editOrderInfo.compulsory_amount,
+    editOrderInfo.vehicle_tax_amount,
+    editOrderInfo.non_vehicle_amount,
 
-      editOrderInfo.channel_commercial_point,
-      editOrderInfo.channel_commercial_supplement_point,
-      editOrderInfo.channel_compulsory_point,
-      editOrderInfo.channel_vehicle_tax_point,
-      editOrderInfo.channel_non_vehicle_point,
-      editOrderInfo.channel_reward,
+    editOrderInfo.channel_commercial_point,
+    editOrderInfo.channel_commercial_supplement_point,
+    editOrderInfo.channel_compulsory_point,
+    editOrderInfo.channel_vehicle_tax_point,
+    editOrderInfo.channel_non_vehicle_point,
+    editOrderInfo.channel_reward,
 
-      editOrderInfo.customer_commercial_point,
-      editOrderInfo.customer_commercial_supplement_point,
-      editOrderInfo.customer_compulsory_point,
-      editOrderInfo.customer_vehicle_tax_point,
-      editOrderInfo.customer_non_vehicle_point,
-      editOrderInfo.customer_reward,
-    ],
-    () => recalcOrderInfoDerived()
+    editOrderInfo.customer_commercial_point,
+    editOrderInfo.customer_commercial_supplement_point,
+    editOrderInfo.customer_compulsory_point,
+    editOrderInfo.customer_vehicle_tax_point,
+    editOrderInfo.customer_non_vehicle_point,
+    editOrderInfo.customer_reward,
+  ],
+  () => recalcOrderInfoDerived()
 );
 
+function findOptionById(list, id) {
+  const target = Number(id);
+  if (!Number.isFinite(target)) return null;
+  const arr = Array.isArray(list) ? list : [];
+  return arr.find((x) => Number(x?.id) === target) || null;
+}
+
 const resolvedChannelName = computed(() => {
-  return String(order.value?.channel_group_name || "").trim();
+  const matched = findOptionById(channelGroupOptions.value, order.value?.channel_group_id);
+  if (matched) return channelGroupLabel(matched);
+
+  const code = String(order.value?.channel_group_code || order.value?.channel_code || "").trim();
+  const name = String(order.value?.channel_group_name || order.value?.channel_name || "").trim();
+
+  if (code && name) return `${code} - ${name}`;
+  return code || name || "";
 });
 
 const resolvedCustomerName = computed(() => {
-  return String(order.value?.customer_group_name || "").trim();
+  const matched = findOptionById(customerGroupOptions.value, order.value?.customer_group_id);
+  if (matched) return customerGroupLabel(matched);
+
+  const code = String(order.value?.customer_group_code || order.value?.customer_code || "").trim();
+  const name = String(order.value?.customer_group_name || order.value?.customer_name || "").trim();
+
+  if (code && name) return `${code} - ${name}`;
+  return code || name || "";
 });
 
 const {allFields, loadConfig} = useOrderFieldConfig();
@@ -1397,7 +1495,7 @@ function _buildDerivedDynamicDataFromOcr(o) {
     id_validity: validity,
 
     plate_no:
-        _getOcrWords(o, "driving_license_main", "号牌号码") || _getOcrWords(o, "driving_license_sub", "号牌号码"),
+      _getOcrWords(o, "driving_license_main", "号牌号码") || _getOcrWords(o, "driving_license_sub", "号牌号码"),
     owner_name: _getOcrWords(o, "driving_license_main", "所有人"),
     use_nature: _getOcrWords(o, "driving_license_main", "使用性质"),
     vehicle_model: _getOcrWords(o, "driving_license_main", "品牌型号"),
@@ -1546,6 +1644,7 @@ const canEditPermission = computed(() => {
 });
 
 const canEdit = computed(() => canEditPermission.value && editMode.value);
+const canEditMeta = computed(() => canEdit.value && order.value?.is_finished === false);
 
 const canEditRelated = computed(() => {
   if (canEdit.value) return true;
@@ -1611,6 +1710,52 @@ function buildSlotMaps(slotImages) {
 const imagesBySlot = computed(() => buildSlotMaps(order.value?.slot_images).urls);
 const imageItemsBySlot = computed(() => buildSlotMaps(order.value?.slot_images).items);
 
+async function ensureMetaOptionsLoaded() {
+  await Promise.all([
+    ensureCustomerGroupsLoaded({keyword: customerKeyword.value, pageSize: DEFAULT_PAGE_SIZE}),
+    ensureChannelGroupsLoaded({keyword: channelKeyword.value, pageSize: DEFAULT_PAGE_SIZE}),
+  ]);
+}
+
+async function ensureCustomerOptionPresent(id) {
+  const target = Number(id);
+  if (!Number.isFinite(target) || target <= 0) return;
+
+  let bucket = getCustomerBucket(customerKeyword.value, DEFAULT_PAGE_SIZE);
+  if (!bucket.loaded) {
+    await ensureCustomerGroupsLoaded({keyword: customerKeyword.value, pageSize: DEFAULT_PAGE_SIZE});
+    bucket = getCustomerBucket(customerKeyword.value, DEFAULT_PAGE_SIZE);
+  }
+
+  while (!findOptionById(bucket.items, target) && bucket.hasMore) {
+    await loadMoreCustomerGroups({keyword: customerKeyword.value, pageSize: DEFAULT_PAGE_SIZE});
+    bucket = getCustomerBucket(customerKeyword.value, DEFAULT_PAGE_SIZE);
+  }
+}
+
+async function ensureChannelOptionPresent(id) {
+  const target = Number(id);
+  if (!Number.isFinite(target) || target <= 0) return;
+
+  let bucket = getChannelBucket(channelKeyword.value, DEFAULT_PAGE_SIZE);
+  if (!bucket.loaded) {
+    await ensureChannelGroupsLoaded({keyword: channelKeyword.value, pageSize: DEFAULT_PAGE_SIZE});
+    bucket = getChannelBucket(channelKeyword.value, DEFAULT_PAGE_SIZE);
+  }
+
+  while (!findOptionById(bucket.items, target) && bucket.hasMore) {
+    await loadMoreChannelGroups({keyword: channelKeyword.value, pageSize: DEFAULT_PAGE_SIZE});
+    bucket = getChannelBucket(channelKeyword.value, DEFAULT_PAGE_SIZE);
+  }
+}
+
+async function ensureCurrentMetaOptionsPresent() {
+  await Promise.all([
+    ensureCustomerOptionPresent(order.value?.customer_group_id ?? editMeta.customer_group_id),
+    ensureChannelOptionPresent(order.value?.channel_group_id ?? editMeta.channel_group_id),
+  ]);
+}
+
 function goBack() {
   const from = route.query?.from;
 
@@ -1645,9 +1790,10 @@ function fillEditDataFromOrder(o) {
   for (const [k, v] of Object.entries(merged)) editData[k] = v ?? "";
 
   _fillOrderInfoFromOrder(o);
+  _fillMetaFromOrder(o);
 }
 
-function toggleEdit() {
+async function toggleEdit() {
   if (!canEditPermission.value) return;
 
   if (editMode.value) {
@@ -1658,6 +1804,18 @@ function toggleEdit() {
 
   financeEditMode.value = false;
   editMode.value = true;
+
+  if (order.value?.is_finished === false) {
+    try {
+      await ensureMetaOptionsLoaded();
+      await ensureCurrentMetaOptionsPresent();
+    } catch (e) {
+      console.error(e);
+      ElMessage.error("加载客户/渠道选项失败");
+      editMode.value = false;
+      return;
+    }
+  }
 }
 
 function shouldUseFinanceDetailApi() {
@@ -1667,6 +1825,8 @@ function shouldUseFinanceDetailApi() {
 async function load({preserveEditDraft = false} = {}) {
   loading.value = true;
   try {
+    await ensureMetaOptionsLoaded();
+
     const resp = shouldUseFinanceDetailApi() ? await getFinanceOrderDetail(orderId) : await getOrder(orderId);
     order.value = resp.data;
 
@@ -1675,9 +1835,15 @@ async function load({preserveEditDraft = false} = {}) {
       financeEditMode.value = false;
       fillEditDataFromOrder(order.value);
     } else {
-      if (!editMode.value) fillEditDataFromOrder(order.value);
-      else _fillOrderInfoFromOrder(order.value);
+      if (!editMode.value) {
+        fillEditDataFromOrder(order.value);
+      } else {
+        _fillOrderInfoFromOrder(order.value);
+        if (!canEditMeta.value) _fillMetaFromOrder(order.value);
+      }
     }
+
+    await ensureCurrentMetaOptionsPresent();
   } catch (e) {
     console.error(e);
     ElMessage.error("加载订单详情失败");
@@ -1688,8 +1854,8 @@ async function load({preserveEditDraft = false} = {}) {
 
 function _normalizePhone(s) {
   return String(s || "")
-      .replace(/\s+/g, "")
-      .replace(/-/g, "");
+    .replace(/\s+/g, "")
+    .replace(/-/g, "");
 }
 
 function _isValidChinaMobile(phoneRaw) {
@@ -1719,6 +1885,17 @@ async function _validateBeforeSave() {
         confirmText: "我知道了",
         cancelText: "取消",
       });
+      return false;
+    }
+  }
+
+  if (canEditMeta.value) {
+    if (!editMeta.channel_group_id) {
+      ElMessage.warning("请选择渠道");
+      return false;
+    }
+    if (!editMeta.customer_group_id) {
+      ElMessage.warning("请选择客户");
       return false;
     }
   }
@@ -1756,6 +1933,8 @@ async function save() {
     await updateOrder(orderId, {
       dynamic_data: dyn,
       order_info: _sanitizeOrderInfoPayload(),
+      customer_group_id: canEditMeta.value ? Number(editMeta.customer_group_id) : undefined,
+      channel_group_id: canEditMeta.value ? Number(editMeta.channel_group_id) : undefined,
     });
 
     ElMessage.success("保存成功");
@@ -1854,54 +2033,60 @@ function _errMsg(e) {
 function isLikelyNetworkBlocked(err) {
   const m = _errMsg(err).toLowerCase();
   return (
-      m.includes("failed to fetch") ||
-      m.includes("network error") ||
-      m.includes("err_") ||
-      m.includes("cors") ||
-      m.includes("代理") ||
-      m.includes("vpn") ||
-      m.includes("127.0.0.1:7890")
+    m.includes("failed to fetch") ||
+    m.includes("network error") ||
+    m.includes("err_") ||
+    m.includes("cors") ||
+    m.includes("代理") ||
+    m.includes("vpn") ||
+    m.includes("127.0.0.1:7890")
   );
 }
 
 async function suggestSwitchToStableOnce() {
   try {
     await ElMessageBox.confirm(
-        `上传看起来被当前网络环境拦截（常见于 VPN/代理/公司网关）。\n\n是否切换到【稳定模式上传】继续？`,
-        "上传失败（网络拦截）",
-        {
-          confirmButtonText: "切换为稳定模式",
-          cancelButtonText: "继续直传重试",
-          type: "warning",
-          center: true,
-          distinguishCancelAndClose: true,
-        }
+      `上传看起来被当前网络环境拦截（常见于 VPN/代理/公司网关）。\n\n是否切换到【稳定模式上传】继续？`,
+      "上传失败（网络拦截）",
+      {
+        confirmButtonText: "切换为稳定模式",
+        cancelButtonText: "继续直传重试",
+        type: "warning",
+        center: true,
+        distinguishCancelAndClose: true,
+      }
     );
     uploadMode.value = "stable";
     try {
       localStorage.setItem(UPLOAD_MODE_KEY, "stable");
-    } catch {
-    }
+    } catch {}
     return true;
   } catch {
     return false;
   }
 }
 
+function _toPositiveIntOrNull(v) {
+  const n = Number(v);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
 function _finalizeItemFromExistingImage(it, slotKey) {
-  const storage_key = String(it?.storage_key || "")
-      .trim()
-      .replace(/^\/+/, "");
-  const md5 = String(it?.md5 || "").trim().toLowerCase();
+  const order_image_id = _toPositiveIntOrNull(it?.order_image_id);
+  const image_file_id = _toPositiveIntOrNull(it?.image_file_id);
+  const storage_key = String(it?.storage_key || "").trim().replace(/^\/+/, "");
+  const md5 = String(it?.md5 || it?.image_md5 || "").trim().toLowerCase();
 
-  if (!storage_key) return null;
-  if (!md5) return null;
+  if (!order_image_id && !image_file_id && !storage_key) {
+    return null;
+  }
 
-  const item = {
-    slot_key: slotKey,
-    storage_key,
-    md5,
-  };
+  const item = {slot_key: slotKey};
+
+  if (order_image_id) item.order_image_id = order_image_id;
+  if (image_file_id) item.image_file_id = image_file_id;
+  if (storage_key) item.storage_key = storage_key;
+  if (md5) item.md5 = md5;
 
   const etag = String(it?.etag || "").trim();
   if (etag) item.etag = etag;
@@ -2073,9 +2258,16 @@ async function _drainRelatedQueue() {
   slotUploading.related = true;
 
   try {
-    const existing = (imageItemsBySlot.value.related || [])
-        .map((it) => _finalizeItemFromExistingImage(it, "related"))
-        .filter(Boolean);
+    const rawExisting = imageItemsBySlot.value.related || [];
+    const existing = rawExisting
+      .map((it) => _finalizeItemFromExistingImage(it, "related"))
+      .filter(Boolean);
+
+    if (rawExisting.length > 0 && existing.length === 0) {
+      console.warn("[related] existing images exist but none can be preserved in finalize payload", {
+        rawExisting,
+      });
+    }
 
     const metas = [];
     for (const f of files) {
@@ -2095,9 +2287,10 @@ async function _drainRelatedQueue() {
       if (switched) {
         relatedRetryOnce.value = true;
         try {
-          const existing = (imageItemsBySlot.value.related || [])
-              .map((it) => _finalizeItemFromExistingImage(it, "related"))
-              .filter(Boolean);
+          const rawExisting = imageItemsBySlot.value.related || [];
+          const existing = rawExisting
+            .map((it) => _finalizeItemFromExistingImage(it, "related"))
+            .filter(Boolean);
 
           const metas = [];
           for (const f of files) {
@@ -2139,9 +2332,9 @@ async function removeRelatedByIndex(idx) {
   slotUploading.related = true;
   try {
     const remaining = list
-        .filter((_, i) => i !== idx)
-        .map((it) => _finalizeItemFromExistingImage(it, "related"))
-        .filter(Boolean);
+      .filter((_, i) => i !== idx)
+      .map((it) => _finalizeItemFromExistingImage(it, "related"))
+      .filter(Boolean);
 
     if (!remaining.length) {
       await _finalizeSlot("related", [], {clear: true});
@@ -2232,20 +2425,20 @@ const FieldValue = defineComponent({
       if (f.type === "select") {
         const opts = Array.isArray(f.options) ? f.options : [];
         return h(
-            ElSelect,
-            {
-              modelValue: raw,
-              "onUpdate:modelValue": onUpdate,
-              filterable: true,
-              clearable: true,
-              class: "fv fv-select",
-            },
-            () =>
-                opts.map((op) => {
-                  const label = op && typeof op === "object" ? op.label : String(op);
-                  const value = op && typeof op === "object" ? op.value : op;
-                  return h(ElOption, {key: String(value), label, value});
-                })
+          ElSelect,
+          {
+            modelValue: raw,
+            "onUpdate:modelValue": onUpdate,
+            filterable: true,
+            clearable: true,
+            class: "fv fv-select",
+          },
+          () =>
+            opts.map((op) => {
+              const label = op && typeof op === "object" ? op.label : String(op);
+              const value = op && typeof op === "object" ? op.value : op;
+              return h(ElOption, {key: String(value), label, value});
+            })
         );
       }
 
@@ -2288,9 +2481,9 @@ const InfoValue = defineComponent({
     }
 
     watch(
-        () => props.modelValue,
-        () => syncFromProps(),
-        {immediate: true}
+      () => props.modelValue,
+      () => syncFromProps(),
+      {immediate: true}
     );
 
     function clamp(n) {
