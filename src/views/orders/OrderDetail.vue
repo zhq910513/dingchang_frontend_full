@@ -1,4 +1,3 @@
-<!-- src/views/orders/OrderDetail.vue -->
 <template>
   <div class="order-detail">
     <div class="detail-header">
@@ -16,27 +15,18 @@
             :disabled="loading || saving || slotUploading.related"
             @click="toggleFinanceEdit"
           >
-            编辑
+            编辑备用图
           </el-button>
 
-          <template v-else>
-            <el-button
-              size="small"
-              plain
-              :disabled="loading || saving || slotUploading.related"
-              @click="cancelFinanceEdit"
-            >
-              取消编辑
-            </el-button>
-            <el-button
-              size="small"
-              type="primary"
-              :disabled="loading || saving || slotUploading.related"
-              @click="saveFinanceEdit"
-            >
-              保存
-            </el-button>
-          </template>
+          <el-button
+            v-else
+            size="small"
+            plain
+            :disabled="loading || saving || slotUploading.related"
+            @click="cancelFinanceEdit"
+          >
+            退出编辑
+          </el-button>
         </template>
 
         <template v-else>
@@ -99,20 +89,13 @@
             <div class="kv-label">渠道</div>
             <div class="kv-value">
               <template v-if="canEditMeta">
-                <el-select
+                <RemotePagedSelect
                   v-model="editMeta.channel_group_id"
-                  filterable
-                  clearable
-                  class="fv fv-select"
+                  type="channels"
                   placeholder="请选择渠道"
-                >
-                  <el-option
-                    v-for="item in channelGroupOptions"
-                    :key="item.id"
-                    :label="channelGroupLabel(item)"
-                    :value="item.id"
-                  />
-                </el-select>
+                  select-class="fv fv-select"
+                  :current-option="currentChannelOption"
+                />
               </template>
               <template v-else>
                 <span class="plain-value" :title="resolvedChannelName || '-'">
@@ -126,20 +109,13 @@
             <div class="kv-label">客户</div>
             <div class="kv-value">
               <template v-if="canEditMeta">
-                <el-select
+                <RemotePagedSelect
                   v-model="editMeta.customer_group_id"
-                  filterable
-                  clearable
-                  class="fv fv-select"
+                  type="customers"
                   placeholder="请选择客户"
-                >
-                  <el-option
-                    v-for="item in customerGroupOptions"
-                    :key="item.id"
-                    :label="customerGroupLabel(item)"
-                    :value="item.id"
-                  />
-                </el-select>
+                  select-class="fv fv-select"
+                  :current-option="currentCustomerOption"
+                />
               </template>
               <template v-else>
                 <span class="plain-value" :title="resolvedCustomerName || '-'">
@@ -881,6 +857,7 @@ import {ElMessage, ElMessageBox} from "element-plus";
 import {CaretBottom, CaretTop} from "@element-plus/icons-vue";
 
 import VehicleCertTable from "./VehicleCertTable.vue";
+import RemotePagedSelect from "@/components/common/RemotePagedSelect.vue";
 
 import http from "../../api/http";
 import {
@@ -942,30 +919,10 @@ const editMeta = reactive({
 });
 
 const {
-  DEFAULT_PAGE_SIZE,
-  getCustomerBucket,
-  getChannelBucket,
   ensureCustomerGroupsLoaded,
   ensureChannelGroupsLoaded,
-  loadMoreCustomerGroups,
-  loadMoreChannelGroups,
-  customerGroupLabel,
-  channelGroupLabel,
+  DEFAULT_PAGE_SIZE,
 } = useCustomerChannelGroups();
-
-const customerKeyword = ref("");
-const channelKeyword = ref("");
-
-const customerBucket = computed(() => getCustomerBucket(customerKeyword.value, DEFAULT_PAGE_SIZE));
-const channelBucket = computed(() => getChannelBucket(channelKeyword.value, DEFAULT_PAGE_SIZE));
-
-const customerGroupOptions = computed(() => {
-  return Array.isArray(customerBucket.value?.items) ? customerBucket.value.items : [];
-});
-
-const channelGroupOptions = computed(() => {
-  return Array.isArray(channelBucket.value?.items) ? channelBucket.value.items : [];
-});
 
 function toggleFinanceEdit() {
   if (!canFinanceOps.value || canEditPermission.value) return;
@@ -978,15 +935,7 @@ function cancelFinanceEdit() {
   relatedPendingFiles.value = [];
   relatedRetryOnce.value = false;
   financeEditMode.value = false;
-  ElMessage.success("已退出编辑");
-}
-
-async function saveFinanceEdit() {
-  if (!canFinanceOps.value || canEditPermission.value) return;
-  if (slotUploading.related) return;
-  financeEditMode.value = false;
-  ElMessage.success("已保存");
-  await load({preserveEditDraft: true});
+  ElMessage.success("已退出备用图编辑");
 }
 
 watch(
@@ -1195,9 +1144,14 @@ function _fillOrderInfoFromOrder(o) {
   recalcOrderInfoDerived();
 }
 
+function _toIdOrNull(v) {
+  const n = Number(v);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
 function _fillMetaFromOrder(o) {
-  editMeta.customer_group_id = o?.customer_group_id ?? null;
-  editMeta.channel_group_id = o?.channel_group_id ?? null;
+  editMeta.customer_group_id = _toIdOrNull(o?.customer_group_id);
+  editMeta.channel_group_id = _toIdOrNull(o?.channel_group_id);
 }
 
 function _sanitizeOrderInfoPayload() {
@@ -1339,17 +1293,25 @@ watch(
   () => recalcOrderInfoDerived()
 );
 
-function findOptionById(list, id) {
-  const target = Number(id);
-  if (!Number.isFinite(target)) return null;
-  const arr = Array.isArray(list) ? list : [];
-  return arr.find((x) => Number(x?.id) === target) || null;
-}
+const currentChannelOption = computed(() => {
+  if (!order.value?.channel_group_id) return null;
+  return {
+    id: Number(order.value.channel_group_id),
+    channel_code: order.value.channel_group_code || order.value.channel_code || "",
+    channel_name: order.value.channel_group_name || order.value.channel_name || "",
+  };
+});
+
+const currentCustomerOption = computed(() => {
+  if (!order.value?.customer_group_id) return null;
+  return {
+    id: Number(order.value.customer_group_id),
+    customer_code: order.value.customer_group_code || order.value.customer_code || "",
+    customer_name: order.value.customer_group_name || order.value.customer_name || "",
+  };
+});
 
 const resolvedChannelName = computed(() => {
-  const matched = findOptionById(channelGroupOptions.value, order.value?.channel_group_id);
-  if (matched) return channelGroupLabel(matched);
-
   const code = String(order.value?.channel_group_code || order.value?.channel_code || "").trim();
   const name = String(order.value?.channel_group_name || order.value?.channel_name || "").trim();
 
@@ -1358,9 +1320,6 @@ const resolvedChannelName = computed(() => {
 });
 
 const resolvedCustomerName = computed(() => {
-  const matched = findOptionById(customerGroupOptions.value, order.value?.customer_group_id);
-  if (matched) return customerGroupLabel(matched);
-
   const code = String(order.value?.customer_group_code || order.value?.customer_code || "").trim();
   const name = String(order.value?.customer_group_name || order.value?.customer_name || "").trim();
 
@@ -1644,7 +1603,13 @@ const canEditPermission = computed(() => {
 });
 
 const canEdit = computed(() => canEditPermission.value && editMode.value);
-const canEditMeta = computed(() => canEdit.value && order.value?.is_finished === false);
+
+const canEditMeta = computed(() => {
+  if (!order.value) return false;
+  if (!editMode.value) return false;
+  if (order.value.is_finished !== false) return false;
+  return canEditPermission.value;
+});
 
 const canEditRelated = computed(() => {
   if (canEdit.value) return true;
@@ -1657,104 +1622,6 @@ const canReopen = computed(() => {
   if (order.value.is_finished !== true) return false;
   return isPrivileged.value;
 });
-
-function buildSlotMaps(slotImages) {
-  const slotKeys = [
-    "vehicle_cert",
-    "idcard_front",
-    "idcard_back",
-    "driving_license_main",
-    "driving_license_sub",
-    "related",
-  ];
-
-  const urls = {};
-  const items = {};
-  for (const k of slotKeys) {
-    urls[k] = [];
-    items[k] = [];
-  }
-
-  const nodes = Array.isArray(slotImages) ? slotImages : [];
-  for (const node of nodes) {
-    const slotKey = String(node?.slot_key || "").trim();
-    if (!slotKey) continue;
-    if (!urls[slotKey]) urls[slotKey] = [];
-    if (!items[slotKey]) items[slotKey] = [];
-
-    const arr = Array.isArray(node?.images) ? node.images : [];
-    for (const img of arr) {
-      const url = String(img?.url || "").trim();
-      const item = {
-        slot_key: slotKey,
-        order_image_id: img?.order_image_id ?? null,
-        image_file_id: img?.image_file_id ?? null,
-        storage_key: String(img?.storage_key || "").trim(),
-        md5: String(img?.md5 || img?.image_md5 || "").trim().toLowerCase(),
-        etag: String(img?.etag || "").trim(),
-        size: img?.size ?? null,
-        content_type: String(img?.content_type || "").trim(),
-        original_name: String(img?.original_name || "").trim(),
-        url,
-        created_at: img?.created_at ?? null,
-        updated_at: img?.updated_at ?? null,
-      };
-      items[slotKey].push(item);
-      if (url) urls[slotKey].push(url);
-    }
-  }
-
-  return {urls, items};
-}
-
-const imagesBySlot = computed(() => buildSlotMaps(order.value?.slot_images).urls);
-const imageItemsBySlot = computed(() => buildSlotMaps(order.value?.slot_images).items);
-
-async function ensureMetaOptionsLoaded() {
-  await Promise.all([
-    ensureCustomerGroupsLoaded({keyword: customerKeyword.value, pageSize: DEFAULT_PAGE_SIZE}),
-    ensureChannelGroupsLoaded({keyword: channelKeyword.value, pageSize: DEFAULT_PAGE_SIZE}),
-  ]);
-}
-
-async function ensureCustomerOptionPresent(id) {
-  const target = Number(id);
-  if (!Number.isFinite(target) || target <= 0) return;
-
-  let bucket = getCustomerBucket(customerKeyword.value, DEFAULT_PAGE_SIZE);
-  if (!bucket.loaded) {
-    await ensureCustomerGroupsLoaded({keyword: customerKeyword.value, pageSize: DEFAULT_PAGE_SIZE});
-    bucket = getCustomerBucket(customerKeyword.value, DEFAULT_PAGE_SIZE);
-  }
-
-  while (!findOptionById(bucket.items, target) && bucket.hasMore) {
-    await loadMoreCustomerGroups({keyword: customerKeyword.value, pageSize: DEFAULT_PAGE_SIZE});
-    bucket = getCustomerBucket(customerKeyword.value, DEFAULT_PAGE_SIZE);
-  }
-}
-
-async function ensureChannelOptionPresent(id) {
-  const target = Number(id);
-  if (!Number.isFinite(target) || target <= 0) return;
-
-  let bucket = getChannelBucket(channelKeyword.value, DEFAULT_PAGE_SIZE);
-  if (!bucket.loaded) {
-    await ensureChannelGroupsLoaded({keyword: channelKeyword.value, pageSize: DEFAULT_PAGE_SIZE});
-    bucket = getChannelBucket(channelKeyword.value, DEFAULT_PAGE_SIZE);
-  }
-
-  while (!findOptionById(bucket.items, target) && bucket.hasMore) {
-    await loadMoreChannelGroups({keyword: channelKeyword.value, pageSize: DEFAULT_PAGE_SIZE});
-    bucket = getChannelBucket(channelKeyword.value, DEFAULT_PAGE_SIZE);
-  }
-}
-
-async function ensureCurrentMetaOptionsPresent() {
-  await Promise.all([
-    ensureCustomerOptionPresent(order.value?.customer_group_id ?? editMeta.customer_group_id),
-    ensureChannelOptionPresent(order.value?.channel_group_id ?? editMeta.channel_group_id),
-  ]);
-}
 
 function goBack() {
   const from = route.query?.from;
@@ -1807,13 +1674,12 @@ async function toggleEdit() {
 
   if (order.value?.is_finished === false) {
     try {
-      await ensureMetaOptionsLoaded();
-      await ensureCurrentMetaOptionsPresent();
+      await Promise.all([
+        ensureCustomerGroupsLoaded({keyword: "", pageSize: DEFAULT_PAGE_SIZE}),
+        ensureChannelGroupsLoaded({keyword: "", pageSize: DEFAULT_PAGE_SIZE}),
+      ]);
     } catch (e) {
       console.error(e);
-      ElMessage.error("加载客户/渠道选项失败");
-      editMode.value = false;
-      return;
     }
   }
 }
@@ -1825,8 +1691,6 @@ function shouldUseFinanceDetailApi() {
 async function load({preserveEditDraft = false} = {}) {
   loading.value = true;
   try {
-    await ensureMetaOptionsLoaded();
-
     const resp = shouldUseFinanceDetailApi() ? await getFinanceOrderDetail(orderId) : await getOrder(orderId);
     order.value = resp.data;
 
@@ -1839,11 +1703,8 @@ async function load({preserveEditDraft = false} = {}) {
         fillEditDataFromOrder(order.value);
       } else {
         _fillOrderInfoFromOrder(order.value);
-        if (!canEditMeta.value) _fillMetaFromOrder(order.value);
       }
     }
-
-    await ensureCurrentMetaOptionsPresent();
   } catch (e) {
     console.error(e);
     ElMessage.error("加载订单详情失败");
@@ -1941,7 +1802,7 @@ async function save() {
     await load();
   } catch (e) {
     console.error(e);
-    ElMessage.error("保存失败");
+    ElMessage.error(e?.response?.data?.detail || e?.message || "保存失败");
   } finally {
     saving.value = false;
   }
@@ -2263,12 +2124,6 @@ async function _drainRelatedQueue() {
       .map((it) => _finalizeItemFromExistingImage(it, "related"))
       .filter(Boolean);
 
-    if (rawExisting.length > 0 && existing.length === 0) {
-      console.warn("[related] existing images exist but none can be preserved in finalize payload", {
-        rawExisting,
-      });
-    }
-
     const metas = [];
     for (const f of files) {
       const meta = await _uploadOne("related", f);
@@ -2378,6 +2233,58 @@ async function clearRelatedAll() {
     slotUploading.related = false;
   }
 }
+
+function buildSlotMaps(slotImages) {
+  const slotKeys = [
+    "vehicle_cert",
+    "idcard_front",
+    "idcard_back",
+    "driving_license_main",
+    "driving_license_sub",
+    "related",
+  ];
+
+  const urls = {};
+  const items = {};
+  for (const k of slotKeys) {
+    urls[k] = [];
+    items[k] = [];
+  }
+
+  const nodes = Array.isArray(slotImages) ? slotImages : [];
+  for (const node of nodes) {
+    const slotKey = String(node?.slot_key || "").trim();
+    if (!slotKey) continue;
+    if (!urls[slotKey]) urls[slotKey] = [];
+    if (!items[slotKey]) items[slotKey] = [];
+
+    const arr = Array.isArray(node?.images) ? node.images : [];
+    for (const img of arr) {
+      const url = String(img?.url || "").trim();
+      const item = {
+        slot_key: slotKey,
+        order_image_id: img?.order_image_id ?? null,
+        image_file_id: img?.image_file_id ?? null,
+        storage_key: String(img?.storage_key || "").trim(),
+        md5: String(img?.md5 || img?.image_md5 || "").trim().toLowerCase(),
+        etag: String(img?.etag || "").trim(),
+        size: img?.size ?? null,
+        content_type: String(img?.content_type || "").trim(),
+        original_name: String(img?.original_name || "").trim(),
+        url,
+        created_at: img?.created_at ?? null,
+        updated_at: img?.updated_at ?? null,
+      };
+      items[slotKey].push(item);
+      if (url) urls[slotKey].push(url);
+    }
+  }
+
+  return {urls, items};
+}
+
+const imagesBySlot = computed(() => buildSlotMaps(order.value?.slot_images).urls);
+const imageItemsBySlot = computed(() => buildSlotMaps(order.value?.slot_images).items);
 
 onMounted(async () => {
   await loadConfig("order");

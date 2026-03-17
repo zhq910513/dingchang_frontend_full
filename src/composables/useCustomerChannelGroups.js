@@ -1,9 +1,9 @@
-// src/composables/useCustomerChannelGroups.js
 import {computed, ref} from "vue";
 import {getChannelGroups, getCustomerGroups} from "@/api/customerChannel";
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_CACHE_BUCKETS = 50;
+const MAX_PAGE_GUARD = 200;
 
 const _customerBuckets = ref(new Map());
 const _channelBuckets = ref(new Map());
@@ -75,17 +75,31 @@ function _resetBucket(bucket) {
 function _normalizePageResp(resp) {
     const d = resp?.data || {};
     const items = Array.isArray(d.items) ? d.items : [];
-    const page = Number(d.page || 1);
-    const pageSize = Number(d.page_size || items.length || DEFAULT_PAGE_SIZE);
-    const total = Number(d.total || 0);
-    const hasMore = !!d.has_more;
+    const page = Number(d.page ?? 1);
+    const pageSize = Number(d.page_size ?? items.length ?? DEFAULT_PAGE_SIZE);
+    const total = Number(d.total ?? 0);
+
+    let hasMore;
+    if (typeof d.has_more === "boolean") {
+        hasMore = d.has_more;
+    } else {
+        const safePage = Number.isFinite(page) && page > 0 ? page : 1;
+        const safePageSize = Number.isFinite(pageSize) && pageSize > 0 ? pageSize : DEFAULT_PAGE_SIZE;
+        const safeTotal = Number.isFinite(total) && total >= 0 ? total : 0;
+
+        if (safeTotal > 0) {
+            hasMore = safePage * safePageSize < safeTotal;
+        } else {
+            hasMore = items.length >= safePageSize;
+        }
+    }
 
     return {
         items,
         page: Number.isFinite(page) && page > 0 ? page : 1,
         pageSize: Number.isFinite(pageSize) && pageSize > 0 ? pageSize : DEFAULT_PAGE_SIZE,
         total: Number.isFinite(total) && total >= 0 ? total : 0,
-        hasMore,
+        hasMore: !!hasMore,
     };
 }
 
@@ -117,7 +131,7 @@ async function _loadFirstPage(type, {keyword = "", pageSize = DEFAULT_PAGE_SIZE,
         .then((resp) => {
             const data = _normalizePageResp(resp);
             bucket.items = data.items;
-            bucket.page = data.page;
+            bucket.page = 1;
             bucket.total = data.total;
             bucket.hasMore = data.hasMore;
             bucket.loaded = true;
@@ -144,7 +158,16 @@ async function _loadNextPage(type, {keyword = "", pageSize = DEFAULT_PAGE_SIZE} 
         return _loadFirstPage(type, {keyword, pageSize, force: false});
     }
 
+    if (bucket.page >= MAX_PAGE_GUARD) {
+        bucket.hasMore = false;
+        bucket.error = "分页加载已停止（超过安全页数限制）";
+        return bucket;
+    }
+
+    const prevItems = Array.isArray(bucket.items) ? bucket.items : [];
+    const prevLen = prevItems.length;
     const nextPage = bucket.page + 1;
+
     bucket.loading = true;
     bucket.error = "";
 
@@ -155,7 +178,7 @@ async function _loadNextPage(type, {keyword = "", pageSize = DEFAULT_PAGE_SIZE} 
             const seen = new Set();
             const merged = [];
 
-            for (const item of [...bucket.items, ...data.items]) {
+            for (const item of [...prevItems, ...data.items]) {
                 const id = item?.id;
                 const key = id == null ? JSON.stringify(item) : String(id);
                 if (seen.has(key)) continue;
@@ -163,11 +186,27 @@ async function _loadNextPage(type, {keyword = "", pageSize = DEFAULT_PAGE_SIZE} 
                 merged.push(item);
             }
 
+            const newLen = merged.length;
+            const addedCount = newLen - prevLen;
+
             bucket.items = merged;
-            bucket.page = data.page;
             bucket.total = data.total;
-            bucket.hasMore = data.hasMore;
             bucket.loaded = true;
+
+            // 关键保护：不信任后端错误回写 page，按请求页推进
+            bucket.page = nextPage;
+
+            // 本次没有新增项，直接熔断，防止重复页死循环
+            if (addedCount <= 0) {
+                bucket.hasMore = false;
+                return bucket;
+            }
+
+            const safePageSize = _normalizePageSize(pageSize);
+            const canInferByTotal = Number.isFinite(bucket.total) && bucket.total > 0;
+            const inferHasMoreByTotal = canInferByTotal ? bucket.items.length < bucket.total : data.items.length >= safePageSize;
+
+            bucket.hasMore = !!(data.hasMore && inferHasMoreByTotal);
             return bucket;
         })
         .catch((err) => {

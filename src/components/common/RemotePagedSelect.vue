@@ -1,24 +1,24 @@
 <template>
   <el-select
-      ref="selectRef"
-      :model-value="modelValue"
-      filterable
-      remote
-      reserve-keyword
-      clearable
-      :placeholder="placeholder"
-      :class="selectClass"
-      :loading="loading"
-      :disabled="disabled"
-      :remote-method="onSearch"
-      @update:model-value="onUpdate"
-      @visible-change="onVisibleChange"
+    ref="selectRef"
+    :model-value="innerModelValue"
+    filterable
+    remote
+    reserve-keyword
+    clearable
+    :placeholder="placeholder"
+    :class="selectClass"
+    :loading="loading"
+    :disabled="disabled"
+    :remote-method="onSearch"
+    @update:model-value="onUpdate"
+    @visible-change="onVisibleChange"
   >
     <el-option
-        v-for="item in items"
-        :key="String(item.id)"
-        :label="labelFormatter(item)"
-        :value="item.id"
+      v-for="item in mergedItems"
+      :key="item._value"
+      :label="labelFormatter(item)"
+      :value="item._value"
     />
 
     <template #empty>
@@ -61,6 +61,10 @@ const props = defineProps({
     type: String,
     default: "",
   },
+  currentOption: {
+    type: Object,
+    default: null,
+  },
 });
 
 const emit = defineEmits(["update:modelValue"]);
@@ -79,6 +83,27 @@ const {
   channelGroupLabel,
 } = useCustomerChannelGroups();
 
+function toInnerValue(v) {
+  if (v === null || v === undefined || v === "") return "";
+  return String(v);
+}
+
+function toOuterValue(v) {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : v;
+}
+
+function normalizeItem(item) {
+  if (!item || item.id == null) return null;
+  return {
+    ...item,
+    _value: String(item.id),
+  };
+}
+
+const innerModelValue = computed(() => toInnerValue(props.modelValue));
+
 const bucket = computed(() => {
   if (props.type === "channels") {
     return getChannelBucket(keyword.value, props.pageSize);
@@ -93,11 +118,29 @@ const labelFormatter = computed(() => {
   return props.type === "channels" ? channelGroupLabel : customerGroupLabel;
 });
 
+const mergedItems = computed(() => {
+  const arr = [];
+  const seen = new Set();
+
+  const pushOne = (item) => {
+    const normalized = normalizeItem(item);
+    if (!normalized) return;
+    if (seen.has(normalized._value)) return;
+    seen.add(normalized._value);
+    arr.push(normalized);
+  };
+
+  pushOne(props.currentOption);
+  for (const item of items.value) pushOne(item);
+
+  return arr;
+});
+
 let scrollWrap = null;
 let scrollHandler = null;
 
 function onUpdate(v) {
-  emit("update:modelValue", v);
+  emit("update:modelValue", toOuterValue(v));
 }
 
 function detachScrollListener() {
@@ -122,7 +165,7 @@ function nearBottom(el) {
   const height = Number(el.clientHeight || 0);
 
   if (total <= 0 || height <= 0) return false;
-  return (top + height) / total >= 0.8;
+  return top + height >= total - 40;
 }
 
 async function ensureFirstPage() {
