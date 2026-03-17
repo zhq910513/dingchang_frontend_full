@@ -17,23 +17,23 @@
     </div>
 
     <OrderSearchBar
-        v-model="filters"
-        variant="users"
-        :loading="loading"
-        :role-name="roleName"
-        :user-role-options="userRoleOptions"
-        @search="search"
-        @reset="resetFilters"
-        style="margin-top: 15px;"
+      v-model="filters"
+      variant="users"
+      :loading="loading"
+      :role-name="roleName"
+      :user-role-options="userRoleOptions"
+      @search="search"
+      @reset="resetFilters"
+      style="margin-top: 15px;"
     />
 
     <div class="table-scroll" style="margin-top: 15px;">
       <el-table
-          :data="list"
-          stripe
-          v-loading="loading"
-          row-key="id"
-          :fit="true"
+        :data="list"
+        stripe
+        v-loading="loading"
+        row-key="id"
+        :fit="true"
       >
         <el-table-column prop="team_name" label="团队" min-width="180" show-overflow-tooltip>
           <template #default="{ row }">
@@ -41,7 +41,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="username" label="账号" min-width="180" show-overflow-tooltip/>
+        <el-table-column prop="username" label="账号" min-width="180" show-overflow-tooltip />
 
         <el-table-column prop="real_name" label="真实姓名" min-width="180" show-overflow-tooltip>
           <template #default="{ row }">
@@ -64,10 +64,10 @@
         </el-table-column>
 
         <el-table-column
-            v-if="showOnlineColumn"
-            prop="is_online"
-            label="是否在线"
-            min-width="120"
+          v-if="showOnlineColumn"
+          prop="is_online"
+          label="是否在线"
+          min-width="120"
         >
           <template #default="{ row }">
             <el-tag :type="row?.is_online ? 'success' : 'info'">
@@ -84,24 +84,24 @@
 
         <el-table-column label="操作" width="220" align="center">
           <template #default="{ row }">
-            <el-tooltip v-if="!canEdit" content="无权限" placement="top">
+            <el-tooltip v-if="!canEditRow(row)" content="无权限" placement="top">
               <span>
                 <el-button size="small" disabled>编辑</el-button>
               </span>
             </el-tooltip>
             <el-button v-else size="small" @click="openEditDialog(row)">编辑</el-button>
 
-            <el-tooltip v-if="!canDelete" content="无权限" placement="top">
+            <el-tooltip v-if="!canDeleteRow(row)" content="无权限" placement="top">
               <span>
                 <el-button size="small" type="danger" disabled>删除</el-button>
               </span>
             </el-tooltip>
             <el-button
-                v-else
-                size="small"
-                type="danger"
-                :disabled="isSelf(row)"
-                @click="onDelete(row)"
+              v-else
+              size="small"
+              type="danger"
+              :disabled="isSelf(row)"
+              @click="onDelete(row)"
             >
               删除
             </el-button>
@@ -110,58 +110,64 @@
       </el-table>
     </div>
 
-    <el-empty v-if="!loading && !list.length" description="暂无子账号" style="margin-top: 20px"/>
+    <el-empty v-if="!loading && !list.length" description="暂无子账号" style="margin-top: 20px" />
 
     <el-dialog
-        v-model="createDialogVisible"
-        title="创建子账号"
-        width="420px"
-        destroy-on-close
-        @closed="onCreateDialogClosed"
+      v-model="createDialogVisible"
+      title="创建子账号"
+      width="420px"
+      destroy-on-close
+      @closed="onCreateDialogClosed"
     >
-      <CreateUser mode="create" @success="onCreateSuccess"/>
+      <CreateUser
+        mode="create"
+        :allowed-role-names="creatableRoleNames"
+        @success="onCreateSuccess"
+      />
     </el-dialog>
 
     <el-dialog
-        v-model="editDialogVisible"
-        title="编辑账号"
-        width="420px"
-        destroy-on-close
-        @closed="onEditDialogClosed"
+      v-model="editDialogVisible"
+      title="编辑账号"
+      width="420px"
+      destroy-on-close
+      @closed="onEditDialogClosed"
     >
-      <CreateUser mode="edit" :initial-user="editingUser" @success="onEditSuccess"/>
+      <CreateUser
+        mode="edit"
+        :initial-user="editingUser"
+        :allowed-role-names="creatableRoleNames"
+        @success="onEditSuccess"
+      />
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import {computed, onBeforeUnmount, onMounted, ref} from "vue";
-import {ElMessage, ElMessageBox} from "element-plus";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { ElMessage, ElMessageBox } from "element-plus";
 import OrderSearchBar from "../../components/OrderSearchBar.vue";
 import CreateUser from "./CreateUser.vue";
-import {deleteUser, listUsers} from "../../api/users";
-import {useSessionStore} from "../../store/session";
-import {ROLE} from "../../constants";
+import { deleteUser, listUsers } from "../../api/users";
+import { useSessionStore } from "../../store/session";
+import { ROLE } from "../../constants";
 
 const store = useSessionStore();
 
 const roleName = computed(() => String(store.roleName || "").trim().toLowerCase());
 const showOnlineColumn = computed(() => roleName.value === ROLE.SUPER_ADMIN);
 
-const canCreate = computed(() => {
-  return roleName.value === ROLE.SUPER_ADMIN || roleName.value === ROLE.MANAGER;
-});
-
-const canEdit = computed(() => {
-  return roleName.value === ROLE.SUPER_ADMIN || roleName.value === ROLE.MANAGER;
-});
-
-const canDelete = computed(() => {
-  return roleName.value === ROLE.SUPER_ADMIN || roleName.value === ROLE.MANAGER;
-});
-
 const list = ref([]);
 const loading = ref(false);
+const listMeta = ref({
+  capabilities: {
+    user_create: false,
+    user_list_view: false,
+  },
+  scopes: {
+    user_creatable_role_names: [],
+  },
+});
 
 const createDialogVisible = ref(false);
 const editDialogVisible = ref(false);
@@ -172,104 +178,150 @@ const filters = ref({
   role: null,
 });
 
-const userRoleOptions = [
-  {label: "经理", value: "manager"},
-  {label: "业务", value: "sales"},
-  {label: "财务", value: "finance"},
-  {label: "市场", value: "market"},
+const ROLE_LABEL_MAP = {
+  [ROLE.SUPER_ADMIN]: "超级管理员",
+  [ROLE.MANAGER]: "经理",
+  [ROLE.SALES]: "业务",
+  [ROLE.FINANCE]: "财务",
+  [ROLE.MARKET]: "市场",
+};
+
+const ALL_ROLE_OPTIONS = [
+  { label: "经理", value: ROLE.MANAGER },
+  { label: "业务", value: ROLE.SALES },
+  { label: "财务", value: ROLE.FINANCE },
+  { label: "市场", value: ROLE.MARKET },
 ];
+
+const creatableRoleNames = computed(() => {
+  const raw = listMeta.value?.scopes?.user_creatable_role_names;
+  if (!Array.isArray(raw)) return [];
+  return [...new Set(raw.map((item) => String(item || "").trim().toLowerCase()).filter(Boolean))];
+});
+
+const userRoleOptions = computed(() => {
+  const allowed = new Set(creatableRoleNames.value);
+  if (!allowed.size) return [];
+  return ALL_ROLE_OPTIONS.filter((item) => allowed.has(String(item.value || "").trim().toLowerCase()));
+});
+
+const canCreate = computed(() => {
+  return !!listMeta.value?.capabilities?.user_create;
+});
 
 let refreshTimer = null;
 const AUTO_REFRESH_MS = 2 * 60 * 1000;
 
 function formatTeams(row) {
-  const arr = Array.isArray(row?.team_names) ? row.team_names : [];
-  const cleaned = [...new Set(arr.map((x) => String(x || "").trim()).filter(Boolean))];
+  const teamNames = Array.isArray(row?.team_names) ? row.team_names : [];
+  const cleaned = [...new Set(teamNames.map((item) => String(item || "").trim()).filter(Boolean))];
   if (cleaned.length) return cleaned.join("、");
   const single = String(row?.team_name || "").trim();
   return single || "-";
 }
 
 function formatRoleName(role) {
-  const r = String(role || "").trim().toLowerCase();
-  if (!r) return "-";
-  if (r === ROLE.SUPER_ADMIN) return "超级管理员";
-  if (r === ROLE.MANAGER) return "经理";
-  if (r === ROLE.SALES) return "业务";
-  if (r === ROLE.FINANCE) return "财务";
-  if (r === ROLE.MARKET) return "市场";
-  return r;
+  const normalizedRole = String(role || "").trim().toLowerCase();
+  if (!normalizedRole) return "-";
+  return ROLE_LABEL_MAP[normalizedRole] || normalizedRole;
 }
 
-function formatDateTime(v) {
-  if (!v) return "-";
-  const d = v instanceof Date ? v : new Date(String(v).replace(" ", "T"));
-  if (Number.isNaN(d.getTime())) return String(v);
+function formatDateTime(value) {
+  if (!value) return "-";
+  const dateValue = value instanceof Date ? value : new Date(String(value).replace(" ", "T"));
+  if (Number.isNaN(dateValue.getTime())) return String(value);
 
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mi = String(d.getMinutes()).padStart(2, "0");
-  const ss = String(d.getSeconds()).padStart(2, "0");
+  const yyyy = dateValue.getFullYear();
+  const mm = String(dateValue.getMonth() + 1).padStart(2, "0");
+  const dd = String(dateValue.getDate()).padStart(2, "0");
+  const hh = String(dateValue.getHours()).padStart(2, "0");
+  const mi = String(dateValue.getMinutes()).padStart(2, "0");
+  const ss = String(dateValue.getSeconds()).padStart(2, "0");
 
   return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
 }
 
-function toTimestamp(v) {
-  if (!v) return 0;
-  if (typeof v === "number" && Number.isFinite(v)) return v;
-  const d = v instanceof Date ? v : new Date(String(v).replace(" ", "T"));
-  const ts = d.getTime();
-  return Number.isNaN(ts) ? 0 : ts;
-}
-
-function sortUsersByUpdatedDesc(rows) {
-  const arr = Array.isArray(rows) ? [...rows] : [];
-  arr.sort((a, b) => {
-    const ta = toTimestamp(a?.updated_at) || toTimestamp(a?.created_at) || Number(a?.id || 0);
-    const tb = toTimestamp(b?.updated_at) || toTimestamp(b?.created_at) || Number(b?.id || 0);
-    return tb - ta;
-  });
-  return arr;
-}
-
 function isSelf(row) {
   const myId = Number(store.user?.id || 0);
-  const rid = Number(row?.id || 0);
-  if (!myId || !rid) return false;
-  return myId === rid;
+  const rowId = Number(row?.id || 0);
+  if (!myId || !rowId) return false;
+  return myId === rowId;
 }
 
-function normalizeList(resp) {
+function normalizeListPayload(resp) {
   const root = resp?.data ?? resp ?? {};
-  if (Array.isArray(root?.items)) return root.items;
-  if (Array.isArray(root?.list)) return root.list;
-  if (Array.isArray(root?.rows)) return root.rows;
-  if (Array.isArray(root)) return root;
-  return [];
+  const items = Array.isArray(root?.items)
+    ? root.items
+    : Array.isArray(root?.list)
+      ? root.list
+      : Array.isArray(root?.rows)
+        ? root.rows
+        : Array.isArray(root)
+          ? root
+          : [];
+
+  const metaRoot = root?.meta && typeof root.meta === "object" ? root.meta : {};
+  const capabilitiesRoot =
+    metaRoot?.capabilities && typeof metaRoot.capabilities === "object"
+      ? metaRoot.capabilities
+      : {};
+  const scopesRoot =
+    metaRoot?.scopes && typeof metaRoot.scopes === "object"
+      ? metaRoot.scopes
+      : {};
+
+  const normalizedMeta = {
+    capabilities: {
+      user_create: !!capabilitiesRoot.user_create,
+      user_list_view: !!capabilitiesRoot.user_list_view,
+    },
+    scopes: {
+      user_creatable_role_names: Array.isArray(scopesRoot.user_creatable_role_names)
+        ? [...new Set(
+            scopesRoot.user_creatable_role_names
+              .map((item) => String(item || "").trim().toLowerCase())
+              .filter(Boolean),
+          )]
+        : [],
+    },
+  };
+
+  return {
+    items,
+    meta: normalizedMeta,
+  };
 }
 
 function buildParams() {
-  const p = {};
+  const params = {};
 
   const keyword = String(filters.value?.keyword || "").trim();
-  if (keyword) p.keyword = keyword;
+  if (keyword) params.keyword = keyword;
 
   const role = String(filters.value?.role || "").trim().toLowerCase();
-  if (role) p.role = role;
+  if (role) params.role = role;
 
-  return p;
+  return params;
+}
+
+function canEditRow(row) {
+  return !!row?.meta?.capabilities?.user_update;
+}
+
+function canDeleteRow(row) {
+  return !!row?.meta?.capabilities?.user_delete;
 }
 
 async function load() {
   loading.value = true;
   try {
     const resp = await listUsers(buildParams());
-    list.value = sortUsersByUpdatedDesc(normalizeList(resp));
-  } catch (e) {
-    console.error(e);
-    ElMessage.error(e?.response?.data?.detail || "加载账号失败");
+    const payload = normalizeListPayload(resp);
+    list.value = payload.items;
+    listMeta.value = payload.meta;
+  } catch (error) {
+    console.error(error);
+    ElMessage.error(error?.response?.data?.detail || "加载账号失败");
   } finally {
     loading.value = false;
   }
@@ -296,12 +348,12 @@ function openCreateDialog() {
 }
 
 function openEditDialog(row) {
-  if (!canEdit.value) {
+  if (!canEditRow(row)) {
     ElMessage.error("无权限");
     return;
   }
   if (!row?.id) return;
-  editingUser.value = {...(row || {})};
+  editingUser.value = { ...(row || {}) };
   editDialogVisible.value = true;
 }
 
@@ -326,7 +378,7 @@ function onEditDialogClosed() {
 }
 
 async function onDelete(row) {
-  if (!canDelete.value) {
+  if (!canDeleteRow(row)) {
     ElMessage.error("无权限");
     return;
   }
@@ -341,18 +393,22 @@ async function onDelete(row) {
 
   try {
     await ElMessageBox.confirm(
-        `确认删除账号：${row?.real_name || row?.username || id}？删除后无法恢复`,
-        "删除确认",
-        {type: "warning", confirmButtonText: "删除", cancelButtonText: "取消"}
+      `确认删除账号：${row?.real_name || row?.username || id}？删除后无法恢复`,
+      "删除确认",
+      {
+        type: "warning",
+        confirmButtonText: "删除",
+        cancelButtonText: "取消",
+      },
     );
 
     await deleteUser(id);
     ElMessage.success("删除成功");
     await load();
-  } catch (e) {
-    if (e === "cancel" || e === "close") return;
-    console.error(e);
-    ElMessage.error(e?.response?.data?.detail || e?.message || "删除失败");
+  } catch (error) {
+    if (error === "cancel" || error === "close") return;
+    console.error(error);
+    ElMessage.error(error?.response?.data?.detail || error?.message || "删除失败");
   }
 }
 
