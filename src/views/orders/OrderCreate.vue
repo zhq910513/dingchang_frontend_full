@@ -52,44 +52,24 @@
             <div class="kv-item">
               <div class="kv-label">渠道</div>
               <div class="kv-value">
-                <el-select
+                <RemotePagedSelect
                     v-model="editMeta.channel_group_id"
-                    filterable
-                    clearable
+                    type="channels"
                     placeholder="请选择渠道（必选）"
-                    class="fv fv-select"
-                    :loading="channelLoading"
-                    :disabled="channelLoading"
-                >
-                  <el-option
-                      v-for="op in channelOptions"
-                      :key="String(op.id)"
-                      :label="formatGroupLabel(op)"
-                      :value="op.id"
-                  />
-                </el-select>
+                    select-class="fv fv-select"
+                />
               </div>
             </div>
 
             <div class="kv-item">
               <div class="kv-label">客户</div>
               <div class="kv-value">
-                <el-select
+                <RemotePagedSelect
                     v-model="editMeta.customer_group_id"
-                    filterable
-                    clearable
+                    type="customers"
                     placeholder="请选择客户（必选）"
-                    class="fv fv-select"
-                    :loading="customerLoading"
-                    :disabled="customerLoading"
-                >
-                  <el-option
-                      v-for="op in customerOptions"
-                      :key="String(op.id)"
-                      :label="formatGroupLabel(op)"
-                      :value="op.id"
-                  />
-                </el-select>
+                    select-class="fv fv-select"
+                />
               </div>
             </div>
           </div>
@@ -626,6 +606,7 @@ import {ElMessage, ElMessageBox, ElNotification} from "element-plus";
 import {CaretBottom, CaretTop} from "@element-plus/icons-vue";
 
 import VehicleCertTable from "./VehicleCertTable.vue";
+import RemotePagedSelect from "@/components/common/RemotePagedSelect.vue";
 
 import http from "../../api/http";
 import {createOrderDraft, finalizeOrderUpload, uploadOrderImageProxy} from "../../api/orders";
@@ -726,11 +707,6 @@ function goBack() {
   router.push({path: "/orders/all"});
 }
 
-const channelOptions = ref([]);
-const customerOptions = ref([]);
-const channelLoading = ref(false);
-const customerLoading = ref(false);
-
 const editMeta = reactive({
   channel_group_id: null,
   customer_group_id: null,
@@ -748,49 +724,8 @@ function _pickFirst(obj, keys) {
   return "";
 }
 
-function formatGroupLabel(op) {
-  const code = _pickFirst(op, [
-    "channel_code",
-    "customer_code",
-    "group_code",
-    "code",
-    "groupCode",
-    "group_code_str",
-    "groupCodeStr",
-  ]);
-  const name = _pickFirst(op, ["channel_name", "customer_name", "group_name", "name", "groupName"]);
-  const id = op?.id !== null && op?.id !== undefined ? String(op.id) : "";
 
-  if (code && name) return `${code} - ${name}`;
-  if (name) return String(name);
-  if (code) return String(code);
-  return id || "-";
-}
 
-function _extractItems(resp) {
-  const d = resp?.data;
-  if (Array.isArray(d?.items)) return d.items;
-  if (Array.isArray(d)) return d;
-  if (Array.isArray(d?.data?.items)) return d.data.items;
-  if (Array.isArray(d?.data)) return d.data;
-  return [];
-}
-
-async function loadGroupOptions() {
-  channelLoading.value = true;
-  customerLoading.value = true;
-  try {
-    const [c1, c2] = await Promise.all([http.get("/orders/channel-groups"), http.get("/orders/customer-groups")]);
-    channelOptions.value = _extractItems(c1);
-    customerOptions.value = _extractItems(c2);
-  } catch (e) {
-    console.error(e);
-    ElMessage.error("加载渠道/客户选项失败");
-  } finally {
-    channelLoading.value = false;
-    customerLoading.value = false;
-  }
-}
 
 const {groups, allFields, loadConfig} = useOrderFieldConfig();
 
@@ -1472,7 +1407,6 @@ async function save() {
 
 onMounted(async () => {
   await loadConfig("order");
-  await loadGroupOptions();
 
   for (const f of allFields.value || []) {
     if (!(f.key in editData)) editData[f.key] = "";

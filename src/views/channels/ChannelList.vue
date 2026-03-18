@@ -6,34 +6,39 @@
 
       <div class="header-actions">
         <el-tooltip
-            v-if="pageCaps.can_view_deleted"
-            :content="showDeleted ? '点击隐藏已删除' : '点击显示已删除'"
-            placement="top"
+          :content="showDeleted ? '点击隐藏已删除' : '点击显示已删除'"
+          placement="top"
         >
           <el-button
-              size="small"
-              class="toggle-btn"
-              :class="{ 'toggle-btn--active': showDeleted }"
-              :type="showDeleted ? 'info' : 'default'"
-              :plain="true"
-              :loading="loading"
-              @click="toggleShowDeleted"
+            size="small"
+            class="toggle-btn"
+            :class="{ 'toggle-btn--active': showDeleted }"
+            :type="showDeleted ? 'info' : 'default'"
+            :plain="true"
+            :loading="loading"
+            @click="toggleShowDeleted"
           >
             <el-icon class="btn-ico">
-              <Hide v-if="showDeleted"/>
-              <View v-else/>
+              <Hide v-if="showDeleted" />
+              <View v-else />
             </el-icon>
-            {{ showDeleted ? "隐藏已删除" : "显示已删除" }}
+            {{ showDeleted ? '隐藏已删除' : '显示已删除' }}
           </el-button>
         </el-tooltip>
 
-        <el-tooltip v-if="!pageCaps.can_create" content="财务账号无新增权限" placement="top">
+        <el-tooltip
+          v-if="!hasPageCapability('channel.create')"
+          content="当前账号无新增渠道权限"
+          placement="top"
+        >
           <span>
             <el-button type="primary" size="small" disabled>新增渠道</el-button>
           </span>
         </el-tooltip>
 
-        <el-button v-else type="primary" size="small" @click="openCreateDialog">新增渠道</el-button>
+        <el-button v-else type="primary" size="small" @click="openCreateDialog">
+          新增渠道
+        </el-button>
       </div>
     </div>
 
@@ -44,44 +49,44 @@
         <div class="toolbar-content">
           <div class="toolbar-fields">
             <el-input
-                v-model="filters.channel_code"
-                size="small"
-                clearable
-                placeholder="渠道代码（模糊）"
-                class="toolbar-input"
-                :disabled="loading"
-                @keyup.enter="applyFilter"
-                @clear="applyFilter"
+              v-model="filters.channel_code"
+              size="small"
+              clearable
+              placeholder="渠道代码（模糊）"
+              class="toolbar-input"
+              :disabled="loading"
+              @keyup.enter="applyFilter"
+              @clear="applyFilter"
             />
             <el-input
-                v-model="filters.channel_name"
-                size="small"
-                clearable
-                placeholder="渠道名称（模糊）"
-                class="toolbar-input"
-                :disabled="loading"
-                @keyup.enter="applyFilter"
-                @clear="applyFilter"
+              v-model="filters.channel_name"
+              size="small"
+              clearable
+              placeholder="渠道名称（模糊）"
+              class="toolbar-input"
+              :disabled="loading"
+              @keyup.enter="applyFilter"
+              @clear="applyFilter"
             />
             <el-input
-                v-model="filters.region"
-                size="small"
-                clearable
-                placeholder="归属地（模糊）"
-                class="toolbar-input"
-                :disabled="loading"
-                @keyup.enter="applyFilter"
-                @clear="applyFilter"
+              v-model="filters.region"
+              size="small"
+              clearable
+              placeholder="归属地（模糊）"
+              class="toolbar-input"
+              :disabled="loading"
+              @keyup.enter="applyFilter"
+              @clear="applyFilter"
             />
             <el-input
-                v-model="filters.created_by_name"
-                size="small"
-                clearable
-                placeholder="创建人（模糊）"
-                class="toolbar-input"
-                :disabled="loading"
-                @keyup.enter="applyFilter"
-                @clear="applyFilter"
+              v-model="filters.created_by_name"
+              size="small"
+              clearable
+              placeholder="创建人（模糊）"
+              class="toolbar-input"
+              :disabled="loading"
+              @keyup.enter="applyFilter"
+              @clear="applyFilter"
             />
           </div>
 
@@ -99,7 +104,7 @@
         <el-table-column prop="channel_code" label="渠道代码" min-width="170" show-overflow-tooltip>
           <template #default="{ row }">
             <div class="code-cell">
-              <span class="code-text">{{ row.channel_code || "-" }}</span>
+              <span class="code-text">{{ row.channel_code || '-' }}</span>
               <el-tag v-if="isRowDeleted(row)" size="small" type="info" class="deleted-tag">已删除</el-tag>
             </div>
           </template>
@@ -107,31 +112,31 @@
 
         <el-table-column prop="channel_name" label="渠道名称" min-width="180" show-overflow-tooltip>
           <template #default="{ row }">
-            {{ row.channel_name || "-" }}
+            {{ row.channel_name || '-' }}
           </template>
         </el-table-column>
 
         <el-table-column prop="region" label="归属地" min-width="140" show-overflow-tooltip>
           <template #default="{ row }">
-            {{ row.region || "-" }}
+            {{ row.region || '-' }}
           </template>
         </el-table-column>
 
         <el-table-column label="联系方式" min-width="220" show-overflow-tooltip>
           <template #default="{ row }">
-            {{ formatContacts(row.contacts) || "-" }}
+            {{ formatContacts(row.contacts) || '-' }}
           </template>
         </el-table-column>
 
         <el-table-column prop="created_by_name" label="创建人" width="120" show-overflow-tooltip>
           <template #default="{ row }">
-            {{ row.created_by_name || "-" }}
+            {{ row.created_by_name || '-' }}
           </template>
         </el-table-column>
 
         <el-table-column prop="created_at" label="创建时间" width="180" show-overflow-tooltip>
           <template #default="{ row }">
-            {{ row.created_at || "-" }}
+            {{ row.created_at || '-' }}
           </template>
         </el-table-column>
 
@@ -147,15 +152,27 @@
             </template>
 
             <template v-else>
-              <el-tooltip v-if="!pageCaps.can_edit" content="仅经理/超级账号/市场账号可编辑" placement="top">
+              <el-tooltip
+                v-if="!hasRowCapability(row, 'channel.update')"
+                content="当前账号无编辑该渠道权限"
+                placement="top"
+              >
                 <span><el-button type="primary" size="small" link disabled>编辑</el-button></span>
               </el-tooltip>
-              <el-button v-else type="primary" size="small" link @click="openEditDialog(row)">编辑</el-button>
+              <el-button v-else type="primary" size="small" link @click="openEditDialog(row)">
+                编辑
+              </el-button>
 
-              <el-tooltip v-if="!pageCaps.can_delete" content="财务账号无删除权限" placement="top">
+              <el-tooltip
+                v-if="!hasRowCapability(row, 'channel.delete')"
+                content="当前账号无删除该渠道权限"
+                placement="top"
+              >
                 <span><el-button type="danger" size="small" link disabled>删除</el-button></span>
               </el-tooltip>
-              <el-button v-else type="danger" size="small" link @click="openDeleteDialog(row)">删除</el-button>
+              <el-button v-else type="danger" size="small" link @click="openDeleteDialog(row)">
+                删除
+              </el-button>
             </template>
           </template>
         </el-table-column>
@@ -164,29 +181,29 @@
 
     <div class="pagination-bar">
       <el-pagination
-          background
-          layout="prev, pager, next, jumper, sizes, total"
-          :current-page="page"
-          :page-size="pageSize"
-          :total="total"
-          :page-sizes="[10, 20, 50, 100]"
-          @current-change="onPageChange"
-          @size-change="onPageSizeChange"
+        background
+        layout="prev, pager, next, jumper, sizes, total"
+        :current-page="page"
+        :page-size="pageSize"
+        :total="total"
+        :page-sizes="[10, 20, 50, 100]"
+        @current-change="onPageChange"
+        @size-change="onPageSizeChange"
       />
     </div>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="520px" destroy-on-close>
       <el-form :model="form" :rules="rules" ref="formRef" label-width="90px">
         <el-form-item label="渠道代码" prop="channel_code">
-          <el-input v-model="form.channel_code" clearable/>
+          <el-input v-model="form.channel_code" clearable />
         </el-form-item>
 
         <el-form-item label="渠道名称" prop="channel_name">
-          <el-input v-model="form.channel_name" clearable/>
+          <el-input v-model="form.channel_name" clearable />
         </el-form-item>
 
         <el-form-item label="归属地" prop="region">
-          <el-input v-model="form.region" clearable/>
+          <el-input v-model="form.region" clearable />
         </el-form-item>
 
         <el-form-item label="联系方式" prop="contacts">
@@ -201,17 +218,17 @@
             <div v-else class="contacts-list">
               <div v-for="(c, idx) in form.contacts" :key="idx" class="contacts-row">
                 <el-select v-model="c.type" class="contacts-type" placeholder="类型" @change="onContactTypeChange(idx)">
-                  <el-option label="手机号" value="mobile"/>
-                  <el-option label="座机" value="tel"/>
+                  <el-option label="手机号" value="mobile" />
+                  <el-option label="座机" value="tel" />
                 </el-select>
 
                 <el-input
-                    v-model="c.value"
-                    class="contacts-value"
-                    clearable
-                    placeholder="手机号：11位；座机：010-88888888 / 400xxxxxxx"
-                    @input="(val) => onContactValueInput(idx, val)"
-                    @blur="() => validateContactsField()"
+                  v-model="c.value"
+                  class="contacts-value"
+                  clearable
+                  placeholder="手机号：11位；座机：010-88888888 / 400xxxxxxx"
+                  @input="(val) => onContactValueInput(idx, val)"
+                  @blur="() => validateContactsField()"
                 />
 
                 <el-button type="danger" size="small" link class="contacts-remove" @click="removeContact(idx)">
@@ -232,18 +249,18 @@
     </el-dialog>
 
     <el-dialog
-        v-model="deleteDialogVisible"
-        width="440px"
-        destroy-on-close
-        append-to-body
-        :show-close="false"
-        class="confirm-dialog"
-        @closed="onDeleteDialogClosed"
+      v-model="deleteDialogVisible"
+      width="440px"
+      destroy-on-close
+      append-to-body
+      :show-close="false"
+      class="confirm-dialog"
+      @closed="onDeleteDialogClosed"
     >
       <div class="cd">
         <div class="cd-icon-wrap">
           <el-icon class="cd-icon">
-            <WarningFilled/>
+            <WarningFilled />
           </el-icon>
         </div>
 
@@ -264,65 +281,98 @@
 </template>
 
 <script setup>
-import {computed, nextTick, onMounted, ref} from "vue";
-import {ElMessage} from "element-plus";
-import {Hide, View, WarningFilled} from "@element-plus/icons-vue";
+import { computed, nextTick, onMounted, ref } from 'vue';
+import { ElMessage } from 'element-plus';
+import { Hide, View, WarningFilled } from '@element-plus/icons-vue';
 import {
   createChannelGroup,
   deleteChannelGroup,
   listChannelGroups,
   updateChannelGroup,
-} from "../../api/customerChannel";
+} from '../../api/customerChannel';
 
 const loading = ref(false);
 const page = ref(1);
 const pageSize = ref(20);
 const total = ref(0);
 const rawItems = ref([]);
-const pageCaps = ref({
-  can_create: false,
-  can_edit: false,
-  can_delete: false,
-  can_view_deleted: false,
+const pageMeta = ref({
+  capabilities: {},
+  scopes: {},
+  pagination: {
+    page: 1,
+    page_size: 20,
+  },
 });
 
 let _reqSeq = 0;
 
 const showDeleted = ref(false);
 const filters = ref({
-  channel_code: "",
-  channel_name: "",
-  region: "",
-  created_by_name: "",
+  channel_code: '',
+  channel_name: '',
+  region: '',
+  created_by_name: '',
 });
 
 function _trim(v) {
-  const s = String(v ?? "").trim();
-  return s ? s : "";
+  const s = String(v ?? '').trim();
+  return s ? s : '';
+}
+
+function _toBool(v) {
+  return Boolean(v);
+}
+
+function hasPageCapability(capabilityKey) {
+  return _toBool(pageMeta.value?.capabilities?.[capabilityKey]);
+}
+
+function hasRowCapability(row, capabilityKey) {
+  return _toBool(row?.meta?.capabilities?.[capabilityKey]);
 }
 
 function isRowDeleted(row) {
   return Boolean(row?.is_deleted) || Boolean(row?.deleted_at);
 }
 
-function _typeLabel(t) {
-  const s = String(t || "").trim().toLowerCase();
-  if (s === "mobile") return "手机号";
-  if (s === "tel") return "座机";
-  return s || "";
+function _typeLabel(contactType) {
+  const normalizedType = String(contactType || '').trim().toLowerCase();
+  if (normalizedType === 'mobile') return '手机号';
+  if (normalizedType === 'tel') return '座机';
+  return normalizedType || '';
 }
 
 function formatContacts(list) {
-  if (!Array.isArray(list) || !list.length) return "";
+  if (!Array.isArray(list) || !list.length) return '';
   return list
-      .map((c) => {
-        if (!c) return "";
-        const t = _typeLabel(c.type);
-        const v = c.value ? String(c.value) : "";
-        return t ? `${t}:${v}` : v;
-      })
-      .filter(Boolean)
-      .join("；");
+    .map((contactItem) => {
+      if (!contactItem) return '';
+      const contactTypeLabel = _typeLabel(contactItem.type);
+      const contactValue = contactItem.value ? String(contactItem.value) : '';
+      return contactTypeLabel ? `${contactTypeLabel}:${contactValue}` : contactValue;
+    })
+    .filter(Boolean)
+    .join('；');
+}
+
+function _applyListResponse(data) {
+  const responseMeta = data?.meta ?? {};
+  const responsePagination = responseMeta?.pagination ?? {};
+
+  total.value = Number(data?.total || 0);
+  rawItems.value = Array.isArray(data?.items) ? data.items : [];
+  pageMeta.value = {
+    capabilities: responseMeta?.capabilities ?? {},
+    scopes: responseMeta?.scopes ?? {},
+    pagination: {
+      page: Number(responsePagination?.page || page.value || 1),
+      page_size: Number(responsePagination?.page_size || pageSize.value || 20),
+    },
+  };
+
+  page.value = pageMeta.value.pagination.page;
+  pageSize.value = pageMeta.value.pagination.page_size;
 }
 
 async function loadList() {
@@ -335,36 +385,24 @@ async function loadList() {
       include_deleted: showDeleted.value ? 1 : 0,
     };
 
-    const cc = _trim(filters.value.channel_code);
-    const cn = _trim(filters.value.channel_name);
-    const rg = _trim(filters.value.region);
-    const cb = _trim(filters.value.created_by_name);
+    const channelCode = _trim(filters.value.channel_code);
+    const channelName = _trim(filters.value.channel_name);
+    const region = _trim(filters.value.region);
+    const createdByName = _trim(filters.value.created_by_name);
 
-    if (cc) params.channel_code = cc;
-    if (cn) params.channel_name = cn;
-    if (rg) params.region = rg;
-    if (cb) params.created_by_name = cb;
+    if (channelCode) params.channel_code = channelCode;
+    if (channelName) params.channel_name = channelName;
+    if (region) params.region = region;
+    if (createdByName) params.created_by_name = createdByName;
 
     const resp = await listChannelGroups(params);
     if (seq !== _reqSeq) return;
 
-    const data = resp?.data || {};
-    total.value = Number(data.total || 0);
-    rawItems.value = Array.isArray(data.items) ? data.items : [];
-    pageCaps.value = data.capabilities || {
-      can_create: false,
-      can_edit: false,
-      can_delete: false,
-      can_view_deleted: false,
-    };
-
-    if (!pageCaps.value.can_view_deleted && showDeleted.value) {
-      showDeleted.value = false;
-    }
-  } catch (e) {
+    _applyListResponse(resp?.data || {});
+  } catch (error) {
     if (seq !== _reqSeq) return;
-    console.error(e);
-    ElMessage.error(e?.response?.data?.detail || e?.message || "渠道列表加载失败");
+    console.error(error);
+    ElMessage.error(error?.response?.data?.detail || error?.message || '渠道列表加载失败');
   } finally {
     if (seq === _reqSeq) loading.value = false;
   }
@@ -380,26 +418,30 @@ function applyFilter() {
 }
 
 function resetFilter() {
-  filters.value = {channel_code: "", channel_name: "", region: "", created_by_name: ""};
+  filters.value = {
+    channel_code: '',
+    channel_name: '',
+    region: '',
+    created_by_name: '',
+  };
   page.value = 1;
   loadList();
 }
 
 const tableData = computed(() => rawItems.value || []);
 
-function onPageChange(p) {
-  page.value = p;
+function onPageChange(nextPage) {
+  page.value = nextPage;
   loadList();
 }
 
-function onPageSizeChange(ps) {
-  pageSize.value = ps;
+function onPageSizeChange(nextPageSize) {
+  pageSize.value = nextPageSize;
   page.value = 1;
   loadList();
 }
 
 function toggleShowDeleted() {
-  if (!pageCaps.value.can_view_deleted) return;
   showDeleted.value = !showDeleted.value;
   page.value = 1;
   loadList();
@@ -409,50 +451,53 @@ const dialogVisible = ref(false);
 const saving = ref(false);
 const formRef = ref(null);
 
-const dialogMode = ref("create");
+const dialogMode = ref('create');
 const editId = ref(null);
-const dialogTitle = computed(() => (dialogMode.value === "edit" ? "编辑渠道" : "新增渠道"));
+const editRowCapabilities = ref({});
+const dialogTitle = computed(() => (dialogMode.value === 'edit' ? '编辑渠道' : '新增渠道'));
 
 function _newContact() {
-  return {type: "mobile", value: ""};
+  return { type: 'mobile', value: '' };
 }
 
-const form = ref({channel_code: "", channel_name: "", region: "", contacts: []});
+const form = ref({ channel_code: '', channel_name: '', region: '', contacts: [] });
 
 const _MOBILE_RE = /^1[3-9]\d{9}$/;
 const _LANDLINE_RE = /^(0\d{2,3}-?)?\d{7,8}(-\d{1,6})?$/;
 const _400_800_RE = /^(400|800)\d{7}$/;
 
 function _cleanContactValue(v) {
-  const s = String(v ?? "").replace(/\s+/g, "");
-  return s.replace(/[^0-9\-]/g, "");
+  const s = String(v ?? '').replace(/\s+/g, '');
+  return s.replace(/[^0-9\-]/g, '');
 }
 
-function _validateOneContact(c) {
-  const t = String(c?.type || "").trim().toLowerCase();
-  const raw = _cleanContactValue(c?.value || "");
-  if (!raw) return "联系方式不能为空（不需要可删除该行）";
+function _validateOneContact(contactItem) {
+  const contactType = String(contactItem?.type || '').trim().toLowerCase();
+  const rawValue = _cleanContactValue(contactItem?.value || '');
+  if (!rawValue) return '联系方式不能为空（不需要可删除该行）';
 
-  if (t === "mobile") {
-    const digits = raw.replace(/-/g, "");
-    if (!_MOBILE_RE.test(digits)) return "手机号格式不正确（需为 11 位大陆手机号）";
-    return "";
+  if (contactType === 'mobile') {
+    const digits = rawValue.replace(/-/g, '');
+    if (!_MOBILE_RE.test(digits)) return '手机号格式不正确（需为 11 位大陆手机号）';
+    return '';
   }
 
-  if (t === "tel") {
-    const digits = raw.replace(/-/g, "");
-    if (_400_800_RE.test(digits)) return "";
-    if (!_LANDLINE_RE.test(raw)) return "座机格式不正确（示例：010-88888888 / 0571-8888888 / 010-88888888-123 / 400xxxxxxx）";
-    return "";
+  if (contactType === 'tel') {
+    const digits = rawValue.replace(/-/g, '');
+    if (_400_800_RE.test(digits)) return '';
+    if (!_LANDLINE_RE.test(rawValue)) {
+      return '座机格式不正确（示例：010-88888888 / 0571-8888888 / 010-88888888-123 / 400xxxxxxx）';
+    }
+    return '';
   }
 
-  return "联系方式类型仅支持：手机号/座机";
+  return '联系方式类型仅支持：手机号/座机';
 }
 
 async function validateContactsField() {
   if (!formRef.value) return true;
   try {
-    await formRef.value.validateField("contacts");
+    await formRef.value.validateField('contacts');
     return true;
   } catch {
     return false;
@@ -460,81 +505,85 @@ async function validateContactsField() {
 }
 
 function _normalizeContactsForSubmit() {
-  const arr = Array.isArray(form.value.contacts) ? form.value.contacts : [];
+  const contactList = Array.isArray(form.value.contacts) ? form.value.contacts : [];
   const seen = new Set();
-  const out = [];
-  for (const c of arr) {
-    const t = String(c?.type || "").trim().toLowerCase() || "mobile";
-    const raw = _cleanContactValue(c?.value || "");
-    if (!raw) continue;
+  const normalizedContacts = [];
 
-    if (t === "mobile") {
-      const digits = raw.replace(/-/g, "");
-      const key = `${t}:${digits}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push({type: t, value: digits});
+  for (const contactItem of contactList) {
+    const contactType = String(contactItem?.type || '').trim().toLowerCase() || 'mobile';
+    const rawValue = _cleanContactValue(contactItem?.value || '');
+    if (!rawValue) continue;
+
+    if (contactType === 'mobile') {
+      const digits = rawValue.replace(/-/g, '');
+      const dedupeKey = `${contactType}:${digits}`;
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+      normalizedContacts.push({ type: contactType, value: digits });
       continue;
     }
 
-    const key = `${t}:${raw}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push({type: t, value: raw});
+    const dedupeKey = `${contactType}:${rawValue}`;
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+    normalizedContacts.push({ type: contactType, value: rawValue });
   }
-  return out;
+
+  return normalizedContacts;
 }
 
 function _contactsToForm(list) {
-  const arr = Array.isArray(list) ? list : [];
-  return arr.map((c) => ({
-    type: String(c?.type || "mobile").trim().toLowerCase() === "tel" ? "tel" : "mobile",
-    value: _cleanContactValue(c?.value || ""),
+  const contactList = Array.isArray(list) ? list : [];
+  return contactList.map((contactItem) => ({
+    type: String(contactItem?.type || 'mobile').trim().toLowerCase() === 'tel' ? 'tel' : 'mobile',
+    value: _cleanContactValue(contactItem?.value || ''),
   }));
 }
 
 const rules = {
-  channel_code: [{required: true, message: "渠道代码必填", trigger: "blur"}],
-  channel_name: [{required: true, message: "渠道名称必填", trigger: "blur"}],
+  channel_code: [{ required: true, message: '渠道代码必填', trigger: 'blur' }],
+  channel_name: [{ required: true, message: '渠道名称必填', trigger: 'blur' }],
   contacts: [
     {
-      trigger: ["change", "blur"],
-      validator: (_rule, _val, cb) => {
-        const arr = Array.isArray(form.value.contacts) ? form.value.contacts : [];
-        for (let i = 0; i < arr.length; i++) {
-          const msg = _validateOneContact(arr[i]);
-          if (msg) return cb(new Error(`第 ${i + 1} 条联系方式：${msg}`));
+      trigger: ['change', 'blur'],
+      validator: (_rule, _val, callback) => {
+        const contactList = Array.isArray(form.value.contacts) ? form.value.contacts : [];
+        for (let index = 0; index < contactList.length; index += 1) {
+          const message = _validateOneContact(contactList[index]);
+          if (message) return callback(new Error(`第 ${index + 1} 条联系方式：${message}`));
         }
-        cb();
+        callback();
       },
     },
   ],
 };
 
 function openCreateDialog() {
-  if (!pageCaps.value.can_create) {
-    ElMessage.warning("财务账号无新增权限");
+  if (!hasPageCapability('channel.create')) {
+    ElMessage.warning('当前账号无新增渠道权限');
     return;
   }
-  dialogMode.value = "create";
+  dialogMode.value = 'create';
   editId.value = null;
-  form.value = {channel_code: "", channel_name: "", region: "", contacts: []};
+  editRowCapabilities.value = {};
+  form.value = { channel_code: '', channel_name: '', region: '', contacts: [] };
   dialogVisible.value = true;
 }
 
 function openEditDialog(row) {
-  if (!pageCaps.value.can_edit) {
-    ElMessage.warning("仅经理/超级账号/市场账号可编辑");
+  if (!hasRowCapability(row, 'channel.update')) {
+    ElMessage.warning('当前账号无编辑该渠道权限');
     return;
   }
   if (!row?.id) return;
 
-  dialogMode.value = "edit";
+  dialogMode.value = 'edit';
   editId.value = row.id;
+  editRowCapabilities.value = row?.meta?.capabilities ?? {};
   form.value = {
-    channel_code: String(row.channel_code || ""),
-    channel_name: String(row.channel_name || ""),
-    region: String(row.region || ""),
+    channel_code: String(row.channel_code || ''),
+    channel_name: String(row.channel_name || ''),
+    region: String(row.region || ''),
     contacts: _contactsToForm(row.contacts),
   };
   dialogVisible.value = true;
@@ -553,29 +602,29 @@ function removeContact(idx) {
 }
 
 function onContactTypeChange(idx) {
-  const arr = form.value.contacts || [];
-  const c = arr[idx];
-  if (!c) return;
-  c.type = String(c.type || "mobile").trim().toLowerCase();
+  const contactList = form.value.contacts || [];
+  const contactItem = contactList[idx];
+  if (!contactItem) return;
+  contactItem.type = String(contactItem.type || 'mobile').trim().toLowerCase();
   nextTick(() => validateContactsField());
 }
 
 function onContactValueInput(idx, val) {
-  const arr = form.value.contacts || [];
-  const c = arr[idx];
-  if (!c) return;
-  c.value = _cleanContactValue(val);
+  const contactList = form.value.contacts || [];
+  const contactItem = contactList[idx];
+  if (!contactItem) return;
+  contactItem.value = _cleanContactValue(val);
 }
 
 async function submit() {
-  if (dialogMode.value === "create") {
-    if (!pageCaps.value.can_create) {
-      ElMessage.warning("财务账号无新增权限");
+  if (dialogMode.value === 'create') {
+    if (!hasPageCapability('channel.create')) {
+      ElMessage.warning('当前账号无新增渠道权限');
       return;
     }
   } else {
-    if (!pageCaps.value.can_edit) {
-      ElMessage.warning("仅经理/超级账号/市场账号可编辑");
+    if (!Boolean(editRowCapabilities.value?.['channel.update'])) {
+      ElMessage.warning('当前账号无编辑该渠道权限');
       return;
     }
     if (!editId.value) return;
@@ -598,20 +647,24 @@ async function submit() {
       contacts: _normalizeContactsForSubmit(),
     };
 
-    if (dialogMode.value === "edit") {
+    if (dialogMode.value === 'edit') {
       await updateChannelGroup(editId.value, payload);
-      ElMessage.success("编辑渠道成功");
+      ElMessage.success('编辑渠道成功');
     } else {
       await createChannelGroup(payload);
-      ElMessage.success("新增渠道成功");
+      ElMessage.success('新增渠道成功');
     }
 
     dialogVisible.value = false;
     page.value = 1;
     await loadList();
-  } catch (e) {
-    console.error(e);
-    ElMessage.error(e?.response?.data?.detail || e?.message || (dialogMode.value === "edit" ? "编辑渠道失败" : "新增渠道失败"));
+  } catch (error) {
+    console.error(error);
+    ElMessage.error(
+      error?.response?.data?.detail ||
+        error?.message ||
+        (dialogMode.value === 'edit' ? '编辑渠道失败' : '新增渠道失败'),
+    );
   } finally {
     saving.value = false;
   }
@@ -622,15 +675,15 @@ const deleting = ref(false);
 const deleteTarget = ref(null);
 
 const deleteTargetDisplay = computed(() => {
-  const code = deleteTarget.value?.channel_code ? String(deleteTarget.value.channel_code) : "";
-  const name = deleteTarget.value?.channel_name ? String(deleteTarget.value.channel_name) : "";
-  if (code && name) return `${code} - ${name}`;
-  return code || name || "-";
+  const channelCode = deleteTarget.value?.channel_code ? String(deleteTarget.value.channel_code) : '';
+  const channelName = deleteTarget.value?.channel_name ? String(deleteTarget.value.channel_name) : '';
+  if (channelCode && channelName) return `${channelCode} - ${channelName}`;
+  return channelCode || channelName || '-';
 });
 
 function openDeleteDialog(row) {
-  if (!pageCaps.value.can_delete) {
-    ElMessage.warning("财务账号无删除权限");
+  if (!hasRowCapability(row, 'channel.delete')) {
+    ElMessage.warning('当前账号无删除该渠道权限');
     return;
   }
   if (!row?.id) return;
@@ -644,8 +697,8 @@ function onDeleteDialogClosed() {
 }
 
 async function confirmDelete() {
-  if (!pageCaps.value.can_delete) {
-    ElMessage.warning("财务账号无删除权限");
+  if (!hasRowCapability(deleteTarget.value, 'channel.delete')) {
+    ElMessage.warning('当前账号无删除该渠道权限');
     return;
   }
   if (!deleteTarget.value?.id) return;
@@ -653,14 +706,14 @@ async function confirmDelete() {
   deleting.value = true;
   try {
     await deleteChannelGroup(deleteTarget.value.id);
-    ElMessage.success("删除成功");
+    ElMessage.success('删除成功');
     deleteDialogVisible.value = false;
 
     if (tableData.value.length <= 1 && page.value > 1) page.value -= 1;
     await loadList();
-  } catch (e) {
-    console.error(e);
-    ElMessage.error(e?.response?.data?.detail || e?.message || "删除失败");
+  } catch (error) {
+    console.error(error);
+    ElMessage.error(error?.response?.data?.detail || error?.message || '删除失败');
   } finally {
     deleting.value = false;
   }
@@ -842,84 +895,68 @@ onMounted(() => loadList());
 
 .contacts-value {
   flex: 1;
-  min-width: 0;
 }
 
 .contacts-remove {
   flex-shrink: 0;
 }
 
-:deep(.confirm-dialog .el-dialog) {
-  margin-top: 14vh;
-  border-radius: 14px;
-  overflow: hidden;
+.confirm-dialog :deep(.el-dialog__body) {
+  padding: 22px 22px 10px;
 }
 
-:deep(.confirm-dialog .el-dialog__header) {
-  display: none;
-}
-
-:deep(.confirm-dialog .el-dialog__body) {
-  padding: 18px 18px 10px 18px;
-}
-
-:deep(.confirm-dialog .el-dialog__footer) {
-  padding: 10px 18px 16px 18px;
+.confirm-dialog :deep(.el-dialog__footer) {
+  padding: 0 22px 18px;
 }
 
 .cd {
   display: flex;
-  gap: 12px;
+  gap: 14px;
   align-items: flex-start;
 }
 
 .cd-icon-wrap {
   width: 40px;
   height: 40px;
-  border-radius: 12px;
+  border-radius: 999px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(245, 108, 108, 0.10);
-  border: 1px solid rgba(245, 108, 108, 0.18);
+  background: rgba(245, 108, 108, 0.12);
+  color: #f56c6c;
   flex-shrink: 0;
 }
 
 .cd-icon {
-  font-size: 18px;
+  font-size: 22px;
 }
 
 .cd-body {
+  flex: 1;
   min-width: 0;
 }
 
 .cd-title {
-  font-weight: 800;
-  color: rgba(31, 42, 68, 0.92);
-  line-height: 1.25;
-  font-size: 14px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #303133;
+  line-height: 1.5;
 }
 
 .cd-code {
-  display: inline-block;
-  padding: 0 8px;
-  margin: 0 2px;
-  border-radius: 10px;
-  font-weight: 800;
-  background: rgba(31, 42, 68, 0.06);
-  border: 1px solid rgba(31, 42, 68, 0.10);
+  word-break: break-all;
 }
 
 .cd-desc {
-  margin-top: 6px;
-  font-size: 12px;
-  color: rgba(31, 42, 68, 0.66);
-  line-height: 1.45;
+  margin-top: 8px;
+  color: #606266;
+  line-height: 1.6;
+  font-size: 13px;
 }
 
 .cd-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 10px;
 }
 </style>

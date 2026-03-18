@@ -6,7 +6,7 @@
 
       <div class="header-actions">
         <el-tooltip
-            v-if="pageCaps.can_view_deleted"
+
             :content="showDeleted ? '点击隐藏已删除' : '点击显示已删除'"
             placement="top"
         >
@@ -27,7 +27,7 @@
           </el-button>
         </el-tooltip>
 
-        <el-tooltip v-if="!pageCaps.can_create" content="财务账号无新增权限" placement="top">
+        <el-tooltip v-if="!hasPageCapability('customer.create')" content="当前账号无新增客户权限" placement="top">
           <span>
             <el-button type="primary" size="small" disabled>新增客户</el-button>
           </span>
@@ -163,12 +163,14 @@
             </template>
 
             <template v-else>
-              <el-tooltip v-if="!pageCaps.can_edit" content="仅经理/超级账号/市场账号可编辑" placement="top">
+              <el-tooltip v-if="!hasRowCapability(row, 'customer.update')" content="当前账号无编辑该客户权限"
+                          placement="top">
                 <span><el-button type="primary" size="small" link disabled>编辑</el-button></span>
               </el-tooltip>
               <el-button v-else type="primary" size="small" link @click="openEditDialog(row)">编辑</el-button>
 
-              <el-tooltip v-if="!pageCaps.can_delete" content="财务账号无删除权限" placement="top">
+              <el-tooltip v-if="!hasRowCapability(row, 'customer.delete')" content="当前账号无删除该客户权限"
+                          placement="top">
                 <span><el-button type="danger" size="small" link disabled>删除</el-button></span>
               </el-tooltip>
               <el-button v-else type="danger" size="small" link @click="openDeleteDialog(row)">删除</el-button>
@@ -299,11 +301,13 @@ const page = ref(1);
 const pageSize = ref(20);
 const total = ref(0);
 const rawItems = ref([]);
-const pageCaps = ref({
-  can_create: false,
-  can_edit: false,
-  can_delete: false,
-  can_view_deleted: false,
+const pageMeta = ref({
+  capabilities: {},
+  scopes: {},
+  pagination: {
+    page: 1,
+    page_size: 20,
+  },
 });
 
 let _reqSeq = 0;
@@ -322,6 +326,18 @@ function _trim(v) {
   return s ? s : "";
 }
 
+function _toBool(v) {
+  return Boolean(v);
+}
+
+function hasPageCapability(capabilityKey) {
+  return _toBool(pageMeta.value?.capabilities?.[capabilityKey]);
+}
+
+function hasRowCapability(row, capabilityKey) {
+  return _toBool(row?.meta?.capabilities?.[capabilityKey]);
+}
+
 function isRowDeleted(row) {
   return Boolean(row?.is_deleted) || Boolean(row?.deleted_at);
 }
@@ -336,14 +352,33 @@ function _typeLabel(t) {
 function formatContacts(list) {
   if (!Array.isArray(list) || !list.length) return "";
   return list
-      .map((c) => {
-        if (!c) return "";
-        const t = _typeLabel(c.type);
-        const v = c.value ? String(c.value) : "";
-        return t ? `${t}:${v}` : v;
+      .map((contactItem) => {
+        if (!contactItem) return "";
+        const contactTypeLabel = _typeLabel(contactItem.type);
+        const contactValue = contactItem.value ? String(contactItem.value) : "";
+        return contactTypeLabel ? `${contactTypeLabel}:${contactValue}` : contactValue;
       })
       .filter(Boolean)
       .join("；");
+}
+
+function _applyListResponse(data) {
+  const responseMeta = data?.meta ?? {};
+  const responsePagination = responseMeta?.pagination ?? {};
+
+  total.value = Number(data?.total || 0);
+  rawItems.value = Array.isArray(data?.items) ? data.items : [];
+  pageMeta.value = {
+    capabilities: responseMeta?.capabilities ?? {},
+    scopes: responseMeta?.scopes ?? {},
+    pagination: {
+      page: Number(responsePagination?.page || page.value || 1),
+      page_size: Number(responsePagination?.page_size || pageSize.value || 20),
+    },
+  };
+
+  page.value = pageMeta.value.pagination.page;
+  pageSize.value = pageMeta.value.pagination.page_size;
 }
 
 async function loadList() {
@@ -356,38 +391,26 @@ async function loadList() {
       include_deleted: showDeleted.value ? 1 : 0,
     };
 
-    const cc = _trim(filters.value.customer_code);
-    const cn = _trim(filters.value.customer_name);
-    const mk = _trim(filters.value.market);
-    const rg = _trim(filters.value.region);
-    const cb = _trim(filters.value.created_by_name);
+    const customerCode = _trim(filters.value.customer_code);
+    const customerName = _trim(filters.value.customer_name);
+    const market = _trim(filters.value.market);
+    const region = _trim(filters.value.region);
+    const createdByName = _trim(filters.value.created_by_name);
 
-    if (cc) params.customer_code = cc;
-    if (cn) params.customer_name = cn;
-    if (mk) params.market = mk;
-    if (rg) params.region = rg;
-    if (cb) params.created_by_name = cb;
+    if (customerCode) params.customer_code = customerCode;
+    if (customerName) params.customer_name = customerName;
+    if (market) params.market = market;
+    if (region) params.region = region;
+    if (createdByName) params.created_by_name = createdByName;
 
     const resp = await listCustomerGroups(params);
     if (seq !== _reqSeq) return;
 
-    const data = resp?.data || {};
-    total.value = Number(data.total || 0);
-    rawItems.value = Array.isArray(data.items) ? data.items : [];
-    pageCaps.value = data.capabilities || {
-      can_create: false,
-      can_edit: false,
-      can_delete: false,
-      can_view_deleted: false,
-    };
-
-    if (!pageCaps.value.can_view_deleted && showDeleted.value) {
-      showDeleted.value = false;
-    }
-  } catch (e) {
+    _applyListResponse(resp?.data || {});
+  } catch (error) {
     if (seq !== _reqSeq) return;
-    console.error(e);
-    ElMessage.error(e?.response?.data?.detail || e?.message || "客户列表加载失败");
+    console.error(error);
+    ElMessage.error(error?.response?.data?.detail || error?.message || "客户列表加载失败");
   } finally {
     if (seq === _reqSeq) loading.value = false;
   }
@@ -403,26 +426,31 @@ function applyFilter() {
 }
 
 function resetFilter() {
-  filters.value = {customer_code: "", customer_name: "", market: "", region: "", created_by_name: ""};
+  filters.value = {
+    customer_code: "",
+    customer_name: "",
+    market: "",
+    region: "",
+    created_by_name: "",
+  };
   page.value = 1;
   loadList();
 }
 
 const tableData = computed(() => rawItems.value || []);
 
-function onPageChange(p) {
-  page.value = p;
+function onPageChange(nextPage) {
+  page.value = nextPage;
   loadList();
 }
 
-function onPageSizeChange(ps) {
-  pageSize.value = ps;
+function onPageSizeChange(nextPageSize) {
+  pageSize.value = nextPageSize;
   page.value = 1;
   loadList();
 }
 
 function toggleShowDeleted() {
-  if (!pageCaps.value.can_view_deleted) return;
   showDeleted.value = !showDeleted.value;
   page.value = 1;
   loadList();
@@ -434,6 +462,7 @@ const formRef = ref(null);
 
 const dialogMode = ref("create");
 const editId = ref(null);
+const editRowCapabilities = ref({});
 const dialogTitle = computed(() => (dialogMode.value === "edit" ? "编辑客户" : "新增客户"));
 
 function _newContact() {
@@ -451,21 +480,23 @@ function _cleanContactValue(v) {
   return s.replace(/[^0-9\-]/g, "");
 }
 
-function _validateOneContact(c) {
-  const t = String(c?.type || "").trim().toLowerCase();
-  const raw = _cleanContactValue(c?.value || "");
-  if (!raw) return "联系方式不能为空（不需要可删除该行）";
+function _validateOneContact(contactItem) {
+  const contactType = String(contactItem?.type || "").trim().toLowerCase();
+  const rawValue = _cleanContactValue(contactItem?.value || "");
+  if (!rawValue) return "联系方式不能为空（不需要可删除该行）";
 
-  if (t === "mobile") {
-    const digits = raw.replace(/-/g, "");
+  if (contactType === "mobile") {
+    const digits = rawValue.replace(/-/g, "");
     if (!_MOBILE_RE.test(digits)) return "手机号格式不正确（需为 11 位大陆手机号）";
     return "";
   }
 
-  if (t === "tel") {
-    const digits = raw.replace(/-/g, "");
+  if (contactType === "tel") {
+    const digits = rawValue.replace(/-/g, "");
     if (_400_800_RE.test(digits)) return "";
-    if (!_LANDLINE_RE.test(raw)) return "座机格式不正确（示例：010-88888888 / 0571-8888888 / 010-88888888-123 / 400xxxxxxx）";
+    if (!_LANDLINE_RE.test(rawValue)) {
+      return "座机格式不正确（示例：010-88888888 / 0571-8888888 / 010-88888888-123 / 400xxxxxxx）";
+    }
     return "";
   }
 
@@ -473,36 +504,38 @@ function _validateOneContact(c) {
 }
 
 function _normalizeContactsForSubmit() {
-  const arr = Array.isArray(form.value.contacts) ? form.value.contacts : [];
+  const contactList = Array.isArray(form.value.contacts) ? form.value.contacts : [];
   const seen = new Set();
-  const out = [];
-  for (const c of arr) {
-    const t = String(c?.type || "").trim().toLowerCase() || "mobile";
-    const raw = _cleanContactValue(c?.value || "");
-    if (!raw) continue;
+  const normalizedContacts = [];
 
-    if (t === "mobile") {
-      const digits = raw.replace(/-/g, "");
-      const key = `${t}:${digits}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push({type: t, value: digits});
+  for (const contactItem of contactList) {
+    const contactType = String(contactItem?.type || "").trim().toLowerCase() || "mobile";
+    const rawValue = _cleanContactValue(contactItem?.value || "");
+    if (!rawValue) continue;
+
+    if (contactType === "mobile") {
+      const digits = rawValue.replace(/-/g, "");
+      const dedupeKey = `${contactType}:${digits}`;
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+      normalizedContacts.push({type: contactType, value: digits});
       continue;
     }
 
-    const key = `${t}:${raw}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push({type: t, value: raw});
+    const dedupeKey = `${contactType}:${rawValue}`;
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+    normalizedContacts.push({type: contactType, value: rawValue});
   }
-  return out;
+
+  return normalizedContacts;
 }
 
 function _contactsToForm(list) {
-  const arr = Array.isArray(list) ? list : [];
-  return arr.map((c) => ({
-    type: String(c?.type || "mobile").trim().toLowerCase() === "tel" ? "tel" : "mobile",
-    value: _cleanContactValue(c?.value || ""),
+  const contactList = Array.isArray(list) ? list : [];
+  return contactList.map((contactItem) => ({
+    type: String(contactItem?.type || "mobile").trim().toLowerCase() === "tel" ? "tel" : "mobile",
+    value: _cleanContactValue(contactItem?.value || ""),
   }));
 }
 
@@ -522,38 +555,40 @@ const rules = {
   contacts: [
     {
       trigger: ["change", "blur"],
-      validator: (_rule, _val, cb) => {
-        const arr = Array.isArray(form.value.contacts) ? form.value.contacts : [];
-        for (let i = 0; i < arr.length; i++) {
-          const msg = _validateOneContact(arr[i]);
-          if (msg) return cb(new Error(`第 ${i + 1} 条联系方式：${msg}`));
+      validator: (_rule, _val, callback) => {
+        const contactList = Array.isArray(form.value.contacts) ? form.value.contacts : [];
+        for (let index = 0; index < contactList.length; index += 1) {
+          const message = _validateOneContact(contactList[index]);
+          if (message) return callback(new Error(`第 ${index + 1} 条联系方式：${message}`));
         }
-        cb();
+        callback();
       },
     },
   ],
 };
 
 function openCreateDialog() {
-  if (!pageCaps.value.can_create) {
-    ElMessage.warning("财务账号无新增权限");
+  if (!hasPageCapability("customer.create")) {
+    ElMessage.warning("当前账号无新增客户权限");
     return;
   }
   dialogMode.value = "create";
   editId.value = null;
+  editRowCapabilities.value = {};
   form.value = {customer_code: "", customer_name: "", market: "", region: "", contacts: []};
   dialogVisible.value = true;
 }
 
 function openEditDialog(row) {
-  if (!pageCaps.value.can_edit) {
-    ElMessage.warning("仅经理/超级账号/市场账号可编辑");
+  if (!hasRowCapability(row, "customer.update")) {
+    ElMessage.warning("当前账号无编辑该客户权限");
     return;
   }
   if (!row?.id) return;
 
   dialogMode.value = "edit";
   editId.value = row.id;
+  editRowCapabilities.value = row?.meta?.capabilities ?? {};
   form.value = {
     customer_code: String(row.customer_code || ""),
     customer_name: String(row.customer_name || ""),
@@ -577,29 +612,29 @@ function removeContact(idx) {
 }
 
 function onContactTypeChange(idx) {
-  const arr = form.value.contacts || [];
-  const c = arr[idx];
-  if (!c) return;
-  c.type = String(c.type || "mobile").trim().toLowerCase();
+  const contactList = form.value.contacts || [];
+  const contactItem = contactList[idx];
+  if (!contactItem) return;
+  contactItem.type = String(contactItem.type || "mobile").trim().toLowerCase();
   nextTick(() => validateContactsField());
 }
 
 function onContactValueInput(idx, val) {
-  const arr = form.value.contacts || [];
-  const c = arr[idx];
-  if (!c) return;
-  c.value = _cleanContactValue(val);
+  const contactList = form.value.contacts || [];
+  const contactItem = contactList[idx];
+  if (!contactItem) return;
+  contactItem.value = _cleanContactValue(val);
 }
 
 async function submit() {
   if (dialogMode.value === "create") {
-    if (!pageCaps.value.can_create) {
-      ElMessage.warning("财务账号无新增权限");
+    if (!hasPageCapability("customer.create")) {
+      ElMessage.warning("当前账号无新增客户权限");
       return;
     }
   } else {
-    if (!pageCaps.value.can_edit) {
-      ElMessage.warning("仅经理/超级账号/市场账号可编辑");
+    if (!Boolean(editRowCapabilities.value?.["customer.update"])) {
+      ElMessage.warning("当前账号无编辑该客户权限");
       return;
     }
     if (!editId.value) return;
@@ -636,9 +671,13 @@ async function submit() {
     dialogVisible.value = false;
     page.value = 1;
     await loadList();
-  } catch (e) {
-    console.error(e);
-    ElMessage.error(e?.response?.data?.detail || e?.message || (dialogMode.value === "edit" ? "编辑客户失败" : "新增客户失败"));
+  } catch (error) {
+    console.error(error);
+    ElMessage.error(
+        error?.response?.data?.detail ||
+        error?.message ||
+        (dialogMode.value === "edit" ? "编辑客户失败" : "新增客户失败"),
+    );
   } finally {
     saving.value = false;
   }
@@ -649,15 +688,15 @@ const deleting = ref(false);
 const deleteTarget = ref(null);
 
 const deleteTargetDisplay = computed(() => {
-  const code = deleteTarget.value?.customer_code ? String(deleteTarget.value.customer_code) : "";
-  const name = deleteTarget.value?.customer_name ? String(deleteTarget.value.customer_name) : "";
-  if (code && name) return `${code} - ${name}`;
-  return code || name || "-";
+  const customerCode = deleteTarget.value?.customer_code ? String(deleteTarget.value.customer_code) : "";
+  const customerName = deleteTarget.value?.customer_name ? String(deleteTarget.value.customer_name) : "";
+  if (customerCode && customerName) return `${customerCode} - ${customerName}`;
+  return customerCode || customerName || "-";
 });
 
 function openDeleteDialog(row) {
-  if (!pageCaps.value.can_delete) {
-    ElMessage.warning("财务账号无删除权限");
+  if (!hasRowCapability(row, "customer.delete")) {
+    ElMessage.warning("当前账号无删除该客户权限");
     return;
   }
   if (!row?.id) return;
@@ -671,8 +710,8 @@ function onDeleteDialogClosed() {
 }
 
 async function confirmDelete() {
-  if (!pageCaps.value.can_delete) {
-    ElMessage.warning("财务账号无删除权限");
+  if (!hasRowCapability(deleteTarget.value, "customer.delete")) {
+    ElMessage.warning("当前账号无删除该客户权限");
     return;
   }
   if (!deleteTarget.value?.id) return;
@@ -685,9 +724,9 @@ async function confirmDelete() {
 
     if (tableData.value.length <= 1 && page.value > 1) page.value -= 1;
     await loadList();
-  } catch (e) {
-    console.error(e);
-    ElMessage.error(e?.response?.data?.detail || e?.message || "删除失败");
+  } catch (error) {
+    console.error(error);
+    ElMessage.error(error?.response?.data?.detail || error?.message || "删除失败");
   } finally {
     deleting.value = false;
   }

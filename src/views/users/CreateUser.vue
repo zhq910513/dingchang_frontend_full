@@ -27,7 +27,8 @@
           v-model="form.role_name"
           placeholder="请选择角色类型"
           style="width: 100%"
-          @change="onRoleChange"
+          clearable
+          @change="handleRoleChange"
         >
           <el-option
             v-for="option in roleOptions"
@@ -53,7 +54,12 @@
           placeholder="请选择团队（可多选）"
           style="width: 100%"
         >
-          <el-option v-for="team in TEAM_NAMES" :key="team" :label="team" :value="team" />
+          <el-option
+            v-for="team in TEAM_NAMES"
+            :key="team"
+            :label="team"
+            :value="team"
+          />
         </el-select>
         <div style="margin-left: 8px; color: #999; font-size: 12px;">
           经理账号必须分配团队（可多选）
@@ -67,7 +73,7 @@
           filterable
           clearable
           style="width: 100%"
-          :disabled="teamSelectDisabled"
+          :disabled="childTeamOptions.length <= 1"
         >
           <el-option
             v-for="team in childTeamOptions"
@@ -101,7 +107,7 @@
         </div>
       </el-form-item>
 
-      <el-form-item label="密码(可选)" prop="password">
+      <el-form-item label="重置密码(可选)" prop="password">
         <el-input
           v-model="form.password"
           type="password"
@@ -133,7 +139,12 @@
           placeholder="请选择团队（可多选）"
           style="width: 100%"
         >
-          <el-option v-for="team in TEAM_NAMES" :key="team" :label="team" :value="team" />
+          <el-option
+            v-for="team in TEAM_NAMES"
+            :key="team"
+            :label="team"
+            :value="team"
+          />
         </el-select>
         <div style="margin-left: 8px; color: #999; font-size: 12px;">
           经理账号可编辑团队集合
@@ -147,7 +158,7 @@
           filterable
           clearable
           style="width: 100%"
-          :disabled="teamSelectDisabled"
+          :disabled="childTeamOptions.length <= 1"
         >
           <el-option
             v-for="team in childTeamOptions"
@@ -187,7 +198,7 @@ import { useSessionStore } from "../../store/session";
 import { ROLE, TEAM_NAMES } from "../../constants";
 
 const props = defineProps({
-  mode: { type: String, default: "create" }, // create | edit
+  mode: { type: String, default: "create" },
   initialUser: { type: Object, default: null },
   user: { type: Object, default: null },
   allowedRoleNames: { type: Array, default: () => [] },
@@ -198,13 +209,6 @@ const emit = defineEmits(["success"]);
 const formRef = ref(null);
 const loading = ref(false);
 const store = useSessionStore();
-
-const isEdit = computed(() => String(props.mode || "create").trim().toLowerCase() === "edit");
-const effectiveUser = computed(() => props.initialUser || props.user || null);
-
-const roleName = computed(() => String(store.roleName || "").trim().toLowerCase());
-const isSuperAdmin = computed(() => roleName.value === ROLE.SUPER_ADMIN);
-const isManager = computed(() => roleName.value === ROLE.MANAGER);
 
 const form = reactive({
   username: "",
@@ -220,6 +224,31 @@ const origin = ref({
   role_name: "",
 });
 
+function normalizeString(value) {
+  return String(value || "").trim();
+}
+
+function normalizeLowerString(value) {
+  return normalizeString(value).toLowerCase();
+}
+
+function normalizeTeamName(value) {
+  const normalized = normalizeString(value);
+  return normalized || null;
+}
+
+function normalizeTeamNames(value) {
+  const rawList = Array.isArray(value) ? value : [];
+  return [...new Set(rawList.map((item) => normalizeString(item)).filter(Boolean))].sort();
+}
+
+const isEdit = computed(() => normalizeLowerString(props.mode || "create") === "edit");
+const effectiveUser = computed(() => props.initialUser || props.user || null);
+
+const currentRoleName = computed(() => normalizeLowerString(store.roleName));
+const isSuperAdmin = computed(() => currentRoleName.value === ROLE.SUPER_ADMIN);
+const isManager = computed(() => currentRoleName.value === ROLE.MANAGER);
+
 const ROLE_OPTION_MAP = {
   [ROLE.MANAGER]: { label: "经理账号", value: ROLE.MANAGER },
   [ROLE.SALES]: { label: "业务账号", value: ROLE.SALES },
@@ -228,21 +257,22 @@ const ROLE_OPTION_MAP = {
   [ROLE.SUPER_ADMIN]: { label: "超级管理员", value: ROLE.SUPER_ADMIN },
 };
 
-function normalizeTeamName(value) {
-  if (value === null || value === undefined) return null;
-  const normalized = String(value).trim();
-  return normalized || null;
-}
+const allowedRoleNamesNormalized = computed(() => {
+  const rawList = Array.isArray(props.allowedRoleNames) ? props.allowedRoleNames : [];
+  return [...new Set(rawList.map((item) => normalizeLowerString(item)).filter(Boolean))];
+});
 
-function normalizeTeamNames(value) {
-  const rawList = Array.isArray(value) ? value : [];
-  return [...new Set(rawList.map((item) => String(item || "").trim()).filter(Boolean))].sort();
-}
+const roleOptions = computed(() => {
+  return allowedRoleNamesNormalized.value
+    .map((roleName) => ROLE_OPTION_MAP[roleName])
+    .filter(Boolean);
+});
 
-function normalizeRoleNames(value) {
-  const rawList = Array.isArray(value) ? value : [];
-  return [...new Set(rawList.map((item) => String(item || "").trim().toLowerCase()).filter(Boolean))];
-}
+const selectedRole = computed(() => normalizeLowerString(form.role_name));
+const needManagerTeams = computed(() => selectedRole.value === ROLE.MANAGER);
+const needChildTeam = computed(() => {
+  return [ROLE.SALES, ROLE.FINANCE, ROLE.MARKET].includes(selectedRole.value);
+});
 
 function getMyTeams() {
   const currentUser = store.user || {};
@@ -253,30 +283,6 @@ function getMyTeams() {
   return normalizeTeamNames(allTeams);
 }
 
-const allowedRoleNames = computed(() => normalizeRoleNames(props.allowedRoleNames));
-
-const roleOptions = computed(() => {
-  const allowed = new Set(allowedRoleNames.value);
-  if (!allowed.size) return [];
-  return allowed
-    .map((role) => ROLE_OPTION_MAP[role])
-    .filter(Boolean);
-});
-
-const selectedRole = computed(() => String(form.role_name || "").trim().toLowerCase());
-
-const isManagerRole = computed(() => selectedRole.value === ROLE.MANAGER);
-const isChildRole = computed(() => {
-  return (
-    selectedRole.value === ROLE.SALES
-    || selectedRole.value === ROLE.FINANCE
-    || selectedRole.value === ROLE.MARKET
-  );
-});
-
-const needManagerTeams = computed(() => isManagerRole.value);
-const needChildTeam = computed(() => isChildRole.value);
-
 const childTeamOptions = computed(() => {
   if (!needChildTeam.value) return [];
   if (isManager.value) return getMyTeams();
@@ -284,91 +290,95 @@ const childTeamOptions = computed(() => {
   return [];
 });
 
-const teamSelectDisabled = computed(() => childTeamOptions.value.length <= 1);
-
-function autoPickSingleTeam() {
-  const options = childTeamOptions.value || [];
-  if (options.length === 1) {
-    form.team_name = options[0];
-  }
-}
-
-function ensureChildTeamStillValid() {
-  if (!needChildTeam.value) return;
-
-  const currentTeam = normalizeTeamName(form.team_name);
-  const options = childTeamOptions.value || [];
-
-  if (!currentTeam) {
-    autoPickSingleTeam();
+function applyCreateRoleDefaults() {
+  if (needManagerTeams.value) {
+    form.team_name = null;
+    form.team_names = Array.isArray(form.team_names) ? form.team_names : [];
     return;
   }
 
-  if (!options.includes(currentTeam)) {
-    form.team_name = options.length === 1 ? options[0] : null;
+  if (needChildTeam.value) {
+    form.team_names = [];
+    const options = childTeamOptions.value || [];
+    if (options.length === 1) {
+      form.team_name = options[0];
+      return;
+    }
+    if (!options.includes(normalizeTeamName(form.team_name))) {
+      form.team_name = null;
+    }
+    return;
+  }
+
+  form.team_name = null;
+  form.team_names = [];
+}
+
+function handleRoleChange() {
+  if (!isEdit.value) {
+    form.team_name = null;
+    form.team_names = [];
+    applyCreateRoleDefaults();
   }
 }
 
-function resetTeamFieldsByRole() {
-  form.team_name = null;
-  form.team_names = [];
-  autoPickSingleTeam();
-}
+function applyEditUser(userValue) {
+  const currentUser = userValue && typeof userValue === "object" ? userValue : null;
+  if (!currentUser) return;
 
-function onRoleChange() {
-  resetTeamFieldsByRole();
-}
+  form.username = normalizeString(currentUser.username);
+  form.password = "";
+  form.role_name = normalizeLowerString(currentUser.role_name);
+  form.team_name = normalizeTeamName(currentUser.team_name);
+  form.team_names = normalizeTeamNames(currentUser.team_names);
 
-watch(
-  () => form.role_name,
-  () => {
-    resetTeamFieldsByRole();
-  },
-);
+  origin.value = {
+    id: currentUser.id ?? null,
+    username: normalizeString(currentUser.username),
+    role_name: normalizeLowerString(currentUser.role_name),
+  };
 
-watch(
-  () => childTeamOptions.value.join("|"),
-  () => {
-    ensureChildTeamStillValid();
-  },
-);
-
-watch(
-  () => roleOptions.value.map((item) => item.value).join("|"),
-  () => {
-    if (isEdit.value) return;
-    const allowed = new Set(roleOptions.value.map((item) => String(item.value || "").trim().toLowerCase()));
-    const currentRole = String(form.role_name || "").trim().toLowerCase();
-    if (currentRole && !allowed.has(currentRole)) {
-      form.role_name = "";
-      resetTeamFieldsByRole();
+  if (needChildTeam.value) {
+    const options = childTeamOptions.value || [];
+    if (options.length === 1) {
+      form.team_name = options[0];
+    } else if (!options.includes(normalizeTeamName(form.team_name))) {
+      form.team_name = null;
     }
+  }
+}
+
+watch(
+  () => effectiveUser.value,
+  (userValue) => {
+    if (!isEdit.value || !userValue) return;
+    applyEditUser(userValue);
   },
+  { deep: true },
 );
 
 const rules = computed(() => {
-  const baseRules = {};
+  const result = {};
 
   if (!isEdit.value) {
-    baseRules.username = [
+    result.username = [
       { required: true, message: "请输入用户名", trigger: "blur" },
       { min: 3, max: 32, message: "长度在 3-32 个字符", trigger: "blur" },
     ];
-    baseRules.password = [
+    result.password = [
       { required: true, message: "请输入密码", trigger: "blur" },
       { min: 6, message: "至少 6 位密码", trigger: "blur" },
     ];
-    baseRules.role_name = [
+    result.role_name = [
       { required: true, message: "请选择角色", trigger: "change" },
       {
         validator: (_rule, value, callback) => {
-          const selected = String(value || "").trim().toLowerCase();
-          const allowed = new Set(roleOptions.value.map((item) => String(item.value || "").trim().toLowerCase()));
+          const selected = normalizeLowerString(value);
           if (!selected) {
             callback(new Error("请选择角色"));
             return;
           }
-          if (!allowed.has(selected)) {
+          if (!allowedRoleNamesNormalized.value.includes(selected)) {
             callback(new Error("当前账号无权限创建该角色"));
             return;
           }
@@ -378,10 +388,10 @@ const rules = computed(() => {
       },
     ];
   } else {
-    baseRules.password = [
+    result.password = [
       {
         validator: (_rule, value, callback) => {
-          const passwordValue = String(value ?? "").trim();
+          const passwordValue = normalizeString(value);
           if (!passwordValue) {
             callback();
             return;
@@ -398,13 +408,13 @@ const rules = computed(() => {
   }
 
   if (needManagerTeams.value) {
-    baseRules.team_names = [
+    result.team_names = [
       { required: true, type: "array", message: "请选择团队（可多选）", trigger: "change" },
     ];
   }
 
   if (needChildTeam.value) {
-    baseRules.team_name = [
+    result.team_name = [
       {
         validator: (_rule, value, callback) => {
           const teamValue = normalizeTeamName(value);
@@ -427,52 +437,17 @@ const rules = computed(() => {
     ];
   }
 
-  return baseRules;
+  return result;
 });
 
 function roleLabelOf(role) {
-  const normalizedRole = String(role || "").trim().toLowerCase();
-  const matchedOption = roleOptions.value.find(
-    (item) => String(item.value || "").trim().toLowerCase() === normalizedRole,
-  );
-
-  if (matchedOption?.label) return matchedOption.label;
-  if (ROLE_OPTION_MAP[normalizedRole]?.label) return ROLE_OPTION_MAP[normalizedRole].label;
-  return "-";
+  const normalizedRole = normalizeLowerString(role);
+  return ROLE_OPTION_MAP[normalizedRole]?.label || "-";
 }
 
-const displayUsername = computed(() => {
-  return String(origin.value.username || form.username || "").trim();
-});
-
-const displayRoleLabel = computed(() => {
-  return roleLabelOf(origin.value.role_name || form.role_name);
-});
-
-const showRoleReadonly = computed(() => {
-  return Boolean(displayRoleLabel.value && displayRoleLabel.value !== "-");
-});
-
-function applyEditUser(userInput) {
-  const userValue = userInput && typeof userInput === "object" ? userInput : null;
-  if (!userValue) return;
-
-  const roleNameFromUser = String(userValue.role_name || "").trim().toLowerCase();
-
-  form.username = String(userValue.username || "").trim();
-  form.password = "";
-  form.role_name = roleNameFromUser;
-  form.team_name = normalizeTeamName(userValue.team_name);
-  form.team_names = normalizeTeamNames(userValue.team_names);
-
-  origin.value = {
-    id: userValue.id ?? null,
-    username: String(userValue.username || "").trim(),
-    role_name: roleNameFromUser,
-  };
-
-  ensureChildTeamStillValid();
-}
+const displayUsername = computed(() => normalizeString(origin.value.username || form.username));
+const displayRoleLabel = computed(() => roleLabelOf(origin.value.role_name || form.role_name));
+const showRoleReadonly = computed(() => Boolean(displayRoleLabel.value && displayRoleLabel.value !== "-"));
 
 function clearFormAfterCreate() {
   form.username = "";
@@ -502,9 +477,9 @@ async function submit() {
       }
 
       const payload = {
-        username: String(form.username || "").trim(),
-        password: String(form.password || "").trim(),
-        role_name: String(form.role_name || "").trim().toLowerCase(),
+        username: normalizeString(form.username),
+        password: normalizeString(form.password),
+        role_name: normalizeLowerString(form.role_name),
       };
 
       if (needManagerTeams.value) {
@@ -515,7 +490,6 @@ async function submit() {
       }
 
       await createUser(payload);
-
       ElMessage.success("创建成功");
       emit("success");
       clearFormAfterCreate();
@@ -534,8 +508,7 @@ async function submit() {
     }
 
     const payload = {};
-
-    const passwordValue = String(form.password || "").trim();
+    const passwordValue = normalizeString(form.password);
     if (passwordValue) {
       payload.password = passwordValue;
     }
@@ -549,10 +522,8 @@ async function submit() {
     }
 
     await updateUser(userId, payload);
-
     ElMessage.success("保存成功");
     emit("success");
-
     form.password = "";
     formRef.value?.clearValidate?.();
   } catch (error) {
@@ -565,22 +536,12 @@ async function submit() {
 }
 
 onMounted(() => {
-  autoPickSingleTeam();
-
   if (isEdit.value && effectiveUser.value) {
     applyEditUser(effectiveUser.value);
+  } else {
+    applyCreateRoleDefaults();
   }
 });
-
-watch(
-  () => effectiveUser.value,
-  (userValue) => {
-    if (!isEdit.value) return;
-    if (!userValue) return;
-    applyEditUser(userValue);
-  },
-  { deep: true },
-);
 </script>
 
 <style scoped>

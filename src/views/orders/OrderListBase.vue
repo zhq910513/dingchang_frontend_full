@@ -5,9 +5,9 @@
     </div>
 
     <el-card
-      shadow="never"
-      class="toolbar-card"
-      :body-style="{ padding: '10px 12px' }"
+        shadow="never"
+        class="toolbar-card"
+        :body-style="{ padding: '10px 12px' }"
     >
       <el-form :model="filters" class="filters-form" label-width="88px">
         <template v-if="isFinance">
@@ -15,67 +15,49 @@
             <el-col :span="6">
               <el-form-item label="日期">
                 <el-date-picker
-                  v-model="filters.created_date"
-                  type="daterange"
-                  value-format="YYYY-MM-DD"
-                  range-separator="至"
-                  start-placeholder="开始日期"
-                  end-placeholder="结束日期"
-                  style="width: 100%"
-                  clearable
+                    v-model="filters.created_date"
+                    type="daterange"
+                    value-format="YYYY-MM-DD"
+                    range-separator="至"
+                    start-placeholder="开始日期"
+                    end-placeholder="结束日期"
+                    style="width: 100%"
+                    clearable
                 />
               </el-form-item>
             </el-col>
 
             <el-col :span="6">
               <el-form-item label="渠道">
-                <el-select
-                  v-model="filters.channel_group_id"
-                  clearable
-                  filterable
-                  placeholder="选择渠道"
-                  style="width: 100%"
-                  :loading="groupsLoading"
-                  :disabled="groupsLoading"
-                >
-                  <el-option
-                    v-for="g in channelGroups"
-                    :key="String(g.id)"
-                    :label="formatChannelLabel(g)"
-                    :value="g.id"
-                  />
-                </el-select>
+                <RemotePagedSelect
+                    v-model="filters.channel_group_id"
+                    type="channels"
+                    placeholder="选择渠道"
+                    select-class="w100"
+                    :disabled="loading"
+                />
               </el-form-item>
             </el-col>
 
             <el-col :span="6">
               <el-form-item label="客户">
-                <el-select
-                  v-model="filters.customer_group_id"
-                  clearable
-                  filterable
-                  placeholder="选择客户"
-                  style="width: 100%"
-                  :loading="groupsLoading"
-                  :disabled="groupsLoading"
-                >
-                  <el-option
-                    v-for="g in customerGroups"
-                    :key="String(g.id)"
-                    :label="formatCustomerLabel(g)"
-                    :value="g.id"
-                  />
-                </el-select>
+                <RemotePagedSelect
+                    v-model="filters.customer_group_id"
+                    type="customers"
+                    placeholder="选择客户"
+                    select-class="w100"
+                    :disabled="loading"
+                />
               </el-form-item>
             </el-col>
 
             <el-col :span="6">
               <el-form-item label="市场">
                 <el-input
-                  v-model="filters.market"
-                  clearable
-                  placeholder="市场（模糊）"
-                  @keyup.enter="search"
+                    v-model="filters.market"
+                    clearable
+                    placeholder="市场（模糊）"
+                    @keyup.enter="search"
                 />
               </el-form-item>
             </el-col>
@@ -85,15 +67,15 @@
             <el-col :span="6">
               <el-form-item label="团队">
                 <el-select
-                  v-model="filters.team_name"
-                  clearable
-                  filterable
-                  placeholder="选择团队"
-                  style="width: 100%"
-                  :loading="teamsLoading"
-                  :disabled="teamsLoading || !canChooseTeam"
+                    v-model="filters.team_name"
+                    clearable
+                    filterable
+                    placeholder="选择团队"
+                    style="width: 100%"
+                    :loading="teamsLoading"
+                    :disabled="teamsLoading || !canChooseTeam"
                 >
-                  <el-option v-for="t in teamOptions" :key="t" :label="t" :value="t" />
+                  <el-option v-for="t in teamOptions" :key="t" :label="t" :value="t"/>
                 </el-select>
               </el-form-item>
             </el-col>
@@ -105,10 +87,10 @@
             <el-col :span="6">
               <el-form-item label="车主">
                 <el-input
-                  v-model="filters.owner_name"
-                  clearable
-                  placeholder="车主（模糊）"
-                  @keyup.enter="search"
+                    v-model="filters.owner_name"
+                    clearable
+                    placeholder="车主（模糊）"
+                    @keyup.enter="search"
                 />
               </el-form-item>
             </el-col>
@@ -116,12 +98,12 @@
             <el-col :span="6">
               <el-form-item label="保险到期日">
                 <el-date-picker
-                  v-model="filters.insurance_expire_date"
-                  type="date"
-                  value-format="YYYY-MM-DD"
-                  placeholder="选择日期"
-                  style="width: 100%"
-                  clearable
+                    v-model="filters.insurance_expire_date"
+                    type="date"
+                    value-format="YYYY-MM-DD"
+                    placeholder="选择日期"
+                    style="width: 100%"
+                    clearable
                 />
               </el-form-item>
             </el-col>
@@ -129,14 +111,14 @@
             <el-col :span="6">
               <el-form-item label="初登日期">
                 <el-date-picker
-                  v-model="filters.first_register_date"
-                  type="daterange"
-                  value-format="YYYY-MM-DD"
-                  range-separator="至"
-                  start-placeholder="开始日期"
-                  end-placeholder="结束日期"
-                  style="width: 100%"
-                  clearable
+                    v-model="filters.first_register_date"
+                    type="daterange"
+                    value-format="YYYY-MM-DD"
+                    range-separator="至"
+                    start-placeholder="开始日期"
+                    end-placeholder="结束日期"
+                    style="width: 100%"
+                    clearable
                 />
               </el-form-item>
             </el-col>
@@ -144,8 +126,8 @@
             <el-col :span="6">
               <el-form-item label="是否回款">
                 <el-select v-model="filters.is_paid" clearable placeholder="全部" style="width: 100%">
-                  <el-option label="是" :value="true" />
-                  <el-option label="否" :value="false" />
+                  <el-option label="是" :value="true"/>
+                  <el-option label="否" :value="false"/>
                 </el-select>
               </el-form-item>
             </el-col>
@@ -155,8 +137,8 @@
             <el-col :span="6">
               <el-form-item label="是否返点">
                 <el-select v-model="filters.is_rebate" clearable placeholder="全部" style="width: 100%">
-                  <el-option label="是" :value="true" />
-                  <el-option label="否" :value="false" />
+                  <el-option label="是" :value="true"/>
+                  <el-option label="否" :value="false"/>
                 </el-select>
               </el-form-item>
             </el-col>
@@ -169,10 +151,10 @@
 
                 <template v-if="canFinanceDownload">
                   <el-button
-                    native-type="button"
-                    :disabled="loading || downloading || (Number(total) || 0) <= 0"
-                    :loading="downloading"
-                    @click.stop.prevent="downloadFinanceExcel"
+                      native-type="button"
+                      :disabled="loading || downloading || (Number(total) || 0) <= 0"
+                      :loading="downloading"
+                      @click.stop.prevent="downloadFinanceExcel"
                   >
                     下载
                   </el-button>
@@ -189,76 +171,58 @@
             <el-col :span="6">
               <el-form-item label="日期">
                 <el-date-picker
-                  v-model="filters.created_date"
-                  type="daterange"
-                  value-format="YYYY-MM-DD"
-                  range-separator="至"
-                  start-placeholder="开始日期"
-                  end-placeholder="结束日期"
-                  style="width: 100%"
-                  clearable
+                    v-model="filters.created_date"
+                    type="daterange"
+                    value-format="YYYY-MM-DD"
+                    range-separator="至"
+                    start-placeholder="开始日期"
+                    end-placeholder="结束日期"
+                    style="width: 100%"
+                    clearable
                 />
               </el-form-item>
             </el-col>
 
             <el-col :span="6">
               <el-form-item label="渠道">
-                <el-select
-                  v-model="filters.channel_group_id"
-                  clearable
-                  filterable
-                  placeholder="选择渠道"
-                  style="width: 100%"
-                  :loading="groupsLoading"
-                  :disabled="groupsLoading"
-                >
-                  <el-option
-                    v-for="g in channelGroups"
-                    :key="String(g.id)"
-                    :label="formatChannelLabel(g)"
-                    :value="g.id"
-                  />
-                </el-select>
+                <RemotePagedSelect
+                    v-model="filters.channel_group_id"
+                    type="channels"
+                    placeholder="选择渠道"
+                    select-class="w100"
+                    :disabled="loading"
+                />
               </el-form-item>
             </el-col>
 
             <el-col :span="6">
               <el-form-item label="客户">
-                <el-select
-                  v-model="filters.customer_group_id"
-                  clearable
-                  filterable
-                  placeholder="选择客户"
-                  style="width: 100%"
-                  :loading="groupsLoading"
-                  :disabled="groupsLoading"
-                >
-                  <el-option
-                    v-for="g in customerGroups"
-                    :key="String(g.id)"
-                    :label="formatCustomerLabel(g)"
-                    :value="g.id"
-                  />
-                </el-select>
+                <RemotePagedSelect
+                    v-model="filters.customer_group_id"
+                    type="customers"
+                    placeholder="选择客户"
+                    select-class="w100"
+                    :disabled="loading"
+                />
               </el-form-item>
             </el-col>
 
             <el-col :span="6">
               <el-form-item label="业务员">
                 <el-select
-                  v-model="filters.salesperson_id"
-                  clearable
-                  filterable
-                  placeholder="选择业务员"
-                  style="width: 100%"
-                  :loading="salesLoading"
-                  :disabled="salesLoading"
+                    v-model="filters.salesperson_id"
+                    clearable
+                    filterable
+                    placeholder="选择业务员"
+                    style="width: 100%"
+                    :loading="salesLoading"
+                    :disabled="salesLoading"
                 >
                   <el-option
-                    v-for="u in filteredSalespersons"
-                    :key="String(u.id)"
-                    :label="u.real_name || u.username"
-                    :value="u.id"
+                      v-for="u in filteredSalespersons"
+                      :key="String(u.id)"
+                      :label="u.real_name || u.username"
+                      :value="u.id"
                   />
                 </el-select>
               </el-form-item>
@@ -269,15 +233,15 @@
             <el-col :span="6">
               <el-form-item label="团队">
                 <el-select
-                  v-model="filters.team_name"
-                  clearable
-                  filterable
-                  placeholder="选择团队"
-                  style="width: 100%"
-                  :loading="teamsLoading"
-                  :disabled="teamsLoading || !canChooseTeam"
+                    v-model="filters.team_name"
+                    clearable
+                    filterable
+                    placeholder="选择团队"
+                    style="width: 100%"
+                    :loading="teamsLoading"
+                    :disabled="teamsLoading || !canChooseTeam"
                 >
-                  <el-option v-for="t in teamOptions" :key="t" :label="t" :value="t" />
+                  <el-option v-for="t in teamOptions" :key="t" :label="t" :value="t"/>
                 </el-select>
               </el-form-item>
             </el-col>
@@ -289,40 +253,40 @@
             <el-col :span="6">
               <el-form-item label="车主">
                 <el-input
-                  v-model="filters.owner_name"
-                  clearable
-                  placeholder="车主（模糊）"
-                  @keyup.enter="search"
+                    v-model="filters.owner_name"
+                    clearable
+                    placeholder="车主（模糊）"
+                    @keyup.enter="search"
                 />
               </el-form-item>
             </el-col>
             <el-col :span="6">
               <el-form-item label="身份证号">
                 <el-input
-                  v-model="filters.id_number"
-                  clearable
-                  placeholder="身份证号（模糊）"
-                  @keyup.enter="search"
+                    v-model="filters.id_number"
+                    clearable
+                    placeholder="身份证号（模糊）"
+                    @keyup.enter="search"
                 />
               </el-form-item>
             </el-col>
             <el-col :span="6">
               <el-form-item label="车牌">
                 <el-input
-                  v-model="filters.plate_no"
-                  clearable
-                  placeholder="车牌（模糊）"
-                  @keyup.enter="search"
+                    v-model="filters.plate_no"
+                    clearable
+                    placeholder="车牌（模糊）"
+                    @keyup.enter="search"
                 />
               </el-form-item>
             </el-col>
             <el-col :span="6">
               <el-form-item label="发动机号">
                 <el-input
-                  v-model="filters.engine_no"
-                  clearable
-                  placeholder="发动机号（模糊）"
-                  @keyup.enter="search"
+                    v-model="filters.engine_no"
+                    clearable
+                    placeholder="发动机号（模糊）"
+                    @keyup.enter="search"
                 />
               </el-form-item>
             </el-col>
@@ -332,30 +296,30 @@
             <el-col :span="6">
               <el-form-item label="车架号">
                 <el-input
-                  v-model="filters.vin"
-                  clearable
-                  placeholder="车架号（模糊）"
-                  @keyup.enter="search"
+                    v-model="filters.vin"
+                    clearable
+                    placeholder="车架号（模糊）"
+                    @keyup.enter="search"
                 />
               </el-form-item>
             </el-col>
             <el-col :span="6">
               <el-form-item label="车型">
                 <el-input
-                  v-model="filters.vehicle_model"
-                  clearable
-                  placeholder="车型（模糊）"
-                  @keyup.enter="search"
+                    v-model="filters.vehicle_model"
+                    clearable
+                    placeholder="车型（模糊）"
+                    @keyup.enter="search"
                 />
               </el-form-item>
             </el-col>
             <el-col :span="6">
               <el-form-item label="备注">
                 <el-input
-                  v-model="filters.remark"
-                  clearable
-                  placeholder="备注（模糊）"
-                  @keyup.enter="search"
+                    v-model="filters.remark"
+                    clearable
+                    placeholder="备注（模糊）"
+                    @keyup.enter="search"
                 />
               </el-form-item>
             </el-col>
@@ -372,23 +336,23 @@
 
     <div class="table-scroll">
       <el-table
-        ref="tableRef"
-        v-loading="loading"
-        :data="tableData"
-        border
-        stripe
-        class="main-table"
-        :row-class-name="tableRowClassName"
-        @selection-change="onSelectionChange"
+          ref="tableRef"
+          v-loading="loading"
+          :data="tableData"
+          border
+          stripe
+          class="main-table"
+          :row-class-name="tableRowClassName"
+          @selection-change="onSelectionChange"
       >
         <el-table-column
-          v-if="isFinance && canFinanceDownload"
-          type="selection"
-          width="44"
-          fixed="left"
-          align="center"
-          header-align="center"
-          :selectable="selectableRow"
+            v-if="isFinance && canFinanceDownload"
+            type="selection"
+            width="44"
+            fixed="left"
+            align="center"
+            header-align="center"
+            :selectable="selectableRow"
         />
 
         <el-table-column label="日期" min-width="110" show-overflow-tooltip>
@@ -398,12 +362,12 @@
         </el-table-column>
 
         <el-table-column
-          v-if="showFinishedColumn"
-          label="完成状态"
-          min-width="92"
-          align="center"
-          header-align="center"
-          show-overflow-tooltip
+            v-if="showFinishedColumn"
+            label="完成状态"
+            min-width="92"
+            align="center"
+            header-align="center"
+            show-overflow-tooltip
         >
           <template #default="{ row }">{{ row._is_summary ? "" : row._view_finished_text }}</template>
         </el-table-column>
@@ -481,7 +445,10 @@
         </el-table-column>
 
         <el-table-column label="渠道商业后补点位" min-width="140" show-overflow-tooltip>
-          <template #default="{ row }">{{ row._is_summary ? "" : row._view_point_channel_commercial_supplement_point }}</template>
+          <template #default="{ row }">{{
+              row._is_summary ? "" : row._view_point_channel_commercial_supplement_point
+            }}
+          </template>
         </el-table-column>
 
         <el-table-column label="渠道交强点位" min-width="120" show-overflow-tooltip>
@@ -505,7 +472,10 @@
         </el-table-column>
 
         <el-table-column label="客户商业后补点位" min-width="140" show-overflow-tooltip>
-          <template #default="{ row }">{{ row._is_summary ? "" : row._view_point_customer_commercial_supplement_point }}</template>
+          <template #default="{ row }">{{
+              row._is_summary ? "" : row._view_point_customer_commercial_supplement_point
+            }}
+          </template>
         </el-table-column>
 
         <el-table-column label="客户交强点位" min-width="120" show-overflow-tooltip>
@@ -513,11 +483,17 @@
         </el-table-column>
 
         <el-table-column label="客户车船税点位" min-width="130" show-overflow-tooltip>
-          <template #default="{ row }">{{ row._is_summary ? "" : row._view_point_customer_vehicle_tax_point }}</template>
+          <template #default="{ row }">{{
+              row._is_summary ? "" : row._view_point_customer_vehicle_tax_point
+            }}
+          </template>
         </el-table-column>
 
         <el-table-column label="客户非车点位" min-width="120" show-overflow-tooltip>
-          <template #default="{ row }">{{ row._is_summary ? "" : row._view_point_customer_non_vehicle_point }}</template>
+          <template #default="{ row }">{{
+              row._is_summary ? "" : row._view_point_customer_non_vehicle_point
+            }}
+          </template>
         </el-table-column>
 
         <el-table-column v-if="isFinance" label="客户奖励" min-width="110" show-overflow-tooltip>
@@ -545,25 +521,25 @@
         </el-table-column>
 
         <el-table-column
-          v-if="isFinance"
-          label="是否回款"
-          width="108"
-          fixed="right"
-          align="center"
-          header-align="center"
-          class-name="col-switch"
+            v-if="isFinance"
+            label="是否回款"
+            width="108"
+            fixed="right"
+            align="center"
+            header-align="center"
+            class-name="col-switch"
         >
           <template #default="{ row }">
             <div class="switch-cell" v-if="!row._is_summary">
               <el-switch
-                size="medium"
-                inline-prompt
-                inactive-text="否"
-                active-text="是"
-                :model-value="Boolean(row.is_paid)"
-                :loading="Boolean(row?._saving_paid)"
-                :disabled="!canFinanceEdit"
-                @change="(val) => onPaidSwitch(row, val)"
+                  size="medium"
+                  inline-prompt
+                  inactive-text="否"
+                  active-text="是"
+                  :model-value="Boolean(row.is_paid)"
+                  :loading="Boolean(row?._saving_paid)"
+                  :disabled="!canFinanceEdit"
+                  @change="(val) => onPaidSwitch(row, val)"
               />
             </div>
             <span v-else></span>
@@ -571,25 +547,25 @@
         </el-table-column>
 
         <el-table-column
-          v-if="isFinance"
-          label="是否返点"
-          width="108"
-          fixed="right"
-          align="center"
-          header-align="center"
-          class-name="col-switch"
+            v-if="isFinance"
+            label="是否返点"
+            width="108"
+            fixed="right"
+            align="center"
+            header-align="center"
+            class-name="col-switch"
         >
           <template #default="{ row }">
             <div class="switch-cell" v-if="!row._is_summary">
               <el-switch
-                size="medium"
-                inline-prompt
-                inactive-text="否"
-                active-text="是"
-                :model-value="Boolean(row.is_rebate)"
-                :loading="Boolean(row?._saving_rebate)"
-                :disabled="!canFinanceEdit"
-                @change="(val) => onRebateSwitch(row, val)"
+                  size="medium"
+                  inline-prompt
+                  inactive-text="否"
+                  active-text="是"
+                  :model-value="Boolean(row.is_rebate)"
+                  :loading="Boolean(row?._saving_rebate)"
+                  :disabled="!canFinanceEdit"
+                  @change="(val) => onRebateSwitch(row, val)"
               />
             </div>
             <span v-else></span>
@@ -597,12 +573,12 @@
         </el-table-column>
 
         <el-table-column
-          label="操作"
-          :width="isFinance ? 110 : 130"
-          fixed="right"
-          align="center"
-          header-align="center"
-          class-name="col-actions"
+            label="操作"
+            :width="isFinance ? 110 : 130"
+            fixed="right"
+            align="center"
+            header-align="center"
+            class-name="col-actions"
         >
           <template #default="{ row }">
             <template v-if="row._is_summary">
@@ -614,15 +590,15 @@
                 <el-button native-type="button" size="small" link @click.stop="goDetail(row.id)">详情</el-button>
 
                 <el-dropdown
-                  trigger="click"
-                  :teleported="true"
-                  placement="bottom-end"
-                  popper-class="order-actions-popper"
-                  @command="(cmd) => onFinanceAction(cmd, row)"
+                    trigger="click"
+                    :teleported="true"
+                    placement="bottom-end"
+                    popper-class="order-actions-popper"
+                    @command="(cmd) => onFinanceAction(cmd, row)"
                 >
                   <el-button native-type="button" size="small" circle @click.stop>
                     <el-icon>
-                      <MoreFilled />
+                      <MoreFilled/>
                     </el-icon>
                   </el-button>
 
@@ -641,22 +617,23 @@
                 <el-button native-type="button" size="small" link @click.stop="goDetail(row.id)">详情</el-button>
 
                 <el-dropdown
-                  trigger="click"
-                  :teleported="true"
-                  placement="bottom-end"
-                  popper-class="order-actions-popper"
-                  @command="(cmd) => onAction(cmd, row)"
+                    trigger="click"
+                    :teleported="true"
+                    placement="bottom-end"
+                    popper-class="order-actions-popper"
+                    @command="(cmd) => onAction(cmd, row)"
                 >
                   <el-button native-type="button" size="small" circle @click.stop>
                     <el-icon>
-                      <MoreFilled />
+                      <MoreFilled/>
                     </el-icon>
                   </el-button>
 
                   <template #dropdown>
                     <el-dropdown-menu>
                       <el-dropdown-item command="detail">详情</el-dropdown-item>
-                      <el-dropdown-item v-if="canMarkFinished(row)" command="markFinished" divided>标记完成</el-dropdown-item>
+                      <el-dropdown-item v-if="canMarkFinished(row)" command="markFinished" divided>标记完成
+                      </el-dropdown-item>
                       <el-dropdown-item v-if="canReopen(row)" command="reopen" divided>退回未完成</el-dropdown-item>
                     </el-dropdown-menu>
                   </template>
@@ -670,46 +647,40 @@
 
     <div class="pagination-wrapper">
       <el-pagination
-        background
-        layout="total, prev, pager, next, sizes"
-        :total="total"
-        :current-page="page"
-        :page-size="pageSize"
-        :page-sizes="[10, 20, 50, 100]"
-        @current-change="onPageChange"
-        @size-change="onPageSizeChange"
+          background
+          layout="total, prev, pager, next, sizes"
+          :total="total"
+          :current-page="page"
+          :page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          @current-change="onPageChange"
+          @size-change="onPageSizeChange"
       />
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed, onActivated, onMounted, ref, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
-import { ElMessage, ElMessageBox } from "element-plus";
-import { MoreFilled } from "@element-plus/icons-vue";
+import {computed, onActivated, onMounted, ref, watch} from "vue";
+import {useRoute, useRouter} from "vue-router";
+import {ElMessage, ElMessageBox} from "element-plus";
+import {MoreFilled} from "@element-plus/icons-vue";
+import RemotePagedSelect from "@/components/common/RemotePagedSelect.vue";
 
-import {
-  getChannelGroups,
-  getCustomerGroups,
-  getTeams,
-  listOrders,
-  listSalespersons,
-  updateOrderStatus,
-} from "../../api/orders";
+import {getTeams, listOrders, listSalespersons, updateOrderStatus,} from "../../api/orders";
 import {
   exportFinanceOrders,
   getFinanceOrdersSummary,
   returnFinanceOrder,
   updateFinanceOrderStatus,
 } from "../../api/finance";
-import { useSessionStore } from "../../store/session";
-import { ROLE } from "../../constants";
+import {useSessionStore} from "../../store/session";
+import {ROLE} from "../../constants";
 
 const props = defineProps({
-  title: { type: String, default: "订单列表" },
-  mode: { type: String, default: "all" },
-  pageMode: { type: String, default: "orders" },
+  title: {type: String, default: "订单列表"},
+  mode: {type: String, default: "all"},
+  pageMode: {type: String, default: "orders"},
 });
 
 const router = useRouter();
@@ -747,17 +718,12 @@ const total = ref(0);
 const page = ref(1);
 const pageSize = ref(20);
 
-const customerGroups = ref([]);
-const channelGroups = ref([]);
 const salespersons = ref([]);
 const salespersonMapRef = ref(new Map());
-const groupsLoading = ref(false);
 const salesLoading = ref(false);
 const teamOptions = ref([]);
 const teamsLoading = ref(false);
 
-const customerLoaded = ref(false);
-const channelLoaded = ref(false);
 const teamsLoaded = ref(false);
 const salesLoaded = ref(false);
 
@@ -821,31 +787,6 @@ function _toDisplay(v, fallback = "-") {
   return s || fallback;
 }
 
-function formatCustomerLabel(g) {
-  const code = _trimStr(g?.customer_code);
-  const name = _trimStr(g?.customer_name);
-  if (code && name) return `${code} - ${name}`;
-  return name || code || String(g?.id ?? "-");
-}
-
-function formatChannelLabel(g) {
-  const code = _trimStr(g?.channel_code);
-  const name = _trimStr(g?.channel_name);
-  if (code && name) return `${code} - ${name}`;
-  return name || code || String(g?.id ?? "-");
-}
-
-function normalizeCustomers(resp) {
-  const data = resp?.data ?? resp ?? [];
-  if (Array.isArray(data?.items)) return data.items;
-  return Array.isArray(data) ? data : [];
-}
-
-function normalizeChannels(resp) {
-  const data = resp?.data ?? resp ?? [];
-  if (Array.isArray(data?.items)) return data.items;
-  return Array.isArray(data) ? data : [];
-}
 
 function normalizeItems(resp) {
   const data = resp?.data ?? resp ?? {};
@@ -1072,7 +1013,7 @@ function _asDateRange(v) {
   const s = _trimStr(v[0]);
   const e = _trimStr(v[1]);
   if (!s && !e) return null;
-  return { start: s || "", end: e || "" };
+  return {start: s || "", end: e || ""};
 }
 
 function _applyRangeParams(p, baseKey, v) {
@@ -1115,7 +1056,7 @@ function buildFinanceFilterParams() {
 }
 
 function buildListParams() {
-  const p = { page: page.value, page_size: pageSize.value };
+  const p = {page: page.value, page_size: pageSize.value};
   const f = filters.value || EMPTY_OBJ;
 
   if (f.team_name) p.team_name = String(f.team_name).trim();
@@ -1191,7 +1132,7 @@ function selectableRow(row) {
   return !row?._is_summary;
 }
 
-function tableRowClassName({ row }) {
+function tableRowClassName({row}) {
   return row?._is_summary ? "row-summary" : "";
 }
 
@@ -1257,39 +1198,6 @@ const filteredSalespersons = computed(() => {
   return Array.isArray(salespersons.value) ? salespersons.value : [];
 });
 
-async function loadCustomerGroups(force = false) {
-  if (customerLoaded.value && !force) return;
-  groupsLoading.value = true;
-  try {
-    const resp = await getCustomerGroups();
-    customerGroups.value = normalizeCustomers(resp);
-    customerLoaded.value = true;
-  } catch (e) {
-    console.error(e);
-    customerGroups.value = [];
-  } finally {
-    if (customerLoaded.value || channelLoaded.value) {
-      groupsLoading.value = false;
-    }
-  }
-}
-
-async function loadChannelGroups(force = false) {
-  if (channelLoaded.value && !force) return;
-  groupsLoading.value = true;
-  try {
-    const resp = await getChannelGroups();
-    channelGroups.value = normalizeChannels(resp);
-    channelLoaded.value = true;
-  } catch (e) {
-    console.error(e);
-    channelGroups.value = [];
-  } finally {
-    if (customerLoaded.value || channelLoaded.value) {
-      groupsLoading.value = false;
-    }
-  }
-}
 
 async function loadTeamsOnly(force = false) {
   if (teamsLoaded.value && !force) return;
@@ -1321,7 +1229,7 @@ async function loadSalespersonsForTeam(teamName, force = false) {
   salesLoading.value = true;
   try {
     const tf = String(teamName || "").trim();
-    const resp = await listSalespersons(tf ? { status: 1, team_name: tf } : { status: 1 });
+    const resp = await listSalespersons(tf ? {status: 1, team_name: tf} : {status: 1});
     salespersons.value = normalizeItems(resp);
     _rebuildSalespersonMap();
     salesLoaded.value = true;
@@ -1337,11 +1245,7 @@ async function loadSalespersonsForTeam(teamName, force = false) {
 async function bootstrapDropdowns(force = false) {
   const seq = ++dropdownBootstrapSeq;
 
-  const tasks = [
-    loadCustomerGroups(force),
-    loadChannelGroups(force),
-    loadTeamsOnly(force),
-  ];
+  const tasks = [loadTeamsOnly(force)];
 
   if (!isFinance.value) {
     tasks.push(loadSalespersonsForTeam(filters.value?.team_name, force));
@@ -1353,51 +1257,51 @@ async function bootstrapDropdowns(force = false) {
 }
 
 watch(
-  () => filters.value?.team_name,
-  async (team) => {
-    if (isFinance.value) return;
-    if (!hasMountedOnce.value) return;
+    () => filters.value?.team_name,
+    async (team) => {
+      if (isFinance.value) return;
+      if (!hasMountedOnce.value) return;
 
-    const prevSid = filters.value?.salesperson_id;
+      const prevSid = filters.value?.salesperson_id;
 
-    if (!isSales.value) {
-      filters.value.salesperson_id = null;
-    } else {
-      const uid = _currentUserId();
-      if (uid) filters.value.salesperson_id = uid;
+      if (!isSales.value) {
+        filters.value.salesperson_id = null;
+      } else {
+        const uid = _currentUserId();
+        if (uid) filters.value.salesperson_id = uid;
+      }
+
+      await loadSalespersonsForTeam(team, true);
+
+      if (!isSales.value && prevSid) {
+        const ok = (Array.isArray(salespersons.value) ? salespersons.value : []).some(
+            (u) => Number(u?.id) === Number(prevSid)
+        );
+        if (ok) filters.value.salesperson_id = prevSid;
+      }
     }
-
-    await loadSalespersonsForTeam(team, true);
-
-    if (!isSales.value && prevSid) {
-      const ok = (Array.isArray(salespersons.value) ? salespersons.value : []).some(
-        (u) => Number(u?.id) === Number(prevSid)
-      );
-      if (ok) filters.value.salesperson_id = prevSid;
-    }
-  }
 );
 
 watch(
-  () => pageContextKey.value,
-  async (next, prev) => {
-    if (!next || next === prev || !hasMountedOnce.value) return;
+    () => pageContextKey.value,
+    async (next, prev) => {
+      if (!next || next === prev || !hasMountedOnce.value) return;
 
-    filters.value = isFinance.value ? defaultFinanceFilters() : defaultOrdersFilters();
-    initSalesDefaultIfNeeded();
+      filters.value = isFinance.value ? defaultFinanceFilters() : defaultOrdersFilters();
+      initSalesDefaultIfNeeded();
 
-    page.value = 1;
-    financeSummary.value = null;
-    lastSummaryKey.value = "";
-    lastListKey.value = "";
-    _clearSelection();
+      page.value = 1;
+      financeSummary.value = null;
+      lastSummaryKey.value = "";
+      lastListKey.value = "";
+      _clearSelection();
 
-    loadList(true);
-    bootstrapDropdowns(true);
+      loadList(true);
+      bootstrapDropdowns(true);
 
-    lastActivatedContextKey.value = next;
-  },
-  { flush: "post" }
+      lastActivatedContextKey.value = next;
+    },
+    {flush: "post"}
 );
 
 async function loadSummaryIfNeeded(force = false) {
@@ -1574,7 +1478,7 @@ async function _updateFinished(row, nextFinished) {
   row._view_finished_text = next ? "是" : "否";
 
   try {
-    await updateOrderStatus(row.id, { is_finished: next });
+    await updateOrderStatus(row.id, {is_finished: next});
     ElMessage.success(next ? "已标记完成" : "已退回未完成");
     await loadList(true);
   } catch (e) {
@@ -1692,7 +1596,7 @@ async function onPaidSwitch(row, nextVal) {
   row.is_paid = next;
 
   try {
-    await updateFinanceOrderStatus(row.id, { is_paid: next });
+    await updateFinanceOrderStatus(row.id, {is_paid: next});
     ElMessage.success("已更新回款状态");
   } catch (e) {
     console.error(e);
@@ -1725,7 +1629,7 @@ async function onRebateSwitch(row, nextVal) {
   row.is_rebate = next;
 
   try {
-    await updateFinanceOrderStatus(row.id, { is_rebate: next });
+    await updateFinanceOrderStatus(row.id, {is_rebate: next});
     ElMessage.success("已更新返点状态");
   } catch (e) {
     console.error(e);
@@ -1792,13 +1696,13 @@ async function downloadFinanceExcel() {
   try {
     const baseParams = buildSummaryParams();
     const ids = (Array.isArray(selectedRows.value) ? selectedRows.value : [])
-      .filter((r) => !r?._is_summary)
-      .map((r) => Number(r?.id))
-      .filter((n) => Number.isFinite(n) && n > 0);
+        .filter((r) => !r?._is_summary)
+        .map((r) => Number(r?.id))
+        .filter((n) => Number.isFinite(n) && n > 0);
 
     const reqParams = {
       ...baseParams,
-      ...(ids.length ? { ids } : {}),
+      ...(ids.length ? {ids} : {}),
     };
 
     const resp = await exportFinanceOrders(reqParams, {
@@ -1839,8 +1743,8 @@ async function downloadFinanceExcel() {
     const disp = headers["content-disposition"] || headers["Content-Disposition"] || "";
     const filename = _parseFilenameFromDisposition(disp) || "财务管理_订单.xls";
     const blob = resp.data instanceof Blob
-      ? resp.data
-      : new Blob([resp.data], { type: ct || "application/octet-stream" });
+        ? resp.data
+        : new Blob([resp.data], {type: ct || "application/octet-stream"});
 
     _triggerDownloadBlob(blob, filename);
     ElMessage.success(ids.length ? "已下载勾选数据" : "已下载全部符合条件数据");

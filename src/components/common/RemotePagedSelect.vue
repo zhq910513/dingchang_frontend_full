@@ -8,7 +8,7 @@
     clearable
     :placeholder="placeholder"
     :class="selectClass"
-    :loading="loading"
+    :loading="initialLoading"
     :disabled="disabled"
     :remote-method="onSearch"
     @update:model-value="onUpdate"
@@ -23,11 +23,19 @@
 
     <template #empty>
       <div class="select-empty-wrap">
-        <span v-if="loading">加载中...</span>
+        <span v-if="initialLoading">加载中...</span>
         <span v-else-if="bucket?.error">{{ bucket.error }}</span>
         <span v-else>暂无数据</span>
       </div>
     </template>
+
+    <el-option
+      v-if="appending"
+      key="__remote_paged_select_loading_more__"
+      label="加载更多..."
+      value="__remote_paged_select_loading_more__"
+      disabled
+    />
   </el-select>
 </template>
 
@@ -113,6 +121,8 @@ const bucket = computed(() => {
 
 const items = computed(() => bucket.value?.items || []);
 const loading = computed(() => !!bucket.value?.loading);
+const initialLoading = computed(() => loading.value && items.value.length === 0);
+const appending = computed(() => loading.value && items.value.length > 0);
 
 const labelFormatter = computed(() => {
   return props.type === "channels" ? channelGroupLabel : customerGroupLabel;
@@ -140,7 +150,20 @@ let scrollWrap = null;
 let scrollHandler = null;
 
 function onUpdate(v) {
-  emit("update:modelValue", toOuterValue(v));
+  const normalizedValue = toOuterValue(v);
+  if (normalizedValue === null) {
+    keyword.value = "";
+  }
+  emit("update:modelValue", normalizedValue);
+}
+
+function toDomElement(target) {
+  if (!target) return null;
+  if (target instanceof HTMLElement) return target;
+  if (target.$el instanceof HTMLElement) return target.$el;
+  if (target.contentRef instanceof HTMLElement) return target.contentRef;
+  if (target.contentRef?.$el instanceof HTMLElement) return target.contentRef.$el;
+  return null;
 }
 
 function detachScrollListener() {
@@ -152,9 +175,33 @@ function detachScrollListener() {
 }
 
 function getSelectScrollWrap() {
-  const el = selectRef.value?.popperRef?.contentRef;
-  if (!el) return null;
-  return el.querySelector(".el-select-dropdown__wrap");
+  const popperRootCandidates = [
+    toDomElement(selectRef.value?.popperRef?.contentRef),
+    toDomElement(selectRef.value?.tooltipRef?.contentRef),
+    toDomElement(selectRef.value?.popperPaneRef),
+    toDomElement(selectRef.value?.popperRef),
+  ].filter(Boolean);
+
+  const scrollSelectors = [
+    ".el-select-dropdown .el-scrollbar__wrap",
+    ".el-select-dropdown__wrap",
+    ".el-scrollbar__wrap",
+  ];
+
+  for (const root of popperRootCandidates) {
+    for (const selector of scrollSelectors) {
+      const wrap = root.querySelector(selector);
+      if (wrap) return wrap;
+    }
+  }
+
+  const teleportedFallback = [
+    ...document.querySelectorAll(".el-select-dropdown .el-scrollbar__wrap"),
+    ...document.querySelectorAll(".el-select-dropdown__wrap"),
+    ...document.querySelectorAll(".el-select__popper .el-scrollbar__wrap"),
+  ];
+
+  return teleportedFallback.at(-1) || null;
 }
 
 function nearBottom(el) {
@@ -218,6 +265,14 @@ async function attachScroll() {
   };
 
   scrollWrap.addEventListener("scroll", scrollHandler, {passive: true});
+
+  if (nearBottom(scrollWrap)) {
+    try {
+      await loadMore();
+    } catch (e) {
+      console.error(e);
+    }
+  }
 }
 
 async function onSearch(v) {
@@ -234,6 +289,7 @@ async function onSearch(v) {
 async function onVisibleChange(open) {
   if (!open) {
     detachScrollListener();
+    keyword.value = "";
     return;
   }
 
