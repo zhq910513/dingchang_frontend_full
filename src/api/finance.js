@@ -1,5 +1,6 @@
 // src/api/finance.js
 import http from "./http";
+import {bumpDataVersion} from "@/utils/dataVersion";
 
 /**
  * 财务模块：仅保留财务特有接口
@@ -219,6 +220,12 @@ function normalizeStatusPatch(data) {
     return out;
 }
 
+function markFinanceChanged(resp) {
+    bumpDataVersion("finance");
+    bumpDataVersion("orders");
+    return resp;
+}
+
 export function getFinanceOrdersSummary(params = {}, config = {}) {
     const p = normalizeFinanceParams(params);
     return http.get("/finance/orders/summary", {
@@ -249,10 +256,10 @@ export function updateFinanceOrderStatus(orderId, data = {}) {
         throw new Error("finance api: status patch requires is_paid and/or is_rebate boolean");
     }
 
-    return http.patch(`/finance/orders/${id}/status`, body);
+    return http.patch(`/finance/orders/${id}/status`, body).then(markFinanceChanged);
 }
 
 export function returnFinanceOrder(orderId) {
     const id = toValidId(orderId);
-    return http.post(`/finance/orders/${id}/return`);
+    return http.post(`/finance/orders/${id}/return`).then(markFinanceChanged);
 }

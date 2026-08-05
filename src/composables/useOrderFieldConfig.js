@@ -1,5 +1,9 @@
 import {computed, ref} from "vue";
 import http from "@/api/http";
+import {cachedPromise, invalidateCache} from "@/utils/requestCache";
+
+const FIELD_CONFIG_CACHE_NS = "field-config:form";
+const FIELD_CONFIG_TTL_MS = 5 * 60 * 1000;
 
 function parseOptions(raw) {
     if (raw == null) return [];
@@ -108,13 +112,23 @@ export function useOrderFieldConfig() {
         return allFields.value.slice(0, 3);
     });
 
-    async function loadConfig(module = "order") {
+    async function loadConfig(module = "order", {force = false} = {}) {
+        const moduleName = String(module || "order").trim() || "order";
+        if (force) invalidateCache(FIELD_CONFIG_CACHE_NS, (key) => key === moduleName);
+
         loadingConfig.value = true;
         try {
-            const res = await http.get("/field-config/form-config", {
-                params: {module},
-            });
-            groups.value = Array.isArray(res?.data) ? res.data : [];
+            groups.value = await cachedPromise(
+                FIELD_CONFIG_CACHE_NS,
+                moduleName,
+                async () => {
+                    const res = await http.get("/field-config/form-config", {
+                        params: {module: moduleName},
+                    });
+                    return Array.isArray(res?.data) ? res.data : [];
+                },
+                {ttlMs: FIELD_CONFIG_TTL_MS, maxEntries: 20}
+            );
         } catch (e) {
             console.error(e);
             groups.value = [];
@@ -131,4 +145,13 @@ export function useOrderFieldConfig() {
         loadingConfig,
         loadConfig,
     };
+}
+
+export function clearOrderFieldConfigCache(module = "") {
+    const moduleName = String(module || "").trim();
+    if (!moduleName) {
+        invalidateCache(FIELD_CONFIG_CACHE_NS);
+        return;
+    }
+    invalidateCache(FIELD_CONFIG_CACHE_NS, (key) => key === moduleName);
 }

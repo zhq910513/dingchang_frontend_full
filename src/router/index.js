@@ -35,9 +35,9 @@ const routes = [
     children: [
       { path: "orders", redirect: DEFAULT_HOME },
       { path: "orders/import", name: "orders-import", component: OrderImport },
-      { path: "orders/all", name: "orders-all", component: OrderList },
-      { path: "orders/finished", name: "orders-finished", component: OrderFinished },
-      { path: "orders/unfinished", name: "orders-unfinished", component: OrderUnfinished },
+      { path: "orders/all", name: "orders-all", component: OrderList, meta: { keepAlive: true } },
+      { path: "orders/finished", name: "orders-finished", component: OrderFinished, meta: { keepAlive: true } },
+      { path: "orders/unfinished", name: "orders-unfinished", component: OrderUnfinished, meta: { keepAlive: true } },
       { path: "orders/create", name: "orders-create", component: OrderCreate },
       { path: "orders/:id", name: "orders-detail", component: OrderDetail },
 
@@ -45,7 +45,7 @@ const routes = [
 
       { path: "users", name: "users", component: UserList },
 
-      { path: "finance", name: "finance", component: FinanceList },
+      { path: "finance", name: "finance", component: FinanceList, meta: { keepAlive: true } },
       {
         path: "finance/orders/:id",
         name: "finance-order-detail",

@@ -128,28 +128,28 @@
             <div class="kv-item">
               <div class="kv-label">商业金额</div>
               <div class="kv-value">
-                <InfoValue v-model="editOrderInfo.commercial_amount" type="money" :editable="true" :min="0"/>
+                <InfoValue v-model="editOrderInfo.commercial_amount" type="money" :editable="true"/>
               </div>
             </div>
 
             <div class="kv-item">
               <div class="kv-label">交强金额</div>
               <div class="kv-value">
-                <InfoValue v-model="editOrderInfo.compulsory_amount" type="money" :editable="true" :min="0"/>
+                <InfoValue v-model="editOrderInfo.compulsory_amount" type="money" :editable="true"/>
               </div>
             </div>
 
             <div class="kv-item">
               <div class="kv-label">车船税金额</div>
               <div class="kv-value">
-                <InfoValue v-model="editOrderInfo.vehicle_tax_amount" type="money" :editable="true" :min="0"/>
+                <InfoValue v-model="editOrderInfo.vehicle_tax_amount" type="money" :editable="true"/>
               </div>
             </div>
 
             <div class="kv-item">
               <div class="kv-label">非车金额</div>
               <div class="kv-value">
-                <InfoValue v-model="editOrderInfo.non_vehicle_amount" type="money" :editable="true" :min="0"/>
+                <InfoValue v-model="editOrderInfo.non_vehicle_amount" type="money" :editable="true"/>
               </div>
             </div>
           </div>
@@ -633,6 +633,7 @@ import {useOrderFieldConfig} from "@/composables/useOrderFieldConfig";
 import {formatDynamicValue} from "@/utils/fieldFormat";
 import {uploadOrReuseByMd5} from "@/utils/bosUpload";
 import {preprocessImageForUpload} from "@/utils/imagePreprocess";
+import {getApiErrorMessage} from "@/utils/errorMessage";
 
 defineProps({
   embedded: {type: Boolean, default: false},
@@ -665,9 +666,8 @@ function persistUploadMode() {
 
 loadUploadMode();
 
-function _errMsg(e) {
-  const m = e?.message || e?.response?.data?.detail || e?.response?.data?.message || "";
-  return String(m || "");
+function _errMsg(e, fallback = "操作失败") {
+  return getApiErrorMessage(e, fallback, {withRequest: false});
 }
 
 function isLikelyNetworkBlocked(err) {
@@ -707,6 +707,37 @@ async function suggestSwitchToStableOnce() {
     return true;
   } catch {
     return false;
+  }
+}
+
+function _setUploadedMeta(slotKey, file, raw, meta) {
+  uploadedMap[file.uid] = {
+    slot_key: slotKey,
+    md5: meta?.md5,
+    storage_key: meta?.storage_key,
+    etag: meta?.etag || "",
+    size: meta?.size || raw?.size || 0,
+    content_type: meta?.content_type || raw?.type || "application/octet-stream",
+    original_name: meta?.original_name || raw?.name || "file",
+    preview_url: meta?.preview_url || meta?.url || "",
+    url: meta?.url || meta?.preview_url || "",
+  };
+
+  if (meta?.url || meta?.preview_url) {
+    file.url = meta?.url || meta?.preview_url;
+  }
+
+  uploadState[file.uid] = {status: "done"};
+}
+
+async function _proxyUploadWithOriginalFallback(slotKey, raw, raw0) {
+  try {
+    return await uploadOrderImageProxy({slot_key: slotKey, file: raw});
+  } catch (e) {
+    if (raw !== raw0) {
+      return await uploadOrderImageProxy({slot_key: slotKey, file: raw0});
+    }
+    throw e;
   }
 }
 
@@ -901,10 +932,10 @@ const editOrderInfo = reactive({
 });
 
 function recalcOrderInfoDerived() {
-  const commercial = Math.max(0, _numOrZero(editOrderInfo.commercial_amount));
-  const compulsory = Math.max(0, _numOrZero(editOrderInfo.compulsory_amount));
-  const vehicleTax = Math.max(0, _numOrZero(editOrderInfo.vehicle_tax_amount));
-  const nonVehicle = Math.max(0, _numOrZero(editOrderInfo.non_vehicle_amount));
+  const commercial = _numOrZero(editOrderInfo.commercial_amount);
+  const compulsory = _numOrZero(editOrderInfo.compulsory_amount);
+  const vehicleTax = _numOrZero(editOrderInfo.vehicle_tax_amount);
+  const nonVehicle = _numOrZero(editOrderInfo.non_vehicle_amount);
 
   editOrderInfo.commercial_amount = commercial;
   editOrderInfo.compulsory_amount = compulsory;
@@ -1124,7 +1155,7 @@ function onFileChange(slotKey, file) {
       console.error(e);
       ElNotification.error({
         title: "上传失败",
-        message: _errMsg(e) || "unknown error",
+        message: _errMsg(e, "上传图片失败"),
         duration: 5000,
       });
     });
@@ -1141,7 +1172,7 @@ function onFileChange(slotKey, file) {
     console.error(e);
     ElNotification.error({
       title: "上传失败",
-      message: _errMsg(e) || "unknown error",
+      message: _errMsg(e, "上传图片失败"),
       duration: 5000,
     });
   });
@@ -1202,26 +1233,8 @@ async function startUpload(slotKey, file) {
     if (uploadMode.value === "stable") {
       const raw = await _preprocessForStable(slotKey, file, raw0);
 
-      const resp = await uploadOrderImageProxy({slot_key: slotKey, file: raw});
-      const meta = resp?.data;
-
-      uploadedMap[file.uid] = {
-        slot_key: slotKey,
-        md5: meta?.md5,
-        storage_key: meta?.storage_key,
-        etag: meta?.etag || "",
-        size: meta?.size || raw.size || 0,
-        content_type: meta?.content_type || raw.type || "application/octet-stream",
-        original_name: meta?.original_name || raw.name || "file",
-        preview_url: meta?.preview_url || meta?.url || "",
-        url: meta?.url || meta?.preview_url || "",
-      };
-
-      if (meta?.url || meta?.preview_url) {
-        file.url = meta?.url || meta?.preview_url;
-      }
-
-      uploadState[file.uid] = {status: "done"};
+      const resp = await _proxyUploadWithOriginalFallback(slotKey, raw, raw0);
+      _setUploadedMeta(slotKey, file, raw, resp?.data);
       return;
     }
 
@@ -1250,43 +1263,20 @@ async function startUpload(slotKey, file) {
 
     uploadState[file.uid] = {status: "done"};
   } catch (e) {
-    if (uploadMode.value === "smart" && isLikelyNetworkBlocked(e)) {
-      const switched = await suggestSwitchToStableOnce();
-      if (switched) {
-        try {
-          const rawRetry0 = file?.raw || raw0;
-          const rawRetry = await _preprocessForStable(slotKey, file, rawRetry0);
-
-          const resp = await uploadOrderImageProxy({slot_key: slotKey, file: rawRetry});
-          const meta = resp?.data;
-
-          uploadedMap[file.uid] = {
-            slot_key: slotKey,
-            md5: meta?.md5,
-            storage_key: meta?.storage_key,
-            etag: meta?.etag || "",
-            size: meta?.size || rawRetry.size || 0,
-            content_type: meta?.content_type || rawRetry.type || "application/octet-stream",
-            original_name: meta?.original_name || rawRetry.name || "file",
-            preview_url: meta?.preview_url || meta?.url || "",
-            url: meta?.url || meta?.preview_url || "",
-          };
-
-          if (meta?.url || meta?.preview_url) {
-            file.url = meta?.url || meta?.preview_url;
-          }
-
-          uploadState[file.uid] = {status: "done"};
-          return;
-        } catch (e2) {
-          uploadState[file.uid] = {status: "error", msg: _errMsg(e2) || "upload failed"};
-          throw e2;
-        }
+    try {
+      if (uploadMode.value === "smart" && isLikelyNetworkBlocked(e)) {
+        uploadMode.value = "stable";
+        persistUploadMode();
       }
+      const rawRetry0 = file?.raw || raw0;
+      const rawRetry = await _preprocessForStable(slotKey, file, rawRetry0);
+      const resp = await _proxyUploadWithOriginalFallback(slotKey, rawRetry, raw0);
+      _setUploadedMeta(slotKey, file, rawRetry, resp?.data);
+      return;
+    } catch (e2) {
+      uploadState[file.uid] = {status: "error", msg: _errMsg(e2, "上传图片失败")};
+      throw e2;
     }
-
-    uploadState[file.uid] = {status: "error", msg: _errMsg(e) || "upload failed"};
-    throw e;
   } finally {
     uploadingCount.value = Math.max(0, uploadingCount.value - 1);
   }
@@ -1400,7 +1390,7 @@ async function save() {
     router.push({path: `/orders/${newOrderId}`});
   } catch (e) {
     console.error(e);
-    ElMessage.error(_errMsg(e) || "保存失败");
+    ElMessage.error(_errMsg(e, "保存订单失败"));
   } finally {
     saving.value = false;
   }

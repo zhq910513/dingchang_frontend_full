@@ -1,5 +1,16 @@
 // src/api/customerChannel.js
 import http from "./http";
+import {cachedPromise, invalidateCache, stableCacheKey} from "@/utils/requestCache";
+import {bumpDataVersion} from "@/utils/dataVersion";
+
+const DROPDOWN_CACHE_NS = "customer-channel:dropdown";
+const DROPDOWN_TTL_MS = 60000;
+
+function markCustomerChannelChanged(resp) {
+    invalidateCache(DROPDOWN_CACHE_NS);
+    bumpDataVersion("customer-channel");
+    return resp;
+}
 
 // =======================
 // contacts 校验/归一
@@ -82,11 +93,23 @@ function normalizeContactsInput(contacts) {
 // 下拉接口（轻量）
 // =======================
 export function listOrderChannelGroups(params = {}) {
-    return http.get("/customer-channel/channels", {params});
+    const key = stableCacheKey(["channels", params]);
+    return cachedPromise(
+        DROPDOWN_CACHE_NS,
+        key,
+        () => http.get("/customer-channel/channels", {params}),
+        {ttlMs: DROPDOWN_TTL_MS, maxEntries: 120}
+    );
 }
 
 export function listOrderCustomerGroups(params = {}) {
-    return http.get("/customer-channel/customers", {params});
+    const key = stableCacheKey(["customers", params]);
+    return cachedPromise(
+        DROPDOWN_CACHE_NS,
+        key,
+        () => http.get("/customer-channel/customers", {params}),
+        {ttlMs: DROPDOWN_TTL_MS, maxEntries: 120}
+    );
 }
 
 // 兼容旧调用名
@@ -118,7 +141,7 @@ export function createChannelGroup(payload = {}) {
         channel_name: cleanText(payload.channel_name),
         region: cleanText(payload.region) || null,
         contacts: normalized.contacts,
-    });
+    }).then(markCustomerChannelChanged);
 }
 
 export function createCustomerGroup(payload = {}) {
@@ -133,7 +156,7 @@ export function createCustomerGroup(payload = {}) {
         market: cleanText(payload.market) || null,
         region: cleanText(payload.region) || null,
         contacts: normalized.contacts,
-    });
+    }).then(markCustomerChannelChanged);
 }
 
 // =======================
@@ -150,7 +173,7 @@ export function updateChannelGroup(id, payload = {}) {
         channel_name: cleanText(payload.channel_name),
         region: cleanText(payload.region) || null,
         contacts: normalized.contacts,
-    });
+    }).then(markCustomerChannelChanged);
 }
 
 export function updateCustomerGroup(id, payload = {}) {
@@ -165,16 +188,16 @@ export function updateCustomerGroup(id, payload = {}) {
         market: cleanText(payload.market) || null,
         region: cleanText(payload.region) || null,
         contacts: normalized.contacts,
-    });
+    }).then(markCustomerChannelChanged);
 }
 
 // =======================
 // 管理页 delete
 // =======================
 export function deleteChannelGroup(id) {
-    return http.delete(`/customer-channel/channel-groups/${id}`);
+    return http.delete(`/customer-channel/channel-groups/${id}`).then(markCustomerChannelChanged);
 }
 
 export function deleteCustomerGroup(id) {
-    return http.delete(`/customer-channel/customer-groups/${id}`);
+    return http.delete(`/customer-channel/customer-groups/${id}`).then(markCustomerChannelChanged);
 }

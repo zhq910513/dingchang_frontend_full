@@ -301,6 +301,7 @@ import OrderCreateForm from "@/views/orders/OrderCreateForm.vue";
 import RemotePagedSelect from "@/components/common/RemotePagedSelect.vue";
 import {uploadOrReuseByMd5} from "@/utils/bosUpload";
 import {preprocessImageForUpload} from "@/utils/imagePreprocess";
+import {getApiErrorDetail, getApiErrorMessage} from "@/utils/errorMessage";
 
 const router = useRouter();
 const route = useRoute();
@@ -359,36 +360,12 @@ function persistUploadMode() {
 
 loadUploadMode();
 
-function hasChinese(s) {
-  return /[\u4e00-\u9fa5]/.test(String(s || ""));
-}
-
 function _rawErrMsg(e) {
-  const m = e?.response?.data?.detail || e?.response?.data?.message || e?.message || "";
-  return String(m || "");
+  return getApiErrorDetail(e) || String(e?.response?.data?.message || e?.message || "");
 }
 
 function normalizeErrMsg(e, fallback = "操作失败，请稍后重试") {
-  const detail = e?.response?.data?.detail;
-  const msg = _rawErrMsg(e);
-  const status = e?.response?.status;
-  const code = String(e?.code || "");
-
-  if (typeof detail === "string" && detail && hasChinese(detail)) return detail;
-  if (msg && hasChinese(msg)) return msg;
-
-  const low = msg.toLowerCase();
-
-  if (low.includes("network error") || low.includes("failed to fetch")) return "网络异常，请检查网络连接";
-  if (low.includes("timeout") || code.includes("ECONNABORTED")) return "请求超时，请稍后重试";
-  if (low.includes("cors")) return "跨域受限或网络拦截，请切换网络后重试";
-
-  if (status === 401) return "登录状态已失效，请重新登录";
-  if (status === 403) return "无权限执行该操作";
-  if (status >= 500) return "服务器异常，请稍后重试";
-  if (status) return fallback;
-
-  return fallback;
+  return getApiErrorMessage(e, fallback, {withRequest: false});
 }
 
 function isLikelyNetworkBlocked(err) {
@@ -429,6 +406,35 @@ async function suggestSwitchToStableOnce() {
     return true;
   } catch {
     return false;
+  }
+}
+
+function _setUploadedMeta(slotKey, file, raw, meta) {
+  uploadedMap.value[file.uid] = {
+    slot_key: slotKey,
+    md5: meta?.md5,
+    storage_key: meta?.storage_key,
+    etag: meta?.etag || "",
+    size: meta?.size || raw?.size || 0,
+    content_type: meta?.content_type || raw?.type || "application/octet-stream",
+    original_name: meta?.original_name || raw?.name || "file",
+    preview_url: meta?.preview_url || meta?.url || "",
+    url: meta?.url || meta?.preview_url || "",
+  };
+  uploadState.value[file.uid] = {status: "done"};
+  if (meta?.url || meta?.preview_url) {
+    file.url = meta?.url || meta?.preview_url;
+  }
+}
+
+async function _proxyUploadWithOriginalFallback(slotKey, file, raw, raw0) {
+  try {
+    return await uploadOrderImageProxy({slot_key: slotKey, file: raw});
+  } catch (e) {
+    if (raw !== raw0) {
+      return await uploadOrderImageProxy({slot_key: slotKey, file: raw0});
+    }
+    throw e;
   }
 }
 
@@ -636,24 +642,8 @@ async function startUpload(slotKey, file) {
     }
 
     if (uploadMode.value === "stable") {
-      const resp = await uploadOrderImageProxy({slot_key: slotKey, file: raw});
-      const meta = resp?.data;
-
-      uploadedMap.value[file.uid] = {
-        slot_key: slotKey,
-        md5: meta?.md5,
-        storage_key: meta?.storage_key,
-        etag: meta?.etag || "",
-        size: meta?.size || raw.size || 0,
-        content_type: meta?.content_type || raw.type || "application/octet-stream",
-        original_name: meta?.original_name || raw.name || "file",
-        preview_url: meta?.preview_url || meta?.url || "",
-        url: meta?.url || meta?.preview_url || "",
-      };
-      uploadState.value[file.uid] = {status: "done"};
-      if (meta?.url || meta?.preview_url) {
-        file.url = meta?.url || meta?.preview_url;
-      }
+      const resp = await _proxyUploadWithOriginalFallback(slotKey, file, raw, raw0);
+      _setUploadedMeta(slotKey, file, resp?.data?.storage_key ? raw : raw0, resp?.data);
       return;
     }
 
@@ -680,45 +670,22 @@ async function startUpload(slotKey, file) {
       file.url = meta?.url || meta?.preview_url;
     }
   } catch (e) {
-    if (uploadMode.value === "smart" && isLikelyNetworkBlocked(e)) {
-      const switched = await suggestSwitchToStableOnce();
-      if (switched) {
-        try {
-          const rawRetry = file?.raw || raw0;
-          const resp = await uploadOrderImageProxy({slot_key: slotKey, file: rawRetry});
-          const meta = resp?.data;
-
-          uploadedMap.value[file.uid] = {
-            slot_key: slotKey,
-            md5: meta?.md5,
-            storage_key: meta?.storage_key,
-            etag: meta?.etag || "",
-            size: meta?.size || rawRetry.size || 0,
-            content_type: meta?.content_type || rawRetry.type || "application/octet-stream",
-            original_name: meta?.original_name || rawRetry.name || "file",
-            preview_url: meta?.preview_url || meta?.url || "",
-            url: meta?.url || meta?.preview_url || "",
-          };
-          uploadState.value[file.uid] = {status: "done"};
-          if (meta?.url || meta?.preview_url) {
-            file.url = meta?.url || meta?.preview_url;
-          }
-          return;
-        } catch (e2) {
-          uploadState.value[file.uid] = {
-            status: "error",
-            msg: normalizeErrMsg(e2, "上传失败，请稍后重试"),
-          };
-          throw e2;
-        }
+    try {
+      if (uploadMode.value === "smart" && isLikelyNetworkBlocked(e)) {
+        uploadMode.value = "stable";
+        persistUploadMode();
       }
+      const rawRetry = file?.raw || raw0;
+      const resp = await _proxyUploadWithOriginalFallback(slotKey, file, rawRetry, raw0);
+      _setUploadedMeta(slotKey, file, rawRetry, resp?.data);
+      return;
+    } catch (e2) {
+      uploadState.value[file.uid] = {
+        status: "error",
+        msg: normalizeErrMsg(e2, "上传失败，请稍后重试"),
+      };
+      throw e2;
     }
-
-    uploadState.value[file.uid] = {
-      status: "error",
-      msg: normalizeErrMsg(e, "上传失败，请稍后重试"),
-    };
-    throw e;
   } finally {
     uploadingCount.value = Math.max(0, uploadingCount.value - 1);
   }

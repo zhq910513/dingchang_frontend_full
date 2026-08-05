@@ -12,6 +12,16 @@
         />
       </el-form-item>
 
+      <el-form-item label="真实姓名" prop="real_name">
+        <el-input
+          v-model="form.real_name"
+          maxlength="50"
+          show-word-limit
+          placeholder="请输入真实姓名（可选）"
+          autocomplete="off"
+        />
+      </el-form-item>
+
       <el-form-item label="密码" prop="password">
         <el-input
           v-model="form.password"
@@ -107,6 +117,16 @@
         </div>
       </el-form-item>
 
+      <el-form-item label="真实姓名" prop="real_name">
+        <el-input
+          v-model="form.real_name"
+          maxlength="50"
+          show-word-limit
+          placeholder="请输入真实姓名（可选）"
+          autocomplete="off"
+        />
+      </el-form-item>
+
       <el-form-item label="重置密码(可选)" prop="password">
         <el-input
           v-model="form.password"
@@ -196,6 +216,7 @@ import { ElMessage } from "element-plus";
 import { createUser, updateUser } from "../../api/users";
 import { useSessionStore } from "../../store/session";
 import { ROLE, TEAM_NAMES } from "../../constants";
+import { getApiErrorMessage } from "../../utils/errorMessage";
 
 const props = defineProps({
   mode: { type: String, default: "create" },
@@ -212,6 +233,7 @@ const store = useSessionStore();
 
 const form = reactive({
   username: "",
+  real_name: "",
   password: "",
   role_name: "",
   team_name: null,
@@ -221,6 +243,7 @@ const form = reactive({
 const origin = ref({
   id: null,
   username: "",
+  real_name: "",
   role_name: "",
 });
 
@@ -327,6 +350,7 @@ function applyEditUser(userValue) {
   if (!currentUser) return;
 
   form.username = normalizeString(currentUser.username);
+  form.real_name = normalizeString(currentUser.real_name);
   form.password = "";
   form.role_name = normalizeLowerString(currentUser.role_name);
   form.team_name = normalizeTeamName(currentUser.team_name);
@@ -335,6 +359,7 @@ function applyEditUser(userValue) {
   origin.value = {
     id: currentUser.id ?? null,
     username: normalizeString(currentUser.username),
+    real_name: normalizeString(currentUser.real_name),
     role_name: normalizeLowerString(currentUser.role_name),
   };
 
@@ -451,6 +476,7 @@ const showRoleReadonly = computed(() => Boolean(displayRoleLabel.value && displa
 
 function clearFormAfterCreate() {
   form.username = "";
+  form.real_name = "";
   form.password = "";
   form.role_name = "";
   form.team_name = null;
@@ -478,6 +504,7 @@ async function submit() {
 
       const payload = {
         username: normalizeString(form.username),
+        real_name: normalizeString(form.real_name),
         password: normalizeString(form.password),
         role_name: normalizeLowerString(form.role_name),
       };
@@ -508,6 +535,10 @@ async function submit() {
     }
 
     const payload = {};
+    const realNameValue = normalizeString(form.real_name);
+    if (realNameValue !== normalizeString(origin.value.real_name)) {
+      payload.real_name = realNameValue || null;
+    }
     const passwordValue = normalizeString(form.password);
     if (passwordValue) {
       payload.password = passwordValue;
@@ -528,8 +559,7 @@ async function submit() {
     formRef.value?.clearValidate?.();
   } catch (error) {
     console.error(error);
-    const message = error?.response?.data?.detail || error?.message || (isEdit.value ? "保存失败" : "创建失败");
-    ElMessage.error(message);
+    ElMessage.error(getApiErrorMessage(error, isEdit.value ? "保存账号失败" : "创建账号失败"));
   } finally {
     loading.value = false;
   }

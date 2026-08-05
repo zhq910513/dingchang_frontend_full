@@ -3,6 +3,57 @@ function normalizeText(s) {
   return String(s || "").trim();
 }
 
+function isValidQuotePlatformHint(value) {
+  const text = normalizeText(value).replace(/\s+/g, "");
+  return !!text && !["重新", "再次", "再"].includes(text);
+}
+
+function isShortQuoteCommand(value) {
+  const text = normalizeText(value).replace(/\s+/g, "");
+  return [
+    "报",
+    "报价",
+    "开始报",
+    "开始报价",
+    "直接报",
+    "直接报价",
+    "现在报",
+    "现在报价",
+    "提交报价",
+    "全保",
+    "人保全保",
+    "全保报价",
+    "人保全保报价",
+    "交三",
+    "人保交三",
+    "交三报价",
+    "人保交三报价",
+  ].includes(text);
+}
+
+function parseProfessionalPiccQuoteCommand(value) {
+  const text = normalizeText(value).replace(/\s+/g, "");
+  if (
+    [
+      "全保",
+      "人保全保",
+      "全保报价",
+      "人保全保报价",
+      "全保重报",
+      "人保全保重报",
+      "交三",
+      "人保交三",
+      "交三报价",
+      "人保交三报价",
+      "交三重报",
+      "人保交三重报",
+    ].includes(text)
+  ) {
+    return { kind: "quote", action: "quote", platform_hint: "人保", text: normalizeText(value) };
+  }
+  return null;
+}
+
 export function parseAiCommand(text) {
   const t = normalizeText(text);
   if (!t) return { kind: "empty" };
@@ -12,11 +63,18 @@ export function parseAiCommand(text) {
     return { kind: "action", action: "new_session", text: t };
   }
 
-  // 平台报价（Phase1 仅前端识别提示；后端也会识别）
-  const m = t.match(/^(.+?)\s*报价$/);
+  const professionalPiccQuote = parseProfessionalPiccQuoteCommand(t);
+  if (professionalPiccQuote) return professionalPiccQuote;
+
+  if (isShortQuoteCommand(t)) {
+    return { kind: "quote", action: "quote", platform_hint: "", text: t };
+  }
+
+  // 平台报价（前端只做体验提示；最终以后端识别为准）
+  const m = t.match(/^(.+?)\s*(?:重新|再次|再)?报价$/) || t.match(/^(.+?)\s*重报$/);
   if (m) {
     const platformText = String(m[1] || "").trim();
-    if (platformText) {
+    if (isValidQuotePlatformHint(platformText)) {
       return {
         kind: "quote",
         action: "quote",

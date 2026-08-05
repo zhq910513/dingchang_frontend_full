@@ -30,11 +30,19 @@
             <el-col :span="6">
               <el-form-item label="渠道">
                 <RemotePagedSelect
+                    v-if="filtersAsyncReady"
                     v-model="filters.channel_group_id"
                     type="channels"
                     placeholder="选择渠道"
                     select-class="w100"
                     :disabled="loading"
+                />
+                <el-input
+                    v-else
+                    model-value=""
+                    placeholder="渠道数据加载中..."
+                    style="width: 100%"
+                    disabled
                 />
               </el-form-item>
             </el-col>
@@ -42,11 +50,19 @@
             <el-col :span="6">
               <el-form-item label="客户">
                 <RemotePagedSelect
+                    v-if="filtersAsyncReady"
                     v-model="filters.customer_group_id"
                     type="customers"
                     placeholder="选择客户"
                     select-class="w100"
                     :disabled="loading"
+                />
+                <el-input
+                    v-else
+                    model-value=""
+                    placeholder="客户数据加载中..."
+                    style="width: 100%"
+                    disabled
                 />
               </el-form-item>
             </el-col>
@@ -186,11 +202,19 @@
             <el-col :span="6">
               <el-form-item label="渠道">
                 <RemotePagedSelect
+                    v-if="filtersAsyncReady"
                     v-model="filters.channel_group_id"
                     type="channels"
                     placeholder="选择渠道"
                     select-class="w100"
                     :disabled="loading"
+                />
+                <el-input
+                    v-else
+                    model-value=""
+                    placeholder="渠道数据加载中..."
+                    style="width: 100%"
+                    disabled
                 />
               </el-form-item>
             </el-col>
@@ -198,11 +222,19 @@
             <el-col :span="6">
               <el-form-item label="客户">
                 <RemotePagedSelect
+                    v-if="filtersAsyncReady"
                     v-model="filters.customer_group_id"
                     type="customers"
                     placeholder="选择客户"
                     select-class="w100"
                     :disabled="loading"
+                />
+                <el-input
+                    v-else
+                    model-value=""
+                    placeholder="客户数据加载中..."
+                    style="width: 100%"
+                    disabled
                 />
               </el-form-item>
             </el-col>
@@ -656,12 +688,15 @@
           @current-change="onPageChange"
           @size-change="onPageSizeChange"
       />
+      <div v-if="totalLoading || !totalReady" class="pagination-hint">
+        符合条件的数据总计计算中...
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import {computed, onActivated, onMounted, ref, watch} from "vue";
+import {computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch} from "vue";
 import {useRoute, useRouter} from "vue-router";
 import {ElMessage, ElMessageBox} from "element-plus";
 import {MoreFilled} from "@element-plus/icons-vue";
@@ -676,6 +711,12 @@ import {
 } from "../../api/finance";
 import {useSessionStore} from "../../store/session";
 import {ROLE} from "../../constants";
+import {getDataVersion} from "@/utils/dataVersion";
+import {getApiErrorMessage} from "@/utils/errorMessage";
+
+const ACTIVATION_RELOAD_STALE_MS = 15000;
+const LIST_STATE_CACHE_TTL_MS = 30000;
+const LIST_STATE_CACHE = new Map();
 
 const props = defineProps({
   title: {type: String, default: "订单列表"},
@@ -715,6 +756,8 @@ const downloading = ref(false);
 
 const orders = ref([]);
 const total = ref(0);
+const totalLoading = ref(false);
+const totalReady = ref(false);
 const page = ref(1);
 const pageSize = ref(20);
 
@@ -726,6 +769,8 @@ const teamsLoading = ref(false);
 
 const teamsLoaded = ref(false);
 const salesLoaded = ref(false);
+const filtersAsyncReady = ref(false);
+const summaryLoading = ref(false);
 
 const tableRef = ref(null);
 const selectedRows = ref([]);
@@ -768,15 +813,190 @@ function defaultFinanceFilters() {
 
 const filters = ref(isFinance.value ? defaultFinanceFilters() : defaultOrdersFilters());
 
-const pageContextKey = computed(() => `${props.pageMode || ""}|${props.mode || ""}|${route.path || ""}`);
+const pageContextKey = computed(() => `${props.pageMode || ""}|${props.mode || ""}`);
 
 const hasMountedOnce = ref(false);
 const lastActivatedContextKey = ref("");
 const manualSearching = ref(false);
 
 let listRequestSeq = 0;
+let totalRequestSeq = 0;
 let summaryRequestSeq = 0;
 let dropdownBootstrapSeq = 0;
+let listAbortController = null;
+let totalAbortController = null;
+let summaryAbortController = null;
+let totalScheduleTimer = null;
+let summaryScheduleTimer = null;
+let initialActivatedSkipped = false;
+let lastListLoadedAt = 0;
+let seenOrdersVersion = getDataVersion("orders");
+let seenFinanceVersion = getDataVersion("finance");
+
+function _createAbortController() {
+  try {
+    return typeof AbortController !== "undefined" ? new AbortController() : null;
+  } catch {
+    return null;
+  }
+}
+
+function _abortController(controller) {
+  try {
+    controller?.abort?.();
+  } catch {
+    // ignore
+  }
+}
+
+function _abortConfig(controller) {
+  return controller?.signal ? {signal: controller.signal} : {};
+}
+
+function _isCanceledRequest(e) {
+  const code = String(e?.code || "");
+  const name = String(e?.name || "");
+  const message = String(e?.message || "").toLowerCase();
+  return code === "ERR_CANCELED" || name === "CanceledError" || name === "AbortError" || message.includes("canceled");
+}
+
+function _replaceListAbortController() {
+  _abortController(listAbortController);
+  listAbortController = _createAbortController();
+  return listAbortController;
+}
+
+function _replaceTotalAbortController() {
+  _abortController(totalAbortController);
+  totalAbortController = _createAbortController();
+  return totalAbortController;
+}
+
+function _replaceSummaryAbortController() {
+  _abortController(summaryAbortController);
+  summaryAbortController = _createAbortController();
+  return summaryAbortController;
+}
+
+function _clearTimer(timer) {
+  if (timer) clearTimeout(timer);
+  return null;
+}
+
+function cancelExactTotalWork() {
+  totalScheduleTimer = _clearTimer(totalScheduleTimer);
+  totalRequestSeq += 1;
+  _abortController(totalAbortController);
+  totalAbortController = null;
+  totalLoading.value = false;
+}
+
+function cancelSummaryWork() {
+  summaryScheduleTimer = _clearTimer(summaryScheduleTimer);
+  summaryRequestSeq += 1;
+  _abortController(summaryAbortController);
+  summaryAbortController = null;
+  summaryLoading.value = false;
+}
+
+function _markSeenDataVersion() {
+  seenOrdersVersion = getDataVersion("orders");
+  seenFinanceVersion = getDataVersion("finance");
+}
+
+function _dataChangedSinceListLoad() {
+  if (getDataVersion("orders") !== seenOrdersVersion) return true;
+  if (isFinance.value && getDataVersion("finance") !== seenFinanceVersion) return true;
+  return false;
+}
+
+function _hasFreshListSnapshot() {
+  if (!lastListKey.value) return false;
+  if (_dataChangedSinceListLoad()) return false;
+  if (Date.now() - lastListLoadedAt > ACTIVATION_RELOAD_STALE_MS) return false;
+  return Array.isArray(orders.value) && (orders.value.length > 0 || totalReady.value);
+}
+
+function _cloneStateValue(value) {
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    return value;
+  }
+}
+
+function _listStateCacheKey() {
+  return pageContextKey.value || `${props.pageMode || ""}|${props.mode || ""}|${route.path || ""}`;
+}
+
+function _trimListStateCache() {
+  while (LIST_STATE_CACHE.size > 12) {
+    const firstKey = LIST_STATE_CACHE.keys().next().value;
+    if (firstKey === undefined) return;
+    LIST_STATE_CACHE.delete(firstKey);
+  }
+}
+
+function _saveListStateSnapshot() {
+  if (!lastListKey.value) return;
+
+  LIST_STATE_CACHE.set(_listStateCacheKey(), {
+    savedAt: Date.now(),
+    ordersVersion: getDataVersion("orders"),
+    financeVersion: getDataVersion("finance"),
+    filters: _cloneStateValue(filters.value),
+    page: page.value,
+    pageSize: pageSize.value,
+    orders: _cloneStateValue(orders.value),
+    total: total.value,
+    totalReady: totalReady.value,
+    financeSummary: _cloneStateValue(financeSummary.value),
+    lastSummaryKey: lastSummaryKey.value,
+    lastListKey: lastListKey.value,
+    lastListLoadedAt,
+  });
+  _trimListStateCache();
+}
+
+function _restoreListStateSnapshotIfFresh() {
+  const cached = LIST_STATE_CACHE.get(_listStateCacheKey());
+  if (!cached) return false;
+  if (Date.now() - Number(cached.savedAt || 0) > LIST_STATE_CACHE_TTL_MS) return false;
+  if (Number(cached.ordersVersion || 0) !== getDataVersion("orders")) return false;
+  if (isFinance.value && Number(cached.financeVersion || 0) !== getDataVersion("finance")) return false;
+
+  filters.value = _cloneStateValue(cached.filters || (isFinance.value ? defaultFinanceFilters() : defaultOrdersFilters()));
+  page.value = Number(cached.page || 1);
+  pageSize.value = Number(cached.pageSize || 20);
+  orders.value = Array.isArray(cached.orders) ? cached.orders : [];
+  total.value = Number(cached.total || 0);
+  totalReady.value = cached.totalReady === true;
+  totalLoading.value = false;
+  financeSummary.value = cached.financeSummary || null;
+  summaryLoading.value = false;
+  lastSummaryKey.value = String(cached.lastSummaryKey || "");
+  lastListKey.value = String(cached.lastListKey || "");
+  lastListLoadedAt = Number(cached.lastListLoadedAt || cached.savedAt || Date.now());
+  _markSeenDataVersion();
+  _clearSelection();
+  return true;
+}
+
+function scheduleExactTotal(force = false) {
+  totalScheduleTimer = _clearTimer(totalScheduleTimer);
+  totalScheduleTimer = setTimeout(() => {
+    totalScheduleTimer = null;
+    void loadExactTotal(force);
+  }, 0);
+}
+
+function scheduleSummary(force = false) {
+  summaryScheduleTimer = _clearTimer(summaryScheduleTimer);
+  summaryScheduleTimer = setTimeout(() => {
+    summaryScheduleTimer = null;
+    void loadSummaryIfNeeded(force);
+  }, 0);
+}
 
 function _trimStr(v) {
   return String(v ?? "").trim();
@@ -1055,8 +1275,9 @@ function buildFinanceFilterParams() {
   return p;
 }
 
-function buildListParams() {
+function buildListParams(includeTotal = false) {
   const p = {page: page.value, page_size: pageSize.value};
+  if (includeTotal) p.include_total = true;
   const f = filters.value || EMPTY_OBJ;
 
   if (f.team_name) p.team_name = String(f.team_name).trim();
@@ -1073,6 +1294,7 @@ function buildListParams() {
     const fp = buildFinanceFilterParams();
     fp.page = p.page;
     fp.page_size = p.page_size;
+    if (includeTotal) fp.include_total = true;
     fp.is_finished = true;
     return fp;
   }
@@ -1150,6 +1372,24 @@ function _clearSelection() {
   }
 }
 
+function buildSummaryLoadingRow() {
+  const row = {
+    id: -2,
+    _is_summary: true,
+    _view_created_at: "统计计算中...",
+    _view_money_commercial_amount: "计算中...",
+    _view_money_compulsory_amount: "计算中...",
+    _view_money_vehicle_tax_amount: "计算中...",
+    _view_money_non_vehicle_amount: "计算中...",
+    _view_reward_channel_reward: "计算中...",
+    _view_reward_customer_reward: "计算中...",
+    _view_receivable: "计算中...",
+    _view_payable: "计算中...",
+    _view_profit: "计算中...",
+  };
+  return row;
+}
+
 function buildSummaryRow(sum) {
   const n = (v) => {
     const x = Number(v);
@@ -1188,8 +1428,12 @@ function buildSummaryRow(sum) {
 
 const tableData = computed(() => {
   const base = Array.isArray(orders.value) ? orders.value : [];
-  if (isFinance.value && financeSummary.value) {
+  if (!isFinance.value) return base;
+  if (financeSummary.value) {
     return [...base, buildSummaryRow(financeSummary.value)];
+  }
+  if (summaryLoading.value) {
+    return [...base, buildSummaryLoadingRow()];
   }
   return base;
 });
@@ -1254,6 +1498,7 @@ async function bootstrapDropdowns(force = false) {
   await Promise.allSettled(tasks);
 
   if (seq !== dropdownBootstrapSeq) return;
+  filtersAsyncReady.value = true;
 }
 
 watch(
@@ -1289,11 +1534,14 @@ watch(
 
       filters.value = isFinance.value ? defaultFinanceFilters() : defaultOrdersFilters();
       initSalesDefaultIfNeeded();
+      cancelSummaryWork();
 
       page.value = 1;
       financeSummary.value = null;
       lastSummaryKey.value = "";
       lastListKey.value = "";
+      total.value = 0;
+      totalReady.value = false;
       _clearSelection();
 
       loadList(true);
@@ -1304,6 +1552,55 @@ watch(
     {flush: "post"}
 );
 
+function _setProvisionalTotal(items) {
+  const list = Array.isArray(items) ? items : [];
+  const currentPage = Number(page.value || 1);
+  const currentPageSize = Number(pageSize.value || 20);
+  const base = Math.max(0, (currentPage - 1) * currentPageSize);
+
+  if (!list.length && currentPage > 1) {
+    total.value = Math.max(total.value || 0, base);
+    return false;
+  }
+
+  if (list.length < currentPageSize) {
+    total.value = base + list.length;
+    return true;
+  }
+
+  total.value = Math.max(total.value || 0, currentPage * currentPageSize + 1);
+  return false;
+}
+
+async function loadExactTotal(force = false) {
+  const currentSeq = ++totalRequestSeq;
+  const controller = _replaceTotalAbortController();
+  const params = buildListParams(true);
+  params.page = 1;
+  params.page_size = 1;
+  params.total_only = true;
+
+  totalLoading.value = true;
+  try {
+    const resp = await listOrders(params, _abortConfig(controller));
+    if (currentSeq !== totalRequestSeq) return;
+    if (controller && controller !== totalAbortController) return;
+    const data = resp?.data ?? resp ?? {};
+    const nextTotal = Number(data?.total ?? 0);
+    total.value = Number.isFinite(nextTotal) ? nextTotal : 0;
+    totalReady.value = true;
+  } catch (e) {
+    if (_isCanceledRequest(e)) return;
+    if (currentSeq !== totalRequestSeq) return;
+    console.error(e);
+  } finally {
+    if (currentSeq === totalRequestSeq) {
+      totalLoading.value = false;
+      if (controller === totalAbortController) totalAbortController = null;
+    }
+  }
+}
+
 async function loadSummaryIfNeeded(force = false) {
   if (!isFinance.value) return;
 
@@ -1313,56 +1610,79 @@ async function loadSummaryIfNeeded(force = false) {
   if (!force && key && key === lastSummaryKey.value && financeSummary.value) return;
 
   const currentSeq = ++summaryRequestSeq;
+  const controller = _replaceSummaryAbortController();
+  summaryLoading.value = true;
 
   try {
-    const resp = await getFinanceOrdersSummary(params);
+    const resp = await getFinanceOrdersSummary(params, _abortConfig(controller));
     if (currentSeq !== summaryRequestSeq) return;
+    if (controller && controller !== summaryAbortController) return;
 
     const data = resp?.data ?? resp ?? {};
     financeSummary.value = data && typeof data === "object" ? data : null;
     lastSummaryKey.value = key || "";
   } catch (e) {
+    if (_isCanceledRequest(e)) return;
     if (currentSeq !== summaryRequestSeq) return;
     console.error(e);
     financeSummary.value = null;
     lastSummaryKey.value = key || "";
+  } finally {
+    if (currentSeq === summaryRequestSeq) {
+      summaryLoading.value = false;
+      if (controller === summaryAbortController) summaryAbortController = null;
+    }
   }
 }
 
 async function loadList(force = false) {
-  const currentSeq = ++listRequestSeq;
-  const params = buildListParams();
+  const params = buildListParams(false);
   const key = stableStringify(params);
 
   if (!force && key && key === lastListKey.value) {
     if (isFinance.value) {
-      loadSummaryIfNeeded(false);
+      scheduleSummary(false);
     }
     return;
   }
 
+  cancelExactTotalWork();
+  const currentSeq = ++listRequestSeq;
+  const controller = _replaceListAbortController();
+
   loading.value = true;
   try {
-    const resp = await listOrders(params);
+    const resp = await listOrders(params, _abortConfig(controller));
     if (currentSeq !== listRequestSeq) return;
+    if (controller && controller !== listAbortController) return;
 
     const data = resp?.data ?? resp ?? {};
     const items = Array.isArray(data?.items) ? data.items : [];
     orders.value = _decorateRows(items);
-    total.value = Number(data?.total ?? 0);
+    const totalIsExact = _setProvisionalTotal(items);
+    totalReady.value = totalIsExact;
     lastListKey.value = key || "";
+    lastListLoadedAt = Date.now();
+    _markSeenDataVersion();
+    _saveListStateSnapshot();
     _clearSelection();
 
+    if (!totalIsExact) {
+      scheduleExactTotal(force);
+    }
+
     if (isFinance.value) {
-      loadSummaryIfNeeded(force);
+      scheduleSummary(force);
     }
   } catch (e) {
+    if (_isCanceledRequest(e)) return;
     if (currentSeq !== listRequestSeq) return;
     console.error(e);
-    ElMessage.error(isFinance.value ? "加载财务列表失败" : "加载订单列表失败");
+    ElMessage.error(getApiErrorMessage(e, isFinance.value ? "加载财务列表失败" : "加载订单列表失败"));
   } finally {
     if (currentSeq === listRequestSeq) {
       loading.value = false;
+      if (controller === listAbortController) listAbortController = null;
     }
   }
 }
@@ -1372,10 +1692,13 @@ async function search() {
   manualSearching.value = true;
 
   try {
+    cancelSummaryWork();
     page.value = 1;
     financeSummary.value = null;
     lastSummaryKey.value = "";
     lastListKey.value = "";
+    total.value = 0;
+    totalReady.value = false;
     await loadList(true);
   } finally {
     manualSearching.value = false;
@@ -1385,11 +1708,14 @@ async function search() {
 async function resetFilters() {
   filters.value = isFinance.value ? defaultFinanceFilters() : defaultOrdersFilters();
   initSalesDefaultIfNeeded();
+  cancelSummaryWork();
 
   page.value = 1;
   financeSummary.value = null;
   lastSummaryKey.value = "";
   lastListKey.value = "";
+  total.value = 0;
+  totalReady.value = false;
 
   await loadList(true);
 
@@ -1485,7 +1811,7 @@ async function _updateFinished(row, nextFinished) {
     console.error(e);
     row.is_finished = prev;
     row._view_finished_text = prev ? "是" : "否";
-    ElMessage.error("操作失败");
+    ElMessage.error(getApiErrorMessage(e, next ? "标记订单完成失败" : "退回未完成失败"));
   } finally {
     row._saving_finished = false;
   }
@@ -1501,7 +1827,7 @@ async function onAction(cmd, row) {
 
   if (cmd === "markFinished") {
     if (!canMarkFinished(row)) {
-      ElMessage.error("无权限操作");
+      ElMessage.error("权限不足：当前账号不能标记该订单完成");
       return;
     }
     await _updateFinished(row, true);
@@ -1510,7 +1836,7 @@ async function onAction(cmd, row) {
 
   if (cmd === "reopen") {
     if (!canReopen(row)) {
-      ElMessage.error("无权限操作");
+      ElMessage.error("权限不足：当前账号不能退回该订单");
       return;
     }
     await _updateFinished(row, false);
@@ -1532,7 +1858,7 @@ async function _alertReturnBlocked() {
 async function confirmReturnToUnfinished(row) {
   if (!isFinance.value || !row?.id || row._is_summary) return;
   if (!canFinanceEdit.value) {
-    ElMessage.error("无权限操作");
+    ElMessage.error("权限不足：当前账号不能执行财务状态写入");
     return;
   }
 
@@ -1558,7 +1884,7 @@ async function confirmReturnToUnfinished(row) {
     await loadList(true);
   } catch (e) {
     console.error(e);
-    ElMessage.error("操作失败");
+    ElMessage.error(getApiErrorMessage(e, "退回订单失败"));
   }
 }
 
@@ -1597,11 +1923,13 @@ async function onPaidSwitch(row, nextVal) {
 
   try {
     await updateFinanceOrderStatus(row.id, {is_paid: next});
+    _markSeenDataVersion();
+    _saveListStateSnapshot();
     ElMessage.success("已更新回款状态");
   } catch (e) {
     console.error(e);
     row.is_paid = prev;
-    ElMessage.error("操作失败");
+    ElMessage.error(getApiErrorMessage(e, "更新回款状态失败"));
   } finally {
     row._saving_paid = false;
   }
@@ -1630,11 +1958,13 @@ async function onRebateSwitch(row, nextVal) {
 
   try {
     await updateFinanceOrderStatus(row.id, {is_rebate: next});
+    _markSeenDataVersion();
+    _saveListStateSnapshot();
     ElMessage.success("已更新返点状态");
   } catch (e) {
     console.error(e);
     row.is_rebate = prev;
-    ElMessage.error("操作失败");
+    ElMessage.error(getApiErrorMessage(e, "更新返点状态失败"));
   } finally {
     row._saving_rebate = false;
   }
@@ -1686,7 +2016,7 @@ function _triggerDownloadBlob(blob, filename) {
 async function downloadFinanceExcel() {
   if (!isFinance.value) return;
   if (!canFinanceDownload.value) {
-    ElMessage.error("无权限下载");
+    ElMessage.error("权限不足：当前账号不能下载财务导出");
     return;
   }
   if (downloading.value) return;
@@ -1719,13 +2049,16 @@ async function downloadFinanceExcel() {
         let msg = "";
         try {
           const j = JSON.parse(txt);
-          msg = String(j?.detail || j?.message || txt || "导出失败");
+          msg = getApiErrorMessage(
+            {response: {status, data: j}, config: {method: "GET", url: "/finance/orders/export"}},
+            "导出失败",
+          );
         } catch {
           msg = txt || "导出失败";
         }
-        ElMessage.error(msg);
+        ElMessage.error(msg || "导出失败：接口未返回具体原因");
       } catch {
-        ElMessage.error("导出失败");
+        ElMessage.error("导出失败：导出接口返回错误，但错误内容解析失败");
       }
       return;
     }
@@ -1733,9 +2066,19 @@ async function downloadFinanceExcel() {
     if (ct.includes("application/json")) {
       try {
         const txt = await new Response(resp.data).text();
-        ElMessage.error(txt || "导出失败");
+        let msg = "";
+        try {
+          const j = JSON.parse(txt);
+          msg = getApiErrorMessage(
+            {response: {status: status || 200, data: j}, config: {method: "GET", url: "/finance/orders/export"}},
+            "导出失败",
+          );
+        } catch {
+          msg = txt || "";
+        }
+        ElMessage.error(msg || "导出失败：导出接口返回 JSON 错误，但内容为空");
       } catch {
-        ElMessage.error("导出失败");
+        ElMessage.error("导出失败：导出接口返回 JSON 错误，但内容解析失败");
       }
       return;
     }
@@ -1750,7 +2093,7 @@ async function downloadFinanceExcel() {
     ElMessage.success(ids.length ? "已下载勾选数据" : "已下载全部符合条件数据");
   } catch (e) {
     console.error(e);
-    ElMessage.error("下载失败");
+    ElMessage.error(getApiErrorMessage(e, "下载财务导出失败"));
   } finally {
     downloading.value = false;
   }
@@ -1758,13 +2101,25 @@ async function downloadFinanceExcel() {
 
 onMounted(async () => {
   initSalesDefaultIfNeeded();
-  loadList(true);
-  bootstrapDropdowns(true);
   hasMountedOnce.value = true;
   lastActivatedContextKey.value = pageContextKey.value;
+
+  const restored = _restoreListStateSnapshotIfFresh();
+  if (!restored) {
+    loadList(true);
+  }
+
+  setTimeout(() => {
+    bootstrapDropdowns(!restored);
+  }, 0);
 });
 
 onActivated(async () => {
+  if (!initialActivatedSkipped) {
+    initialActivatedSkipped = true;
+    return;
+  }
+
   if (!hasMountedOnce.value) return;
 
   const currentKey = pageContextKey.value;
@@ -1773,7 +2128,32 @@ onActivated(async () => {
     return;
   }
 
+  if (_hasFreshListSnapshot() || _restoreListStateSnapshotIfFresh()) {
+    void bootstrapDropdowns(false);
+    return;
+  }
+
   await loadList(true);
+});
+
+onDeactivated(() => {
+  _saveListStateSnapshot();
+});
+
+onBeforeUnmount(() => {
+  _saveListStateSnapshot();
+  dropdownBootstrapSeq += 1;
+  listRequestSeq += 1;
+  totalRequestSeq += 1;
+  summaryRequestSeq += 1;
+  totalScheduleTimer = _clearTimer(totalScheduleTimer);
+  summaryScheduleTimer = _clearTimer(summaryScheduleTimer);
+  _abortController(listAbortController);
+  _abortController(totalAbortController);
+  _abortController(summaryAbortController);
+  listAbortController = null;
+  totalAbortController = null;
+  summaryAbortController = null;
 });
 </script>
 

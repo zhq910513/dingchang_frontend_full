@@ -1,5 +1,6 @@
 // src/api/http.js
 import axios from "axios";
+import { getAuthExpiredMessage, normalizeApiError } from "../utils/errorMessage";
 
 const TZ_BJ = "Asia/Shanghai";
 const TOKEN_KEY = "sessionToken";
@@ -72,7 +73,7 @@ function buildQueryString(params) {
 
 const http = axios.create({
   baseURL: "/api",
-  timeout: 30000,
+  timeout: 60000,
   paramsSerializer: {
     serialize: (params) => buildQueryString(params),
   },
@@ -176,7 +177,7 @@ async function handleAuthExpiredOnce() {
 
     if (_hasWindow() && !curPath.startsWith("/login")) {
       try {
-        window.alert("登录已过期，请重新登录。");
+        window.alert(getAuthExpiredMessage());
       } catch {
         // ignore
       }
@@ -236,6 +237,7 @@ http.interceptors.response.use(
   (res) => res,
   async (err) => {
     await tryUnwrapBlobErrorJson(err);
+    normalizeApiError(err);
 
     const status = err?.response?.status;
 

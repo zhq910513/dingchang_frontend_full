@@ -120,7 +120,20 @@
       </el-header>
 
       <el-main class="main">
-        <router-view />
+        <router-view v-slot="{ Component, route: viewRoute }">
+          <KeepAlive>
+            <component
+              :is="Component"
+              v-if="viewRoute.meta?.keepAlive"
+              :key="viewRoute.name || viewRoute.path"
+            />
+          </KeepAlive>
+          <component
+            :is="Component"
+            v-if="!viewRoute.meta?.keepAlive"
+            :key="viewRoute.fullPath"
+          />
+        </router-view>
       </el-main>
 
       <!-- ✅ 手机端：底部快捷导航（不替代菜单，不影响权限控制） -->
@@ -243,7 +256,7 @@ onBeforeUnmount(() => {
 });
 
 function denyNav() {
-  ElMessage.error("无权限");
+  ElMessage.error("权限不足：当前账号不能访问该功能");
 }
 
 function canNavigateTo(path) {
@@ -271,7 +284,7 @@ watch(
   () => route.query?.noauth,
   (v) => {
     if (!v) return;
-    ElMessage.error("无权限");
+    ElMessage.error("权限不足：当前账号不能访问该页面");
     const q = { ...(route.query || {}) };
     delete q.noauth;
     delete q.from;

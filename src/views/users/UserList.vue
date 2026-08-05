@@ -16,12 +16,11 @@
       </div>
     </div>
 
-    <OrderSearchBar
+    <UserSearchBar
       v-model="filters"
-      variant="users"
       :loading="loading"
-      :role-name="roleName"
       :user-role-options="userRoleOptions"
+      :show-online-filter="showOnlineColumn"
       @search="search"
       @reset="resetFilters"
       style="margin-top: 15px;"
@@ -146,16 +145,16 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import OrderSearchBar from "../../components/OrderSearchBar.vue";
+import UserSearchBar from "../../components/UserSearchBar.vue";
 import CreateUser from "./CreateUser.vue";
 import { deleteUser, listUsers } from "../../api/users";
 import { useSessionStore } from "../../store/session";
 import { ROLE } from "../../constants";
+import { getApiErrorMessage } from "../../utils/errorMessage";
 
 const store = useSessionStore();
 
-const roleName = computed(() => String(store.roleName || "").trim().toLowerCase());
-const showOnlineColumn = computed(() => roleName.value === ROLE.SUPER_ADMIN);
+const showOnlineColumn = computed(() => !!listMeta.value?.capabilities?.user_online_view);
 
 const list = ref([]);
 const loading = ref(false);
@@ -163,6 +162,7 @@ const listMeta = ref({
   capabilities: {
     user_create: false,
     user_list_view: false,
+    user_online_view: false,
   },
   scopes: {
     user_creatable_role_names: [],
@@ -176,6 +176,8 @@ const editingUser = ref(null);
 const filters = ref({
   keyword: "",
   role: null,
+  status: null,
+  is_online: null,
 });
 
 const ROLE_LABEL_MAP = {
@@ -274,6 +276,7 @@ function normalizeListPayload(resp) {
     capabilities: {
       user_create: !!capabilitiesRoot.user_create,
       user_list_view: !!capabilitiesRoot.user_list_view,
+      user_online_view: !!capabilitiesRoot.user_online_view,
     },
     scopes: {
       user_creatable_role_names: Array.isArray(scopesRoot.user_creatable_role_names)
@@ -293,13 +296,22 @@ function normalizeListPayload(resp) {
 }
 
 function buildParams() {
-  const params = {};
+  const params = {
+    page: 1,
+    page_size: 100,
+  };
 
   const keyword = String(filters.value?.keyword || "").trim();
   if (keyword) params.keyword = keyword;
 
   const role = String(filters.value?.role || "").trim().toLowerCase();
   if (role) params.role = role;
+
+  const rawStatus = filters.value?.status;
+  if (rawStatus === 0 || rawStatus === 1) params.status = rawStatus;
+
+  const rawOnline = filters.value?.is_online;
+  if (rawOnline === true || rawOnline === false) params.is_online = rawOnline;
 
   return params;
 }
@@ -319,9 +331,14 @@ async function load() {
     const payload = normalizeListPayload(resp);
     list.value = payload.items;
     listMeta.value = payload.meta;
+    if (showOnlineColumn.value) {
+      startAutoRefresh();
+    } else {
+      stopAutoRefresh();
+    }
   } catch (error) {
     console.error(error);
-    ElMessage.error(error?.response?.data?.detail || "加载账号失败");
+    ElMessage.error(getApiErrorMessage(error, "加载账号失败"));
   } finally {
     loading.value = false;
   }
@@ -335,13 +352,15 @@ async function resetFilters() {
   filters.value = {
     keyword: "",
     role: null,
+    status: null,
+    is_online: null,
   };
   await load();
 }
 
 function openCreateDialog() {
   if (!canCreate.value) {
-    ElMessage.error("无权限");
+    ElMessage.error("权限不足：当前账号不能创建子账号");
     return;
   }
   createDialogVisible.value = true;
@@ -349,7 +368,7 @@ function openCreateDialog() {
 
 function openEditDialog(row) {
   if (!canEditRow(row)) {
-    ElMessage.error("无权限");
+    ElMessage.error("权限不足：当前账号不能编辑该账号");
     return;
   }
   if (!row?.id) return;
@@ -379,7 +398,7 @@ function onEditDialogClosed() {
 
 async function onDelete(row) {
   if (!canDeleteRow(row)) {
-    ElMessage.error("无权限");
+    ElMessage.error("权限不足：当前账号不能删除该账号");
     return;
   }
 
@@ -408,7 +427,7 @@ async function onDelete(row) {
   } catch (error) {
     if (error === "cancel" || error === "close") return;
     console.error(error);
-    ElMessage.error(error?.response?.data?.detail || error?.message || "删除失败");
+    ElMessage.error(getApiErrorMessage(error, "删除账号失败"));
   }
 }
 

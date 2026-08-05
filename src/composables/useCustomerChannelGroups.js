@@ -1,5 +1,7 @@
 import {computed, ref} from "vue";
 import {getChannelGroups, getCustomerGroups} from "@/api/customerChannel";
+import {getDataVersion} from "@/utils/dataVersion";
+import {getApiErrorMessage} from "@/utils/errorMessage";
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_CACHE_BUCKETS = 50;
@@ -7,6 +9,15 @@ const MAX_PAGE_GUARD = 200;
 
 const _customerBuckets = ref(new Map());
 const _channelBuckets = ref(new Map());
+let _seenCustomerChannelVersion = getDataVersion("customer-channel");
+
+function _syncExternalInvalidation() {
+    const current = getDataVersion("customer-channel");
+    if (current === _seenCustomerChannelVersion) return;
+    _customerBuckets.value = new Map();
+    _channelBuckets.value = new Map();
+    _seenCustomerChannelVersion = current;
+}
 
 function _trim(v) {
     return String(v ?? "").trim();
@@ -46,6 +57,8 @@ function _getStore(type) {
 }
 
 function _ensureBucket(type, keyword = "", pageSize = DEFAULT_PAGE_SIZE) {
+    _syncExternalInvalidation();
+
     const store = _getStore(type);
     const key = _makeBucketKey(keyword, pageSize);
 
@@ -138,7 +151,7 @@ async function _loadFirstPage(type, {keyword = "", pageSize = DEFAULT_PAGE_SIZE,
             return bucket;
         })
         .catch((err) => {
-            bucket.error = err?.message || "加载失败";
+            bucket.error = getApiErrorMessage(err, "加载客户/渠道失败", {withRequest: false});
             throw err;
         })
         .finally(() => {
@@ -210,7 +223,7 @@ async function _loadNextPage(type, {keyword = "", pageSize = DEFAULT_PAGE_SIZE} 
             return bucket;
         })
         .catch((err) => {
-            bucket.error = err?.message || "加载失败";
+            bucket.error = getApiErrorMessage(err, "加载客户/渠道失败", {withRequest: false});
             throw err;
         })
         .finally(() => {
@@ -270,10 +283,12 @@ export function useCustomerChannelGroups() {
 
     function clearCustomerGroupsCache() {
         _customerBuckets.value = new Map();
+        _seenCustomerChannelVersion = getDataVersion("customer-channel");
     }
 
     function clearChannelGroupsCache() {
         _channelBuckets.value = new Map();
+        _seenCustomerChannelVersion = getDataVersion("customer-channel");
     }
 
     function clearCache() {

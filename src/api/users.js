@@ -1,5 +1,14 @@
 // src/api/users.js
 import http from "./http";
+import {invalidateCache} from "@/utils/requestCache";
+import {bumpDataVersion} from "@/utils/dataVersion";
+
+function markUsersChanged(resp) {
+    invalidateCache("orders:aux");
+    bumpDataVersion("users");
+    bumpDataVersion("orders");
+    return resp;
+}
 
 function _trimStr(v) {
     return String(v ?? "").trim();
@@ -24,6 +33,8 @@ function _joinTeamNamesCsv(v) {
  * params:
  * - keyword?: string
  * - role?: string
+ * - status?: 0 | 1
+ * - is_online?: boolean
  */
 export function listUsers(params = {}) {
     const query = {};
@@ -34,6 +45,19 @@ export function listUsers(params = {}) {
     const role = _lowerTrimStr(params.role);
     if (role) query.role = role;
 
+    const status = Number(params.status);
+    if (status === 0 || status === 1) query.status = status;
+
+    if (params.is_online === true || params.is_online === false) {
+        query.is_online = params.is_online;
+    }
+
+    const page = Number(params.page);
+    if (Number.isFinite(page) && page > 0) query.page = Math.floor(page);
+
+    const pageSize = Number(params.page_size ?? params.pageSize);
+    if (Number.isFinite(pageSize) && pageSize > 0) query.page_size = Math.floor(pageSize);
+
     return http.get("/users", {params: query});
 }
 
@@ -43,6 +67,7 @@ export function listUsers(params = {}) {
  * data:
  * - username: string
  * - password: string
+ * - real_name?: string
  * - role_name: string
  * - team_name?: string | null
  * - team_names?: string[] -> CSV
@@ -54,6 +79,11 @@ export function createUser(data = {}) {
         role_name: _lowerTrimStr(data.role_name),
     };
 
+    const realName = _trimStr(data.real_name);
+    if (realName) {
+        payload.real_name = realName;
+    }
+
     const teamName = _trimStr(data.team_name);
     if (teamName) {
         payload.team_name = teamName;
@@ -64,7 +94,7 @@ export function createUser(data = {}) {
         payload.team_names = teamNamesCsv;
     }
 
-    return http.post("/users", payload);
+    return http.post("/users", payload).then(markUsersChanged);
 }
 
 /**
@@ -72,6 +102,7 @@ export function createUser(data = {}) {
  * PUT /users/{user_id}
  * data:
  * - password?: string
+ * - real_name?: string | null
  * - team_name?: string | null
  * - team_names?: string[] | null -> CSV | null
  */
@@ -88,6 +119,11 @@ export function updateUser(userId, data = {}) {
         payload.password = password;
     }
 
+    if (data.real_name !== undefined) {
+        const realName = _trimStr(data.real_name);
+        payload.real_name = realName || null;
+    }
+
     if (data.team_name !== undefined) {
         const teamName = _trimStr(data.team_name);
         payload.team_name = teamName || null;
@@ -102,7 +138,7 @@ export function updateUser(userId, data = {}) {
         }
     }
 
-    return http.put(`/users/${uid}`, payload);
+    return http.put(`/users/${uid}`, payload).then(markUsersChanged);
 }
 
 /**
@@ -114,5 +150,5 @@ export function deleteUser(userId) {
     if (!Number.isFinite(uid) || uid <= 0) {
         throw new Error("invalid userId");
     }
-    return http.delete(`/users/${uid}`);
+    return http.delete(`/users/${uid}`).then(markUsersChanged);
 }

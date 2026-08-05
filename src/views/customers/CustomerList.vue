@@ -295,6 +295,7 @@ import {
   listCustomerGroups,
   updateCustomerGroup,
 } from "../../api/customerChannel";
+import { getApiErrorMessage } from "../../utils/errorMessage";
 
 const loading = ref(false);
 const page = ref(1);
@@ -410,7 +411,7 @@ async function loadList() {
   } catch (error) {
     if (seq !== _reqSeq) return;
     console.error(error);
-    ElMessage.error(error?.response?.data?.detail || error?.message || "客户列表加载失败");
+    ElMessage.error(getApiErrorMessage(error, "客户列表加载失败"));
   } finally {
     if (seq === _reqSeq) loading.value = false;
   }
@@ -673,11 +674,7 @@ async function submit() {
     await loadList();
   } catch (error) {
     console.error(error);
-    ElMessage.error(
-        error?.response?.data?.detail ||
-        error?.message ||
-        (dialogMode.value === "edit" ? "编辑客户失败" : "新增客户失败"),
-    );
+    ElMessage.error(getApiErrorMessage(error, dialogMode.value === "edit" ? "编辑客户失败" : "新增客户失败"));
   } finally {
     saving.value = false;
   }
@@ -726,7 +723,7 @@ async function confirmDelete() {
     await loadList();
   } catch (error) {
     console.error(error);
-    ElMessage.error(error?.response?.data?.detail || error?.message || "删除失败");
+    ElMessage.error(getApiErrorMessage(error, "删除客户失败"));
   } finally {
     deleting.value = false;
   }
@@ -989,4 +986,3 @@ onMounted(() => loadList());
   gap: 8px;
 }
 </style>
-

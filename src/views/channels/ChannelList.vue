@@ -290,6 +290,7 @@ import {
   listChannelGroups,
   updateChannelGroup,
 } from '../../api/customerChannel';
+import { getApiErrorMessage } from '../../utils/errorMessage';
 
 const loading = ref(false);
 const page = ref(1);
@@ -402,7 +403,7 @@ async function loadList() {
   } catch (error) {
     if (seq !== _reqSeq) return;
     console.error(error);
-    ElMessage.error(error?.response?.data?.detail || error?.message || '渠道列表加载失败');
+    ElMessage.error(getApiErrorMessage(error, '渠道列表加载失败'));
   } finally {
     if (seq === _reqSeq) loading.value = false;
   }
@@ -660,11 +661,7 @@ async function submit() {
     await loadList();
   } catch (error) {
     console.error(error);
-    ElMessage.error(
-      error?.response?.data?.detail ||
-        error?.message ||
-        (dialogMode.value === 'edit' ? '编辑渠道失败' : '新增渠道失败'),
-    );
+    ElMessage.error(getApiErrorMessage(error, dialogMode.value === 'edit' ? '编辑渠道失败' : '新增渠道失败'));
   } finally {
     saving.value = false;
   }
@@ -713,7 +710,7 @@ async function confirmDelete() {
     await loadList();
   } catch (error) {
     console.error(error);
-    ElMessage.error(error?.response?.data?.detail || error?.message || '删除失败');
+    ElMessage.error(getApiErrorMessage(error, '删除渠道失败'));
   } finally {
     deleting.value = false;
   }

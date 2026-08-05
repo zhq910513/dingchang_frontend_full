@@ -77,6 +77,8 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue"]);
 
+const SEARCH_DEBOUNCE_MS = 220;
+
 const selectRef = ref(null);
 const keyword = ref("");
 
@@ -148,6 +150,13 @@ const mergedItems = computed(() => {
 
 let scrollWrap = null;
 let scrollHandler = null;
+let searchTimer = null;
+let searchSeq = 0;
+
+function clearSearchTimer() {
+  if (searchTimer) clearTimeout(searchTimer);
+  searchTimer = null;
+}
 
 function onUpdate(v) {
   const normalizedValue = toOuterValue(v);
@@ -215,17 +224,17 @@ function nearBottom(el) {
   return top + height >= total - 40;
 }
 
-async function ensureFirstPage() {
+async function ensureFirstPage(searchKeyword = keyword.value) {
   if (props.type === "channels") {
     await ensureChannelGroupsLoaded({
-      keyword: keyword.value,
+      keyword: searchKeyword,
       pageSize: props.pageSize,
     });
     return;
   }
 
   await ensureCustomerGroupsLoaded({
-    keyword: keyword.value,
+    keyword: searchKeyword,
     pageSize: props.pageSize,
   });
 }
@@ -276,25 +285,39 @@ async function attachScroll() {
 }
 
 async function onSearch(v) {
-  keyword.value = String(v || "").trim();
+  const nextKeyword = String(v || "").trim();
+  keyword.value = nextKeyword;
+  clearSearchTimer();
 
-  try {
-    await ensureFirstPage();
-    await attachScroll();
-  } catch (e) {
-    console.error(e);
-  }
+  const seq = ++searchSeq;
+  searchTimer = setTimeout(() => {
+    searchTimer = null;
+    void (async () => {
+      try {
+        await ensureFirstPage(nextKeyword);
+        if (seq !== searchSeq || keyword.value !== nextKeyword) return;
+        await attachScroll();
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+  }, nextKeyword ? SEARCH_DEBOUNCE_MS : 0);
 }
 
 async function onVisibleChange(open) {
   if (!open) {
+    searchSeq += 1;
+    clearSearchTimer();
     detachScrollListener();
     keyword.value = "";
     return;
   }
 
+  const seq = ++searchSeq;
+  clearSearchTimer();
   try {
-    await ensureFirstPage();
+    await ensureFirstPage(keyword.value);
+    if (seq !== searchSeq) return;
     await attachScroll();
   } catch (e) {
     console.error(e);
@@ -302,6 +325,8 @@ async function onVisibleChange(open) {
 }
 
 onBeforeUnmount(() => {
+  searchSeq += 1;
+  clearSearchTimer();
   detachScrollListener();
 });
 </script>

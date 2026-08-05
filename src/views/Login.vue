@@ -70,6 +70,7 @@ import { useSessionStore } from "../store/session";
 import { ElMessage } from "element-plus";
 import { Lock, User } from "@element-plus/icons-vue";
 import { ROLE } from "../constants";
+import { getApiErrorMessage } from "../utils/errorMessage";
 
 const router = useRouter();
 const route = useRoute();
@@ -110,31 +111,8 @@ function isAllowedPath(roleName, path) {
   return true;
 }
 
-function hasChinese(s) {
-  return /[\u4e00-\u9fa5]/.test(String(s || ""));
-}
-
 function getLoginErrorMessage(e) {
-  const status = e?.response?.status;
-  const detail = e?.response?.data?.detail;
-  const msg = e?.message;
-
-  if (detail && typeof detail === "string" && hasChinese(detail)) return detail;
-
-  const m = String(msg || "");
-  if (/timeout/i.test(m) || /ECONNABORTED/i.test(String(e?.code || ""))) {
-    return "请求超时，请检查网络后重试";
-  }
-  if (/Network Error/i.test(m)) {
-    return "网络异常，请检查网络连接";
-  }
-
-  if (status === 401) return "登录失败：账号或密码不正确";
-  if (status === 403) return "登录失败：当前账号无权限";
-  if (status >= 500) return "服务器异常，请稍后重试";
-  if (status) return "登录失败，请稍后重试";
-
-  return "登录失败，请检查网络后重试";
+  return getApiErrorMessage(e, "登录失败", { withRequest: false });
 }
 
 function buildLoginStateFromResponse(resp) {

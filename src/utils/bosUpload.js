@@ -208,7 +208,7 @@ export async function computeFileMd5(file) {
 
 // -------------------------
 // BCE auth v1（WebCrypto HMAC-SHA256）
-// ✅ 修复：signingKey 必须用二进制，不可用 hex 字符串当 key
+// Keep BCE signing behavior aligned with app/services/bce_auth.py.
 // -------------------------
 function _utcIsoZ() {
     return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
@@ -229,6 +229,13 @@ function _canonicalHeaders(headers, signedHeaders) {
         lines.push(`${_uriEncode(k)}:${_uriEncode(v)}`);
     }
     return lines.sort().join("\n");
+}
+
+function _canonicalQuery(params) {
+    const entries = Object.entries(params || {})
+        .map(([k, v]) => [String(k), v == null ? "" : String(v)])
+        .sort((a, b) => (a[0] === b[0] ? a[1].localeCompare(b[1]) : a[0].localeCompare(b[0])));
+    return entries.map(([k, v]) => `${_uriEncode(k)}=${_uriEncode(v)}`).join("&");
 }
 
 function _toU8(v) {
@@ -269,8 +276,7 @@ async function _hmacSha256Hex(keyInput, msgText) {
 async function bceAuthV1({ak, sk, method, path, timestamp, expireSeconds = 1800, headersToSign, headers}) {
     const authPrefix = `bce-auth-v1/${ak}/${timestamp}/${expireSeconds}`;
 
-    // ✅ signingKey = HMAC-SHA256(sk, authPrefix) 的二进制结果
-    const signingKeyBytes = await _hmacSha256Raw(sk, authPrefix);
+    const signingKeyHex = await _hmacSha256Hex(sk, authPrefix);
 
     const canonicalUri = _uriEncode(path, false);
     const canonicalQuery = "";
@@ -278,8 +284,7 @@ async function bceAuthV1({ak, sk, method, path, timestamp, expireSeconds = 1800,
 
     const canonicalRequest = [String(method || "GET").toUpperCase(), canonicalUri, canonicalQuery, canonicalHdrs].join("\n");
 
-    // ✅ signature = HMAC-SHA256(signingKeyBytes, canonicalRequest)
-    const signature = await _hmacSha256Hex(signingKeyBytes, canonicalRequest);
+    const signature = await _hmacSha256Hex(signingKeyHex, canonicalRequest);
 
     const signedHeadersStr = Array.from(new Set((headersToSign || []).map((h) => String(h).toLowerCase())))
         .sort()
@@ -338,40 +343,27 @@ function _normalizeEtag(etag) {
     return s.replace(/^"+|"+$/g, "");
 }
 
-function _publicPreviewUrl(bosHost, key) {
+async function signedPreviewUrl({bosHost, key, sts, expireSeconds = 900}) {
     const host = String(bosHost || "").trim();
     const path = `/${String(key || "").replace(/^\/+/, "")}`;
-    return `https://${host}${path}`;
-}
-
-// ✅ 先走 public HEAD（不带任何自定义头，不触发预检）
-async function headObjectPublic({bosHost, key}) {
-    const path = `/${String(key || "").replace(/^\/+/, "")}`;
-    const url = `https://${bosHost}${path}`;
-
-    let resp;
-    try {
-        resp = await fetch(url, {
-            method: "HEAD",
-            mode: "cors",
-            credentials: "omit",
-            cache: "no-store",
-        });
-    } catch (e) {
-        // public HEAD 网络失败不直接报错，交给 signed HEAD 再试一次
-        return {
-            exists: false,
-            mode: "public",
-            fallback: true,
-            error: e?.message || String(e),
-        };
-    }
-
-    if (resp.status === 200) return {exists: true, etag: _pickHeader(resp, "ETag"), mode: "public", status: 200};
-    if (resp.status === 404) return {exists: false, mode: "public", status: 404};
-
-    // 其他状态（403/5xx 等）走签名 HEAD 再判
-    return {exists: false, mode: "public", fallback: true, status: resp.status};
+    const timestamp = _utcIsoZ();
+    const authPrefix = `bce-auth-v1/${sts.accessKeyId}/${timestamp}/${expireSeconds}`;
+    const signingKeyHex = await _hmacSha256Hex(sts.secretAccessKey, authPrefix);
+    const queryForSign = {
+        "x-bce-security-token": sts.sessionToken,
+    };
+    const canonicalRequest = [
+        "GET",
+        _uriEncode(path, false),
+        _canonicalQuery(queryForSign),
+        _canonicalHeaders({host}, ["host"]),
+    ].join("\n");
+    const signature = await _hmacSha256Hex(signingKeyHex, canonicalRequest);
+    const authorization = `${authPrefix}/host/${signature}`;
+    return `https://${host}${path}?${_canonicalQuery({
+        authorization,
+        "x-bce-security-token": sts.sessionToken,
+    })}`;
 }
 
 async function headObjectSigned({bosHost, key, sts}) {
@@ -459,13 +451,6 @@ async function headObjectSigned({bosHost, key, sts}) {
 }
 
 async function headObjectWithSts({bosHost, key, sts}) {
-    const pub = await headObjectPublic({bosHost, key});
-
-    // public 可直接判断
-    if (pub?.status === 200) return pub;
-    if (pub?.status === 404) return pub;
-
-    // 其余情况走签名 HEAD
     return await headObjectSigned({bosHost, key, sts});
 }
 
@@ -587,7 +572,7 @@ export async function uploadOrReuseByMd5({bosHost, slotKey, file, sts}) {
         }
     }
 
-    const previewUrl = _publicPreviewUrl(bosHost, storage_key);
+    const previewUrl = await signedPreviewUrl({bosHost, key: storage_key, sts});
 
     return {
         md5,

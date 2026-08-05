@@ -4,33 +4,17 @@ import { ElMessage, ElNotification } from "element-plus";
 import http from "../../../api/http";
 import { uploadOrderImageProxy, bindOrderImagesForAi } from "../../../api/orders";
 import { uploadOrReuseByMd5 } from "../../../utils/bosUpload";
+import { preprocessImageForUpload } from "../../../utils/imagePreprocess";
 import { AI_IMAGE_SLOTS, isMultipleSlot, slotLabel } from "../constants/slots";
-
-function hasChinese(s) {
-  return /[\u4e00-\u9fa5]/.test(String(s || ""));
-}
+import { getApiErrorDetail, getApiErrorMessage } from "../../../utils/errorMessage";
+import { sanitizeQuoteUserText } from "../utils/sensitiveRedaction";
 
 function _rawErrMsg(e) {
-  const m = e?.response?.data?.detail || e?.response?.data?.message || e?.message || "";
-  return String(m || "");
+  return getApiErrorDetail(e) || String(e?.response?.data?.message || e?.message || "");
 }
 
 function normalizeErrMsg(e, fallback = "操作失败，请稍后重试") {
-  const detail = e?.response?.data?.detail;
-  const msg = _rawErrMsg(e);
-  const status = e?.response?.status;
-  const code = String(e?.code || "");
-
-  if (typeof detail === "string" && detail && hasChinese(detail)) return detail;
-  if (msg && hasChinese(msg)) return msg;
-
-  const low = msg.toLowerCase();
-  if (low.includes("network error") || low.includes("failed to fetch")) return "网络异常，请检查网络连接";
-  if (low.includes("timeout") || code.includes("ECONNABORTED")) return "请求超时，请稍后重试";
-  if (status === 401) return "登录状态已失效，请重新登录";
-  if (status === 403) return "无权限执行该操作";
-  if (status >= 500) return "服务器异常，请稍后重试";
-  return fallback;
+  return sanitizeQuoteUserText(getApiErrorMessage(e, fallback, { withRequest: false }), fallback);
 }
 
 function isLikelyNetworkBlocked(err) {
@@ -157,9 +141,51 @@ export function useAiUploadSlots() {
     return list.length ? list[0] : null;
   }
 
+  function _setUploadedMeta(slotKey, file, raw, meta) {
+    const url = meta?.url || meta?.preview_url || "";
+    uploadedMap.value[file.uid] = {
+      slot_key: slotKey,
+      md5: meta?.md5 || "",
+      storage_key: meta?.storage_key || "",
+      etag: meta?.etag || "",
+      size: meta?.size || raw?.size || 0,
+      content_type: meta?.content_type || raw?.type || "application/octet-stream",
+      original_name: meta?.original_name || raw?.name || "file",
+      url,
+      preview_url: url,
+    };
+
+    if (url) file.url = url;
+    uploadState.value[file.uid] = { status: "done" };
+  }
+
+  async function _preprocessForProxyUpload(slotKey, raw0) {
+    try {
+      const pre = await preprocessImageForUpload({ file: raw0, slotKey });
+      return pre?.file || raw0;
+    } catch {
+      return raw0;
+    }
+  }
+
+  async function _proxyUploadWithOriginalFallback(slotKey, file, raw0) {
+    const raw = await _preprocessForProxyUpload(slotKey, raw0);
+    try {
+      const resp = await uploadOrderImageProxy({ slot_key: slotKey, file: raw });
+      _setUploadedMeta(slotKey, file, raw, resp?.data || {});
+    } catch (e) {
+      if (raw !== raw0) {
+        const resp = await uploadOrderImageProxy({ slot_key: slotKey, file: raw0 });
+        _setUploadedMeta(slotKey, file, raw0, resp?.data || {});
+        return;
+      }
+      throw e;
+    }
+  }
+
   async function startUpload(slotKey, file) {
-    const raw = file?.raw;
-    if (!raw) return;
+    const raw0 = file?.raw;
+    if (!raw0) return;
     if (uploadedMap.value[file.uid]) return;
 
     uploadingCount.value += 1;
@@ -167,26 +193,7 @@ export function useAiUploadSlots() {
 
     try {
       if (uploadMode.value === "stable") {
-        const resp = await uploadOrderImageProxy({ slot_key: slotKey, file: raw });
-        const meta = resp?.data || {};
-
-        const url = meta?.url || meta?.preview_url || "";
-        uploadedMap.value[file.uid] = {
-          slot_key: slotKey,
-          md5: meta?.md5 || "",
-          storage_key: meta?.storage_key || "",
-          etag: meta?.etag || "",
-          size: meta?.size || raw.size || 0,
-          content_type: meta?.content_type || raw.type || "application/octet-stream",
-          original_name: meta?.original_name || raw.name || "file",
-          url,
-          preview_url: url,
-        };
-
-        // ✅ 回填预览为 BOS url（更稳定）
-        if (url) file.url = url;
-
-        uploadState.value[file.uid] = { status: "done" };
+        await _proxyUploadWithOriginalFallback(slotKey, file, raw0);
         return;
       }
 
@@ -196,57 +203,24 @@ export function useAiUploadSlots() {
       const meta = await uploadOrReuseByMd5({
         bosHost: bosHost.value,
         slotKey,
-        file: raw,
+        file: raw0,
         sts,
       });
 
-      const url = meta?.url || meta?.preview_url || "";
-      uploadedMap.value[file.uid] = {
-        slot_key: slotKey,
-        ...meta,
-        url,
-        preview_url: url,
-      };
-
-      // ✅ 回填预览为 BOS url（更稳定）
-      if (url) file.url = url;
-
-      uploadState.value[file.uid] = { status: "done" };
+      _setUploadedMeta(slotKey, file, raw0, meta || {});
     } catch (e) {
-      if (uploadMode.value === "smart" && isLikelyNetworkBlocked(e)) {
-        try {
+      try {
+        if (uploadMode.value === "smart" && isLikelyNetworkBlocked(e)) {
           uploadMode.value = "stable";
           persistUploadMode();
-          const resp = await uploadOrderImageProxy({ slot_key: slotKey, file: raw });
-          const meta = resp?.data || {};
-          const url = meta?.url || meta?.preview_url || "";
-
-          uploadedMap.value[file.uid] = {
-            slot_key: slotKey,
-            md5: meta?.md5 || "",
-            storage_key: meta?.storage_key || "",
-            etag: meta?.etag || "",
-            size: meta?.size || raw.size || 0,
-            content_type: meta?.content_type || raw.type || "application/octet-stream",
-            original_name: meta?.original_name || raw.name || "file",
-            url,
-            preview_url: url,
-          };
-
-          // ✅ 回填预览为 BOS url（更稳定）
-          if (url) file.url = url;
-
-          uploadState.value[file.uid] = { status: "done" };
           ElMessage.warning("已自动切换为稳定上传模式");
-          return;
-        } catch (e2) {
-          uploadState.value[file.uid] = { status: "error", msg: normalizeErrMsg(e2) };
-          throw e2;
         }
+        await _proxyUploadWithOriginalFallback(slotKey, file, raw0);
+        return;
+      } catch (e2) {
+        uploadState.value[file.uid] = { status: "error", msg: normalizeErrMsg(e2) };
+        throw e2;
       }
-
-      uploadState.value[file.uid] = { status: "error", msg: normalizeErrMsg(e) };
-      throw e;
     } finally {
       uploadingCount.value -= 1;
     }
@@ -328,7 +302,7 @@ export function useAiUploadSlots() {
       });
       const data = resp?.data || {};
       if (data?.ok) {
-        const extra = data?.ocr_task_id ? `（OCR任务#${data.ocr_task_id}：${data.ocr_status || ""}）` : "";
+        const extra = data?.ocr_task_id ? `（识别任务#${data.ocr_task_id}：${data.ocr_status || ""}）` : "";
         ElMessage.success(`材料已绑定：${data.bound_count || 0} 张${extra}`);
       }
       return data;

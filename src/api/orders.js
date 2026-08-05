@@ -1,5 +1,10 @@
 // src/api/orders.js
 import http from "./http";
+import {cachedPromise, stableCacheKey} from "@/utils/requestCache";
+import {bumpDataVersion} from "@/utils/dataVersion";
+
+const AUX_CACHE_NS = "orders:aux";
+const AUX_CACHE_TTL_MS = 60000;
 
 /**
  * 全系统时间统一 Asia/Shanghai（北京时间）
@@ -199,6 +204,12 @@ function safeMaybeObj(v) {
   return isPlainObject(v) ? v : undefined;
 }
 
+function markOrdersChanged(resp) {
+  bumpDataVersion("orders");
+  bumpDataVersion("finance");
+  return resp;
+}
+
 function normalizeGroupPageResp(resp) {
   const d = resp?.data;
 
@@ -258,9 +269,9 @@ function normalizeGroupPageResp(resp) {
 }
 
 // 列表
-export function listOrders(params = {}) {
+export function listOrders(params = {}, config = {}) {
   const p = normalizeListOrdersParams(params);
-  return http.get("/orders", {params: p});
+  return http.get("/orders", {params: p, ...config});
 }
 
 // 详情
@@ -281,7 +292,7 @@ export function createOrder(data = {}) {
     is_finished: d.is_finished ?? undefined,
     order_info: safeMaybeObj(d.order_info),
   });
-  return http.post("/orders", payload);
+  return http.post("/orders", payload).then(markOrdersChanged);
 }
 
 // 创建订单草稿
@@ -295,7 +306,7 @@ export function createOrderDraft(data = {}) {
     salesperson_id: d.salesperson_id ?? undefined,
     order_info: safeMaybeObj(d.order_info),
   });
-  return http.post("/orders/draft", payload);
+  return http.post("/orders/draft", payload).then(markOrdersChanged);
 }
 
 function normalizeEtag(etag) {
@@ -347,14 +358,6 @@ function sanitizeImages(images) {
       item.original_name = String(img.original_name).trim();
     }
 
-    const url =
-      img.url != null && String(img.url).trim()
-        ? String(img.url).trim()
-        : img.preview_url != null && String(img.preview_url).trim()
-          ? String(img.preview_url).trim()
-          : "";
-    if (url) item.url = url;
-
     out.push(item);
   }
   return out;
@@ -394,7 +397,7 @@ export function finalizeOrderUpload(payload = {}) {
     order_info: safeMaybeObj(src.order_info),
   });
 
-  return http.post("/orders/finalize", safePayload);
+  return http.post("/orders/finalize", safePayload).then(markOrdersChanged);
 }
 
 // 浏览器上传到后端，由后端代传 BOS
@@ -422,7 +425,7 @@ export function bindOrderImagesForAi({order_id, images = [], clear_slots = [], t
     trigger_ocr: !!trigger_ocr,
   });
 
-  return http.post(`/orders/${oid}/images/bind`, payload);
+  return http.post(`/orders/${oid}/images/bind`, payload).then(markOrdersChanged);
 }
 
 // 更新（详情页保存）
@@ -441,7 +444,7 @@ export function updateOrder(id, data = {}) {
     order_info: d.order_info !== undefined ? safeMaybeObj(d.order_info) : undefined,
   });
 
-  return http.put(`/orders/${oid}`, payload);
+  return http.put(`/orders/${oid}`, payload).then(markOrdersChanged);
 }
 
 // 单独更新状态
@@ -453,7 +456,7 @@ export function updateOrderStatus(id, data = {}) {
     is_finished: d.is_finished !== undefined ? d.is_finished : undefined,
   });
 
-  return http.patch(`/orders/${oid}/status`, payload);
+  return http.patch(`/orders/${oid}/status`, payload).then(markOrdersChanged);
 }
 
 // 下拉（订单模块）
@@ -468,7 +471,12 @@ export function getChannelGroups(params = {}) {
 }
 
 export function getTeams() {
-  return http.get("/orders/teams");
+  return cachedPromise(
+      AUX_CACHE_NS,
+      "teams",
+      () => http.get("/orders/teams"),
+      {ttlMs: AUX_CACHE_TTL_MS, maxEntries: 80}
+  );
 }
 
 export function listSalespersons(params = {}) {
@@ -483,5 +491,11 @@ export function listSalespersons(params = {}) {
     team_name: team_name || undefined,
   });
 
-  return http.get("/orders/salespersons", {params: p});
+  const key = stableCacheKey(["salespersons", p]);
+  return cachedPromise(
+      AUX_CACHE_NS,
+      key,
+      () => http.get("/orders/salespersons", {params: p}),
+      {ttlMs: AUX_CACHE_TTL_MS, maxEntries: 80}
+  );
 }
