@@ -1012,7 +1012,6 @@ export function useAiAssistantSession() {
       messages.value = [];
       pendingDuplicateConfirm.value = null;
       await refreshSessions();
-      ElMessage.success("已新建会话");
       return { ok: true, session_id: sid };
     } catch (e) {
       currentSessionId.value = "";
@@ -1419,5 +1418,6 @@ export function useAiAssistantSession() {
     createNewSessionLocal,
     removeSession,
     sendMessage,
+    abortActiveRequests,
   };
 }
