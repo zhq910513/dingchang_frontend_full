@@ -2899,10 +2899,12 @@ async function handleSend() {
   inputText.value = "";
   pendingImageHint.value = "";
   chatStickToBottom.value = true;
+  const isQuoteMaterialFormCommand = looksLikeQuoteMaterialFormCommand(text);
   const result = await sendMessage(text, {
-    useStream: true,
+    useStream: !isQuoteMaterialFormCommand,
     images: [],
-    processHintText: canInterruptSending ? "已收到新指令，正在按最新内容处理…" : undefined,
+    showProcessHint: !isQuoteMaterialFormCommand,
+    processHintText: canInterruptSending && !isQuoteMaterialFormCommand ? "已收到新指令，正在按最新内容处理…" : undefined,
     pageContext: {
       module: "quote_assistant_workbench",
       page: "AiAssistantWorkbench",
@@ -4127,7 +4129,7 @@ defineExpose({
 });
 
 onMounted(async () => {
-  await ensureInit();
+  await ensureInit({ loadLatestSession: !paneMode.value || Number(props.paneIndex || 1) === 1 });
   await loadPlatformSchemas();
   forceStickToBottom();
   void maybePromptLatestDuplicateQuoteConfirm();

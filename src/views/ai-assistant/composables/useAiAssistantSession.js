@@ -967,11 +967,11 @@ export function useAiAssistantSession() {
     }
   }
 
-  async function ensureInit() {
+  async function ensureInit({ loadLatestSession = true } = {}) {
     loadingInit.value = true;
     try {
       await refreshSessions();
-      if (sessions.value.length > 0) {
+      if (loadLatestSession && sessions.value.length > 0) {
         await loadHistory(sessions.value[0].session_id);
       } else {
         resetCurrentSessionView();
