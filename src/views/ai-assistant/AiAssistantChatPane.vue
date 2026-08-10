@@ -1871,20 +1871,28 @@ async function maybePromptLatestDuplicateQuoteConfirm() {
 }
 
 function displayMessageContent(message) {
-  const text = String(message?.content || "").trim();
-  if (!text) return "";
   const role = String(message?.role || "").toLowerCase();
-  if (role === "user" && messageImages(message).length) {
-    if (
-      /^图片已提交[。.]?$/.test(text) ||
-      /^已上传\s*\d+\s*张图片/.test(text) ||
-      /^已收到\s*\d+\s*张图片/.test(text) ||
-      /^识别中[。.]?$/.test(text)
-    ) {
-      return "";
+  const text = String(message?.content || "").trim();
+  if (text) {
+    if (role === "user" && messageImages(message).length) {
+      if (
+        /^图片已提交[。.]?$/.test(text) ||
+        /^已上传\s*\d+\s*张图片/.test(text) ||
+        /^已收到\s*\d+\s*张图片/.test(text) ||
+        /^识别中[。.]?$/.test(text)
+      ) {
+        return "";
+      }
     }
+    return sanitizeChatDisplayText(text);
   }
-  return sanitizeChatDisplayText(text);
+
+  const metaText = String(message?.metadata?.data?.message || "").trim();
+  if (!metaText) return "";
+  if (role !== "assistant") return "";
+  if (isSilentAssistantMessage(message)) return "";
+  if (!isQuoteAssistantMessage(message)) return "";
+  return sanitizeChatDisplayText(metaText);
 }
 
 function isSilentAssistantMessage(message) {
@@ -2637,12 +2645,28 @@ function looksLikeShortQuoteCommand(text) {
     "提交报价",
     "全保",
     "人保全保",
+    "中国人保全保",
+    "PICC全保",
     "全保报价",
     "人保全保报价",
+    "中国人保全保报价",
+    "PICC全保报价",
     "交三",
     "人保交三",
+    "中国人保交三",
+    "PICC交三",
     "交三报价",
     "人保交三报价",
+    "中国人保交三报价",
+    "PICC交三报价",
+    "单商",
+    "人保单商",
+    "中国人保单商",
+    "PICC单商",
+    "单商报价",
+    "人保单商报价",
+    "中国人保单商报价",
+    "PICC单商报价",
   ].includes(compact);
 }
 
@@ -2651,16 +2675,40 @@ function looksLikeProfessionalPiccQuoteCommand(text) {
   return [
     "全保",
     "人保全保",
+    "中国人保全保",
+    "PICC全保",
     "全保报价",
     "人保全保报价",
+    "中国人保全保报价",
+    "PICC全保报价",
     "全保重报",
     "人保全保重报",
+    "中国人保全保重报",
+    "PICC全保重报",
     "交三",
     "人保交三",
+    "中国人保交三",
+    "PICC交三",
     "交三报价",
     "人保交三报价",
+    "中国人保交三报价",
+    "PICC交三报价",
     "交三重报",
     "人保交三重报",
+    "中国人保交三重报",
+    "PICC交三重报",
+    "单商",
+    "人保单商",
+    "中国人保单商",
+    "PICC单商",
+    "单商报价",
+    "人保单商报价",
+    "中国人保单商报价",
+    "PICC单商报价",
+    "单商重报",
+    "人保单商重报",
+    "中国人保单商重报",
+    "PICC单商重报",
   ].includes(compact);
 }
 
