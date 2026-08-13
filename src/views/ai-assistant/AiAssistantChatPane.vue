@@ -808,7 +808,7 @@
 </template>
 
 <script setup>
-import { computed, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
 import { Loading } from "@element-plus/icons-vue";
 import {
@@ -1091,9 +1091,7 @@ let quoteFollowupTimer = null;
 let quoteActivitySeq = 0;
 let imageLoadScrollFrame = 0;
 let assistantSyncTimer = null;
-let duplicateQuotePrompting = false;
 let imageCollectChain = Promise.resolve();
-const duplicateQuotePromptedKeys = new Set();
 
 const orderIdSafe = computed(() => {
   const arr = Array.isArray(messages.value) ? messages.value : [];
@@ -1114,8 +1112,6 @@ watch(
   () => currentSessionIdSafe.value,
   (next, prev) => {
     if (String(next || "") === String(prev || "")) return;
-    duplicateQuotePrompting = false;
-    duplicateQuotePromptedKeys.clear();
     resetQuoteMaterialForm();
     if (pendingQuoteAfterImage.value?.text && uploadBusy.value && !pendingQuoteAfterImage.value.session_id && !prev && next) {
       pendingQuoteAfterImage.value = {
@@ -1546,322 +1542,34 @@ async function submitQuoteMaterialForm() {
 }
 
 function duplicateQuotePromptInfoFromAiData(aiData, fallbackText = "", source = "message") {
-  const data = aiData && typeof aiData === "object" ? aiData : {};
-  const payload = data.payload && typeof data.payload === "object" ? data.payload : {};
-  const quoteCase = payload.quote_case && typeof payload.quote_case === "object" ? payload.quote_case : {};
-  const quoteTask = payload.quote_task && typeof payload.quote_task === "object" ? payload.quote_task : {};
-  const quoteResult =
-    payload.quote_result && typeof payload.quote_result === "object"
-      ? payload.quote_result
-      : (
-          payload.quoteResult && typeof payload.quoteResult === "object"
-            ? payload.quoteResult
-            : (
-                data.quote_result && typeof data.quote_result === "object"
-                  ? data.quote_result
-                  : (data.quoteResult && typeof data.quoteResult === "object" ? data.quoteResult : {})
-              )
-        );
-  const quoteResultHasDisplay = !!(
-    quoteResult &&
-    typeof quoteResult === "object" &&
-    (
-      quoteResult.result_card ||
-      quoteResult.resultCard ||
-      quoteResult.result_image ||
-      quoteResult.resultImage ||
-      quoteResult.premium_total ||
-      (Array.isArray(quoteResult.price_items) && quoteResult.price_items.length)
-    )
-  );
-  const platformDialog = payload.platform_dialog && typeof payload.platform_dialog === "object"
-    ? payload.platform_dialog
-    : (
-        data.platform_dialog && typeof data.platform_dialog === "object"
-          ? data.platform_dialog
-          : (quoteResult.platform_dialog && typeof quoteResult.platform_dialog === "object" ? quoteResult.platform_dialog : null)
-      );
-  if (platformDialog) {
-    const subtype = String(platformDialog.subtype || "").toLowerCase();
-    if (subtype === "insurance_date_adjust") {
-      return null;
-    }
-    const taskId = quoteTask.id || data.entities?.quote_task_id || "";
-    const traceId = platformDialog.trace_id || quoteTask.trace_id || data.trace_id || "";
-    const caseId = quoteCase.id || data.entities?.quote_case_id || "";
-    const sessionKey = currentSessionIdSafe.value || "nosession";
-    const confirmAction = platformDialog.confirm_action && typeof platformDialog.confirm_action === "object"
-      ? platformDialog.confirm_action
-      : {};
-    const cancelAction = platformDialog.cancel_action && typeof platformDialog.cancel_action === "object"
-      ? platformDialog.cancel_action
-      : {};
-    const confirmRequired =
-      platformDialog.confirm_required === true ||
-      String(platformDialog.type || "").toLowerCase() === "confirm" ||
-      String(platformDialog.subtype || "").toLowerCase() === "duplicate_quote";
-    const rawMessage = sanitizeChatDisplayText(platformDialog.message || platformDialog.content || fallbackText);
-    const title = sanitizeChatDisplayText(platformDialog.title || (confirmRequired ? "报价提示" : "平台提示"));
-    const message = stripDialogTitleFromWarning(rawMessage, title);
-    if (!message) return null;
-    const eventKey = platformDialog.id || taskId || traceId || caseId || message;
-    if (containsDuplicateInsuranceText(message) && !confirmRequired) return null;
-    if (source === "history" && quoteResultHasDisplay) {
-      return null;
-    }
-    if (!confirmRequired && (source === "history" || quoteResultHasDisplay)) {
-      return null;
-    }
-    return {
-      warning: message,
-      title,
-      key: `platform_dialog:${sessionKey}:${eventKey}`,
-      source,
-      subtype,
-      severity: String(platformDialog.severity || (confirmRequired ? "warning" : "error")).toLowerCase(),
-      confirmRequired,
-      confirmText: sanitizeChatDisplayText(platformDialog.confirm_text || (confirmRequired ? "继续报价" : "确定")),
-      cancelText: sanitizeChatDisplayText(platformDialog.cancel_text || "中止"),
-      closeText: sanitizeChatDisplayText(platformDialog.close_text || platformDialog.confirm_text || "关闭"),
-      confirmCommand: sanitizeChatDisplayText(confirmAction.command || platformDialog.confirm_command || ""),
-      cancelCommand: sanitizeChatDisplayText(cancelAction.command || platformDialog.cancel_command || ""),
-    };
-  }
-  const title = "重复投保提示";
-  const warning = stripDialogTitleFromWarning(
-    sanitizeChatDisplayText(payload.duplicate_quote_warning || payload.duplicate_quote_confirm_warning || fallbackText),
-    title
-  );
-  if (!warning) return null;
-
-  const resultStatus = String(data.result_status || "").toLowerCase();
-  const taskStatus = String(quoteTask.status || "").toLowerCase();
-  const caseStatus = String(quoteCase.status || "").toLowerCase();
-  const message = String(data.message || "").trim();
-  const needsConfirm =
-    payload.duplicate_quote_confirm_required === true ||
-    payload.duplicate_quote_pending === true ||
-    taskStatus === "waiting_duplicate_confirm" ||
-    caseStatus === "waiting_duplicate_confirm" ||
-    (resultStatus === "not_ready" && /重复投保|重复报价/.test(`${warning}\n${message}`));
-  if (!needsConfirm) return null;
-
-  const taskId = quoteTask.id || data.entities?.quote_task_id || "";
-  const traceId = quoteTask.trace_id || data.trace_id || "";
-  const caseId = quoteCase.id || data.entities?.quote_case_id || "";
-  const sessionKey = currentSessionIdSafe.value || "nosession";
-  const eventKey = taskId || traceId || caseId || warning;
-  return {
-    warning,
-    title,
-    key: `duplicate_quote:${sessionKey}:${eventKey}`,
-    source,
-    subtype: "duplicate_quote",
-    severity: "warning",
-    confirmRequired: true,
-    confirmText: "继续报价",
-    cancelText: "中止",
-    closeText: "",
-    confirmCommand: "继续报价",
-    cancelCommand: "中止重复报价",
-  };
-}
-
-function duplicateQuotePromptInfoFromResult(result) {
-  const response = result?.data && (Object.prototype.hasOwnProperty.call(result, "ok") || result?.data?.reply !== undefined)
-    ? result.data
-    : result;
-  return duplicateQuotePromptInfoFromAiData(response?.data, response?.reply || "", "result");
-}
-
-function duplicateQuotePromptInfoFromPending(value) {
-  const pending = value && typeof value === "object" ? value : null;
-  if (!pending) return null;
-  return duplicateQuotePromptInfoFromAiData(
-    pending.data || pending,
-    pending.reply || pending.duplicate_quote_warning || "",
-    "pending"
-  );
+  void aiData;
+  void fallbackText;
+  void source;
+  // Platform quote prompts are now handled server-side: the raw prompt text is
+  // written to chat when needed, then quote continues/adjusts automatically.
+  // Keep this as an explicit no-op so stale history or delayed responses cannot
+  // reopen old "continue quote / modify period" modals.
+  return null;
 }
 
 function duplicateQuotePromptInfoFromMessage(message) {
-  if (String(message?.role || "").toLowerCase() !== "assistant") return null;
-  return duplicateQuotePromptInfoFromAiData(message?.metadata?.data, message?.content || "", "history");
-}
-
-function duplicateQuotePromptStorageKey(key) {
-  return `quote_duplicate_prompt_decided:v3:${String(currentSessionIdSafe.value || "nosession")}:${String(key || "")}`;
-}
-
-function shouldPersistPlatformPromptDecision(info) {
-  return !!String(info?.subtype || info?.key || "").trim();
-}
-
-function duplicateQuotePromptDecisionRemembered(key) {
-  if (!key || typeof window === "undefined") return false;
-  try {
-    return window.sessionStorage.getItem(duplicateQuotePromptStorageKey(key)) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function rememberDuplicateQuotePromptDecision(key) {
-  if (!key || typeof window === "undefined") return;
-  try {
-    window.sessionStorage.setItem(duplicateQuotePromptStorageKey(key), "1");
-  } catch {}
-}
-
-function forgetDuplicateQuotePromptDecision(key) {
-  if (!key || typeof window === "undefined") return;
-  try {
-    window.sessionStorage.removeItem(duplicateQuotePromptStorageKey(key));
-  } catch {}
+  void message;
+  return null;
 }
 
 async function promptDuplicateQuoteConfirmInfo(info, { force = false } = {}) {
-  if (
-    !info ||
-    duplicateQuotePrompting ||
-    duplicateQuotePromptedKeys.has(info.key) ||
-    (!force && shouldPersistPlatformPromptDecision(info) && duplicateQuotePromptDecisionRemembered(info.key))
-  ) {
-    return false;
-  }
-
-  if (info.source === "history" && !info.confirmRequired) {
-    if (shouldPersistPlatformPromptDecision(info)) rememberDuplicateQuotePromptDecision(info.key);
-    duplicateQuotePromptedKeys.add(info.key);
-    return true;
-  }
-
-  duplicateQuotePromptedKeys.add(info.key);
-  duplicateQuotePrompting = true;
-  let confirmed = false;
-  try {
-    if (!info.confirmRequired) {
-      await ElMessageBox.alert(
-        h("pre", { class: "platform-dialog-text" }, info.warning),
-        info.title || "报价提示",
-        {
-          type: ["success", "warning", "info", "error"].includes(info.severity) ? info.severity : "warning",
-          confirmButtonText: info.closeText || "关闭",
-          closeOnClickModal: true,
-          closeOnPressEscape: true,
-          customClass: "platform-dialog-box",
-        }
-      );
-      if (shouldPersistPlatformPromptDecision(info)) rememberDuplicateQuotePromptDecision(info.key);
-      duplicateQuotePrompting = false;
-      return true;
-    }
-
-    await ElMessageBox.confirm(
-      h("pre", { class: "platform-dialog-text" }, info.warning),
-      info.title || "重复投保提示",
-      {
-        type: ["success", "warning", "info", "error"].includes(info.severity) ? info.severity : "warning",
-        confirmButtonText: info.confirmText || "继续报价",
-        cancelButtonText: info.cancelText || "中止",
-        closeOnClickModal: false,
-        closeOnPressEscape: false,
-        distinguishCancelAndClose: true,
-        customClass: "platform-dialog-box",
-      }
-    );
-    confirmed = true;
-  } catch {
-    confirmed = false;
-  }
-  if (!info.confirmRequired) {
-    if (shouldPersistPlatformPromptDecision(info)) rememberDuplicateQuotePromptDecision(info.key);
-    duplicateQuotePrompting = false;
-    return true;
-  }
-
-  try {
-    if (info.source === "history" && info.subtype === "duplicate_quote") {
-      if (shouldPersistPlatformPromptDecision(info)) rememberDuplicateQuotePromptDecision(info.key);
-      if (!confirmed) {
-        ElMessage.info("已中止本次重复报价");
-      }
-      return true;
-    }
-
-    const canSendFollowCommand =
-      info.subtype === "duplicate_quote" ||
-      (confirmed && !!info.confirmCommand) ||
-      (!confirmed && !!info.cancelCommand);
-    if (!canSendFollowCommand) {
-      if (shouldPersistPlatformPromptDecision(info)) rememberDuplicateQuotePromptDecision(info.key);
-      return true;
-    }
-    const command = confirmed
-      ? (info.confirmCommand || "继续报价")
-      : (info.cancelCommand || "中止重复报价");
-    const followResult = await sendMessage(command, {
-      useStream: true,
-      appendUserMessage: false,
-      silentErrors: true,
-      showProcessHint: confirmed,
-      processHintText: confirmed ? "已确认继续报价，正在提交…" : "",
-      pageContext: {
-        module: "quote_assistant_workbench",
-        page: "AiAssistantWorkbench",
-        order_id: orderIdSafe.value || undefined,
-        suppress_user_message: true,
-        duplicate_quote_confirm: confirmed,
-        duplicate_quote_cancel: !confirmed,
-        platform_dialog_confirm: confirmed,
-        platform_dialog_cancel: !confirmed,
-        platform_dialog_subtype: info.subtype || "",
-      },
-    });
-    if (followResult?.ok === false && !followResult?.aborted) {
-      throw new Error(followResult?.message || (confirmed ? "继续报价失败" : "中止重复报价失败"));
-    }
-    if (shouldPersistPlatformPromptDecision(info)) rememberDuplicateQuotePromptDecision(info.key);
-    if (!confirmed) {
-      ElMessage.info("已中止本次重复报价");
-      await reloadHistory();
-    } else {
-      await maybePromptDuplicateQuoteConfirm(followResult);
-      await reloadHistory();
-      forceStickToBottom();
-    }
-  } catch (e) {
-    duplicateQuotePromptedKeys.delete(info.key);
-    if (shouldPersistPlatformPromptDecision(info)) forgetDuplicateQuotePromptDecision(info.key);
-    ElNotification.error({
-      title: confirmed ? "继续报价失败" : "中止失败",
-      message: quoteApiErrorMessage(e, confirmed ? "继续报价失败，请稍后重试" : "中止重复报价失败，请稍后重试"),
-      duration: 4500,
-    });
-  } finally {
-    duplicateQuotePrompting = false;
-  }
-  return true;
+  void info;
+  void force;
+  return false;
 }
 
 async function maybePromptDuplicateQuoteConfirm(result, options = {}) {
-  const resultInfo = duplicateQuotePromptInfoFromResult(result);
-  if (resultInfo) {
-    return promptDuplicateQuoteConfirmInfo(resultInfo, options);
-  }
-  return promptDuplicateQuoteConfirmInfo(duplicateQuotePromptInfoFromPending(pendingDuplicateConfirm.value), options);
+  void result;
+  void options;
+  return false;
 }
 
 function latestVisibleDuplicateQuotePromptInfo() {
-  const pendingInfo = duplicateQuotePromptInfoFromPending(pendingDuplicateConfirm.value);
-  if (pendingInfo) return pendingInfo;
-
-  const timeline = Array.isArray(messages.value) ? messages.value : [];
-  for (let i = timeline.length - 1; i >= 0; i -= 1) {
-    const item = timeline[i];
-    const info = duplicateQuotePromptInfoFromMessage(item);
-    if (info) return info;
-  }
   return null;
 }
 

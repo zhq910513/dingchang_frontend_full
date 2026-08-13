@@ -126,7 +126,7 @@ function normalizeHistoryPage(resp) {
 function isPersistentLocalImageMessage(message) {
   if (String(message?.role || "").toLowerCase() !== "user") return false;
   const id = String(message?.id || "");
-  if (!id.startsWith("local_")) return false;
+  if (!id.startsWith("local_") && !id.startsWith("client_")) return false;
   const meta = message?.metadata || {};
   const images = Array.isArray(meta.images) ? meta.images : [];
   if (images.length > 0) return true;
@@ -488,8 +488,10 @@ function mergeLocalImageMessage(localMessage, historyMessage) {
 }
 
 function mergeDuplicateImageMessages(existingMessage, incomingMessage) {
-  const existingIsLocal = String(existingMessage?.id || "").startsWith("local_");
-  const incomingIsLocal = String(incomingMessage?.id || "").startsWith("local_");
+  const existingId = String(existingMessage?.id || "");
+  const incomingId = String(incomingMessage?.id || "");
+  const existingIsLocal = existingId.startsWith("local_") || existingId.startsWith("client_");
+  const incomingIsLocal = incomingId.startsWith("local_") || incomingId.startsWith("client_");
   const localMessage = incomingIsLocal && !existingIsLocal ? incomingMessage : existingMessage;
   const historyMessage = incomingIsLocal && !existingIsLocal ? existingMessage : incomingMessage;
   return mergeLocalImageMessage(localMessage, historyMessage);
@@ -556,13 +558,34 @@ function mergeHistoryWithCurrentTimeline(historyItems, currentMessages) {
   const seen = new Set(merged.map((m) => String(m?.id || "")));
   for (const item of Array.isArray(historyItems) ? historyItems : []) {
     const id = String(item?.id || "");
-    if (!id || seen.has(id)) continue;
+    if (!id) continue;
+    if (seen.has(id)) {
+      const existingIndex = merged.findIndex((m) => String(m?.id || "") === id);
+      if (existingIndex >= 0) {
+        const existing = merged[existingIndex];
+        if (String(item?.role || "").toLowerCase() === "user") {
+          merged[existingIndex] = (messageImageCount(existing) > 0 || messageImageCount(item) > 0)
+            ? mergeLocalImageMessage(existing, item)
+            : {
+              ...existing,
+              ...item,
+              metadata: {
+                ...(item.metadata || {}),
+                ...(existing.metadata || {}),
+              },
+            };
+        } else if (String(item?.role || "").toLowerCase() === "assistant") {
+          merged[existingIndex] = mergeAssistantResponseMessage(existing, item);
+        }
+      }
+      continue;
+    }
     if (String(item?.role || "").toLowerCase() === "user") {
       const clientMsgId = messageClientMsgId(item);
       const localIndex = clientMsgId
         ? merged.findIndex((m) => (
           String(m?.role || "").toLowerCase() === "user" &&
-          String(m?.id || "").startsWith("local_") &&
+          (String(m?.id || "").startsWith("local_") || String(m?.id || "").startsWith("client_")) &&
           messageClientMsgId(m) === clientMsgId
         ))
         : -1;
@@ -598,7 +621,7 @@ function mergeHistoryWithCurrentTimeline(historyItems, currentMessages) {
     if (String(item?.role || "").toLowerCase() === "user" && messageImageCount(item) > 0) {
       const localIndex = merged.findIndex((m) => (
         String(m?.role || "").toLowerCase() === "user" &&
-        (String(m?.id || "").startsWith("local_") || messageImageCount(m) > 0) &&
+        (String(m?.id || "").startsWith("local_") || String(m?.id || "").startsWith("client_") || messageImageCount(m) > 0) &&
         messagesLikelySameImageUpload(m, item)
       ));
       if (localIndex >= 0) {
@@ -983,7 +1006,7 @@ export function useAiAssistantSession() {
 
   function appendLocalMessage(msg) {
     messages.value.push({
-      id: `local_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      id: msg?.id || `local_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       ...msg,
     });
   }
@@ -1139,6 +1162,7 @@ export function useAiAssistantSession() {
     // 先追加用户消息
     if (appendUserMessage) {
       appendLocalMessage({
+        id: clientMsgId,
         role: "user",
         content: redactQuoteSensitiveText(visibleText, {
           hideUnlabeledSmsCode: shouldHideUnlabeledSmsCode(text, messages.value),
