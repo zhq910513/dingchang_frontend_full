@@ -7,10 +7,10 @@
       'ai-pane-mode': paneMode,
       [`ai-pane-count-${paneCount}`]: paneMode,
     }"
-    @dragenter.prevent="handleDragEnter"
-    @dragover.prevent="handleDragOver"
-    @dragleave.prevent="handleDragLeave"
-    @drop.prevent="handleDrop"
+    @dragenter.prevent.stop="handleDragEnter"
+    @dragover.prevent.stop="handleDragOver"
+    @dragleave.prevent.stop="handleDragLeave"
+    @drop.prevent.stop="handleDrop"
   >
     <el-card v-if="!paneMode" shadow="never" class="head-card">
       <div class="head-row">
@@ -815,6 +815,7 @@ import {
   createAiPlatformAccount,
   createAiPlatformDefaultConfig,
   deleteAiPlatformDefaultConfig,
+  getAiPlatformAccountHealth,
   getAiPlatformAccount,
   listAiPlatformAccounts,
   listAiPlatformAccountTypes,
@@ -857,6 +858,10 @@ const uploadingImages = ref([]);
 const localPreviewUrls = ref(new Set());
 const pendingQuoteAfterImage = ref(null);
 let latestSuccessfulImageCollect = null;
+let platformHealthPromptKey = "";
+let platformHealthPromptAt = 0;
+let platformHealthCheckedAt = 0;
+let checkingPlatformAccountHealth = false;
 
 const accountDialogVisible = ref(false);
 const accountFormVisible = ref(false);
@@ -906,6 +911,8 @@ const QUOTE_IMAGE_COMPRESS_MIN_BYTES = 2.5 * 1024 * 1024;
 const QUOTE_IMAGE_COMPRESS_MAX_EDGE = 2600;
 const QUOTE_IMAGE_COMPRESS_QUALITY = 0.9;
 const QUOTE_FOLLOWUP_DELAY_MS = 3 * 60 * 1000;
+const PLATFORM_HEALTH_PROMPT_INTERVAL_MS = 5 * 60 * 1000;
+const PLATFORM_HEALTH_CHECK_INTERVAL_MS = 60 * 1000;
 const ALLOWED_IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "webp", "bmp", "gif", "heic", "heif"]);
 const ALLOWED_IMAGE_TYPES = new Set([
   "image/jpeg",
@@ -1194,6 +1201,15 @@ watch(
     if (String(next || "") !== String(prev || "")) {
       markQuoteActivity();
     }
+  }
+);
+
+watch(
+  () => sessionStore.roleName,
+  (next, prev) => {
+    const role = String(next || "").trim();
+    if (!role || role === String(prev || "").trim()) return;
+    void checkPlatformAccountHealth({ force: true });
   }
 );
 
@@ -1612,7 +1628,7 @@ function isSilentAssistantMessage(message) {
   if (String(meta.ui_visible || "").toLowerCase() === "false") return true;
   if (String(data.ui_visible || "").toLowerCase() === "false") return true;
   if (intent === "quote_config_override") return true;
-  return intent === "quote_image_collect" || intent === "fallback";
+  return intent === "quote_image_collect";
 }
 
 function messageResultStatus(message) {
@@ -1634,13 +1650,13 @@ function shouldRenderChatMessage(message) {
     return !!displayMessageContent(message) || messageImages(message).length > 0;
   }
 
-  if (isSilentAssistantMessage(message)) return false;
   if (quoteResultCard(message) || quoteResultImage(message)) return true;
   if (duplicateQuotePromptInfoFromMessage(message)) return false;
   if (message?.metadata?.error) return true;
   if (String(message?.metadata?.status || "").toLowerCase() === "error") return true;
-  if (isQuoteAssistantMessage(message) && messageResultStatus(message) === "success" && displayMessageContent(message)) return true;
   if (VISIBLE_ASSISTANT_RESULT_STATUSES.has(messageResultStatus(message))) return true;
+  if (isSilentAssistantMessage(message)) return false;
+  if (isQuoteAssistantMessage(message) && messageResultStatus(message) === "success" && displayMessageContent(message)) return true;
 
   // 报价链路中的图片归位、材料状态、普通 success 只作为后台状态，不进入聊天气泡。
   if (isQuoteAssistantMessage(message)) return false;
@@ -2295,10 +2311,12 @@ async function syncAssistantConversation({ force = false } = {}) {
 function handleAssistantVisibilityChange() {
   if (typeof document === "undefined" || document.visibilityState !== "visible") return;
   void syncAssistantConversation();
+  void checkPlatformAccountHealth();
 }
 
 function handleAssistantWindowFocus() {
   void syncAssistantConversation();
+  void checkPlatformAccountHealth();
 }
 
 function isStrictQuoteCommand(text) {
@@ -3182,18 +3200,21 @@ function eventMayContainFiles(evt) {
 }
 
 function handleDragEnter(evt) {
+  evt?.stopPropagation?.();
   if (!eventMayContainFiles(evt)) return;
   dragDepth.value += 1;
   dragOver.value = true;
 }
 
 function handleDragOver(evt) {
+  evt?.stopPropagation?.();
   if (!eventMayContainFiles(evt)) return;
   if (evt?.dataTransfer) evt.dataTransfer.dropEffect = "copy";
   dragOver.value = true;
 }
 
 function handleDragLeave(evt) {
+  evt?.stopPropagation?.();
   if (!eventMayContainFiles(evt)) return;
   dragDepth.value = Math.max(0, dragDepth.value - 1);
   if (dragDepth.value > 0 && evt?.currentTarget?.contains?.(evt?.relatedTarget)) return;
@@ -3202,6 +3223,7 @@ function handleDragLeave(evt) {
 }
 
 async function handleDrop(evt) {
+  evt?.stopPropagation?.();
   dragDepth.value = 0;
   dragOver.value = false;
   const files = filesFromEvent(evt);
@@ -3282,6 +3304,93 @@ async function loadPlatformSchemas() {
       message: quoteApiErrorMessage(e, "平台配置加载失败"),
       duration: 4500,
     });
+  }
+}
+
+function shouldRunPlatformAccountHealthCheck() {
+  if (!canUseQuoteFlow.value) return false;
+  // 多开时只让第一个窗口负责入口账号健康提醒，避免同一页面弹多次。
+  return !paneMode.value || Number(props.paneIndex || 1) === 1;
+}
+
+function platformHealthPromptMessage(missingItems) {
+  const items = Array.isArray(missingItems) ? missingItems : [];
+  if (!items.length) return "";
+  return items
+    .map((item) => {
+      const name = String(item?.platform_name || item?.platform_code || "平台").trim();
+      if (isSuperAdmin.value) {
+        if (item?.status === "no_enabled_account") {
+          return `${name}暂无可用平台账号，请先新增、启用并登录账号后再使用报价助手。`;
+        }
+        return `${name}暂无已登录且存活可用账号，请确认账号已登录、未等待验证码且额度未满。`;
+      }
+      return `${name}平台账号暂无存活可用会话，请联系管理员处理。`;
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+async function checkPlatformAccountHealth({ force = false } = {}) {
+  if (!shouldRunPlatformAccountHealthCheck() || checkingPlatformAccountHealth) return;
+  const now = Date.now();
+  if (!force && now - platformHealthCheckedAt < PLATFORM_HEALTH_CHECK_INTERVAL_MS) return;
+  platformHealthCheckedAt = now;
+  checkingPlatformAccountHealth = true;
+  try {
+    const resp = await getAiPlatformAccountHealth();
+    const data = resp?.data?.data ?? resp?.data ?? {};
+    const missing = Array.isArray(data.missing) ? data.missing : [];
+    if (!missing.length) {
+      platformHealthPromptKey = "";
+      platformHealthPromptAt = 0;
+      return;
+    }
+
+    const promptKey = missing
+      .map((item) => `${item?.platform_code || ""}:${item?.status || ""}`)
+      .filter(Boolean)
+      .join("|");
+    if (!force && promptKey && promptKey === platformHealthPromptKey && now - platformHealthPromptAt < PLATFORM_HEALTH_PROMPT_INTERVAL_MS) {
+      return;
+    }
+    platformHealthPromptKey = promptKey;
+    platformHealthPromptAt = now;
+
+    const message = platformHealthPromptMessage(missing);
+    if (!message) return;
+    if (isSuperAdmin.value) {
+      try {
+        await ElMessageBox.confirm(message, "平台账号未登录", {
+          confirmButtonText: "去登录",
+          cancelButtonText: "稍后",
+          type: "warning",
+          distinguishCancelAndClose: true,
+        });
+        await openAccountDialog(String(missing[0]?.platform_code || "").trim());
+      } catch {
+        // 用户选择稍后处理时不打断助手页面使用。
+      }
+      return;
+    }
+    try {
+      await ElMessageBox.alert(message, "平台账号未登录", {
+        confirmButtonText: "知道了",
+        type: "warning",
+      });
+    } catch {
+      // 用户关闭提醒时不再额外报错；下一次超过节流窗口再提醒。
+    }
+  } catch (e) {
+    if (force) {
+      ElNotification.warning({
+        title: "平台账号检查失败",
+        message: quoteApiErrorMessage(e, "暂时无法检查平台账号登录状态"),
+        duration: 4500,
+      });
+    }
+  } finally {
+    checkingPlatformAccountHealth = false;
   }
 }
 
@@ -3515,9 +3624,11 @@ async function handleAccountLogin(row) {
       });
     }
     await loadPlatformAccounts();
+    await checkPlatformAccountHealth({ force: true });
   } catch (e) {
     if (e === "cancel" || e === "close") {
       await loadPlatformAccounts();
+      await checkPlatformAccountHealth({ force: true });
       return;
     }
     ElNotification.error({
@@ -3526,6 +3637,7 @@ async function handleAccountLogin(row) {
       duration: 5000,
     });
     await loadPlatformAccounts();
+    await checkPlatformAccountHealth({ force: true });
   } finally {
     loginAccountId.value = null;
   }
@@ -3887,6 +3999,7 @@ defineExpose({
 onMounted(async () => {
   await ensureInit({ loadLatestSession: !paneMode.value || Number(props.paneIndex || 1) === 1 });
   await loadPlatformSchemas();
+  void checkPlatformAccountHealth({ force: true });
   forceStickToBottom();
   void maybePromptLatestDuplicateQuoteConfirm();
   if (typeof window !== "undefined") {

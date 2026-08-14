@@ -56,6 +56,10 @@ export function listAiQuotePlatforms() {
   return http.get("/ai-assistant/platforms");
 }
 
+export function getAiPlatformAccountHealth() {
+  return http.get("/ai-assistant/platform-account-health");
+}
+
 /** 绑定/更新平台账号资料 */
 function normalizePlatformAccountPayload(payload = {}) {
   const hasQuotaLimit = Object.prototype.hasOwnProperty.call(payload, "quota_limit");

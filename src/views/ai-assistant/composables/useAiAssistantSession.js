@@ -714,9 +714,9 @@ function shouldAppendAssistantResponse(data) {
   const hidden = data?.ui_visible === false || data?.data?.ui_visible === false || payload?.ui_visible === false;
   const resultStatus = String(data?.data?.result_status || "").toLowerCase();
   if (hasQuoteResultFromData(data)) return true;
-  if (silent || hidden || intent === "quote_image_collect" || intent === "fallback") return false;
   if (VISIBLE_ASSISTANT_RESULT_STATUSES.has(resultStatus)) return true;
   if (intent === "quote" && resultStatus === "success") return true;
+  if (silent || hidden || intent === "quote_image_collect") return false;
 
   // 报价链路的普通成功结果只更新状态，不在聊天框刷屏。
   if (isQuoteAssistantResponse(data)) return false;
