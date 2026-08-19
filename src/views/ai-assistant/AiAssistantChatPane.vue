@@ -1139,8 +1139,10 @@ const sendButtonDisabledSafe = computed(() => {
   const text = String(inputText.value || "").trim();
   if (sendingSafe.value && !canSubmitWhileSending(text)) return true;
   if (!uploadBusy.value) return false;
-  if (text && looksLikeQuoteMaterialFormCommand(text)) return false;
-  return !(text && looksLikeQuoteCommand(text) && isStrictQuoteCommand(text));
+  // Unknown text must reach the backend and receive a visible command-error
+  // reply; strict quote commands are still queued by handleSend while images
+  // are being collected.
+  return !text;
 });
 const sendButtonLoadingSafe = computed(() => {
   const text = String(inputText.value || "").trim();
@@ -1650,13 +1652,18 @@ function shouldRenderChatMessage(message) {
     return !!displayMessageContent(message) || messageImages(message).length > 0;
   }
 
+  const messageIntent = String(message?.metadata?.intent || message?.metadata?.data?.intent || "").toLowerCase();
+  const resultStatus = messageResultStatus(message);
   if (quoteResultCard(message) || quoteResultImage(message)) return true;
+  if (messageIntent === "fallback" || resultStatus === "invalid_command") {
+    return !!displayMessageContent(message);
+  }
   if (duplicateQuotePromptInfoFromMessage(message)) return false;
   if (message?.metadata?.error) return true;
   if (String(message?.metadata?.status || "").toLowerCase() === "error") return true;
-  if (VISIBLE_ASSISTANT_RESULT_STATUSES.has(messageResultStatus(message))) return true;
+  if (VISIBLE_ASSISTANT_RESULT_STATUSES.has(resultStatus)) return true;
   if (isSilentAssistantMessage(message)) return false;
-  if (isQuoteAssistantMessage(message) && messageResultStatus(message) === "success" && displayMessageContent(message)) return true;
+  if (isQuoteAssistantMessage(message) && resultStatus === "success" && displayMessageContent(message)) return true;
 
   // 报价链路中的图片归位、材料状态、普通 success 只作为后台状态，不进入聊天气泡。
   if (isQuoteAssistantMessage(message)) return false;
@@ -2477,7 +2484,10 @@ function canSubmitWhileSending(text) {
   if (!t) return false;
   if (looksLikeDuplicateDialogCommand(t)) return true;
   if (looksLikeQuoteAdjustmentCommand(t)) return true;
-  return looksLikeQuoteCommand(t) && isStrictQuoteCommand(t);
+  if (looksLikeQuoteCommand(t)) return isStrictQuoteCommand(t);
+  // Let unknown text reach the rule engine so it can return the visible
+  // command-error reply without touching the in-flight quote task.
+  return true;
 }
 
 function looksLikeImageContextHint(text) {
@@ -2645,10 +2655,6 @@ async function handleSend() {
     ElMessage.success("已记住图片说明，拖入图片时会一起发送");
     return;
   }
-  if (looksLikeQuoteCommand(text) && !isStrictQuoteCommand(text)) {
-    ElMessage.warning("报价指令请严格使用“平台名+报价”，例如：太平洋报价");
-    return;
-  }
   if (uploadBusy.value) {
     if (looksLikeQuoteMaterialFormCommand(text)) {
       const compactFormCommand = text.replace(/[\s,，。.;；:：]+/g, "");
@@ -2656,11 +2662,8 @@ async function handleSend() {
         ElMessage.info("图片仍在上传或识别，请完成后再补资料");
         return;
       }
-    } else if (looksLikeQuoteCommand(text)) {
+    } else if (looksLikeQuoteCommand(text) && isStrictQuoteCommand(text)) {
       queueQuoteAfterImage(text);
-      return;
-    } else {
-      ElMessage.info("图片仍在上传或识别，请稍候再发送");
       return;
     }
   }
@@ -2674,11 +2677,19 @@ async function handleSend() {
   pendingImageHint.value = "";
   chatStickToBottom.value = true;
   const isQuoteMaterialFormCommand = looksLikeQuoteMaterialFormCommand(text);
+  const updatesQuoteFlow =
+    looksLikeDuplicateDialogCommand(text) ||
+    looksLikeQuoteAdjustmentCommand(text) ||
+    (looksLikeQuoteCommand(text) && isStrictQuoteCommand(text));
   const result = await sendMessage(text, {
     useStream: !isQuoteMaterialFormCommand,
     images: [],
     showProcessHint: !isQuoteMaterialFormCommand,
-    processHintText: canInterruptSending && !isQuoteMaterialFormCommand ? "已收到新指令，正在按最新内容处理…" : undefined,
+    processHintText: isQuoteMaterialFormCommand
+      ? undefined
+      : updatesQuoteFlow
+        ? "已收到新指令，正在按最新内容处理…"
+        : "正在处理…",
     pageContext: {
       module: "quote_assistant_workbench",
       page: "AiAssistantWorkbench",

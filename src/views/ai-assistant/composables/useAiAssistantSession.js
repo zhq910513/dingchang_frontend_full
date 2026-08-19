@@ -715,6 +715,9 @@ function shouldAppendAssistantResponse(data) {
   const resultStatus = String(data?.data?.result_status || "").toLowerCase();
   if (hasQuoteResultFromData(data)) return true;
   if (VISIBLE_ASSISTANT_RESULT_STATUSES.has(resultStatus)) return true;
+  if (intent === "fallback" || resultStatus === "invalid_command") {
+    return !!String(data.reply || "").trim();
+  }
   if (intent === "quote" && resultStatus === "success") return true;
   if (silent || hidden || intent === "quote_image_collect") return false;
 
