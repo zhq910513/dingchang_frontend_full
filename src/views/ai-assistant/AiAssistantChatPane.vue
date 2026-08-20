@@ -1402,6 +1402,17 @@ function sanitizeChatDisplayText(text) {
   return sanitizeQuoteUserText(text);
 }
 
+function stripQuoteModelResolutionDetails(text) {
+  const safe = sanitizeChatDisplayText(text);
+  if (!safe) return "";
+  return safe
+    .split(/[；;]/)
+    .map((part) => part.trim())
+    .filter((part) => !/^(选定车型|匹配方式)\s*[:：]/.test(part))
+    .join("；")
+    .trim();
+}
+
 function compactChatDisplayText(text) {
   return sanitizeChatDisplayText(text).replace(/\s+/g, "");
 }
@@ -1696,6 +1707,9 @@ function displayMessageContent(message) {
     if (isSilentAssistantMessage(message)) return "";
     if (!isQuoteAssistantMessage(message)) return "";
     base = appendUniqueChatBlock(sanitizeChatDisplayText(metaText), quoteNoticeText);
+  }
+  if (role === "assistant" && isQuoteAssistantMessage(message)) {
+    base = stripQuoteModelResolutionDetails(base);
   }
   if (role === "assistant" && quoteNoticeText) {
     base = appendUniqueChatBlock(base, quoteNoticeText);
