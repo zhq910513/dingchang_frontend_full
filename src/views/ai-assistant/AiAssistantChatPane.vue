@@ -910,7 +910,6 @@ const QUOTE_IMAGE_UPLOAD_CONCURRENCY = 4;
 const QUOTE_IMAGE_COMPRESS_MIN_BYTES = 2.5 * 1024 * 1024;
 const QUOTE_IMAGE_COMPRESS_MAX_EDGE = 2600;
 const QUOTE_IMAGE_COMPRESS_QUALITY = 0.9;
-const QUOTE_FOLLOWUP_DELAY_MS = 3 * 60 * 1000;
 const PLATFORM_HEALTH_PROMPT_INTERVAL_MS = 5 * 60 * 1000;
 const PLATFORM_HEALTH_CHECK_INTERVAL_MS = 60 * 1000;
 const ALLOWED_IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "webp", "bmp", "gif", "heic", "heif"]);
@@ -1047,7 +1046,6 @@ const currentSessionId = sessionApi.currentSessionId ?? ref("");
 const currentSessionTitle = sessionApi.currentSessionTitle ?? ref("新会话");
 const messages = sessionApi.messages ?? ref([]);
 const processHint = sessionApi.processHint ?? ref("");
-const pendingDuplicateConfirm = sessionApi.pendingDuplicateConfirm ?? ref(null);
 const sessionsHasMore = sessionApi.sessionsHasMore ?? ref(false);
 const historyHasMore = sessionApi.historyHasMore ?? ref(false);
 const quoteImagePreviewVisible = ref(false);
@@ -1094,11 +1092,18 @@ const switchSession = sessionApi.switchSession ?? (async () => {});
 const createNewSessionLocal = sessionApi.createNewSessionLocal ?? (() => {});
 const sendMessage = sessionApi.sendMessage ?? (async () => {});
 const abortActiveRequests = sessionApi.abortActiveRequests ?? (() => {});
-let quoteFollowupTimer = null;
-let quoteActivitySeq = 0;
 let imageLoadScrollFrame = 0;
 let assistantSyncTimer = null;
 let imageCollectChain = Promise.resolve();
+let settleInitialSessionReady = () => {};
+let initialSessionReadySettled = false;
+const initialSessionReady = new Promise((resolve) => {
+  settleInitialSessionReady = () => {
+    if (initialSessionReadySettled) return;
+    initialSessionReadySettled = true;
+    resolve();
+  };
+});
 
 const orderIdSafe = computed(() => {
   const arr = Array.isArray(messages.value) ? messages.value : [];
@@ -1137,6 +1142,7 @@ const loadingMoreSessionsSafe = computed(() => !!loadingMoreSessions.value);
 const sendingSafe = computed(() => !!sending.value);
 const sendButtonDisabledSafe = computed(() => {
   const text = String(inputText.value || "").trim();
+  if (sendingSafe.value && !currentSessionIdSafe.value) return true;
   if (sendingSafe.value && !canSubmitWhileSending(text)) return true;
   if (!uploadBusy.value) return false;
   // Unknown text must reach the backend and receive a visible command-error
@@ -1196,15 +1202,6 @@ const inputAssistHint = computed(() => {
   if (!String(inputText.value || "").trim() && pendingImageHint.value) return `已记住图片说明：${pendingImageHint.value}。拖入图片时会一起发送。`;
   return "";
 });
-
-watch(
-  () => inputText.value,
-  (next, prev) => {
-    if (String(next || "") !== String(prev || "")) {
-      markQuoteActivity();
-    }
-  }
-);
 
 watch(
   () => sessionStore.roleName,
@@ -1340,23 +1337,6 @@ function shouldShowDataHint(message) {
 
 function sanitizeChatDisplayText(text) {
   return sanitizeQuoteUserText(text);
-}
-
-function stripDialogTitleFromWarning(message, title) {
-  const raw = String(message || "").trim();
-  const heading = String(title || "").trim();
-  if (!raw || !heading) return raw;
-
-  const lines = raw.replace(/\r\n/g, "\n").split("\n");
-  const firstLine = String(lines[0] || "").replace(/\s+/g, "");
-  const normalizedHeading = heading.replace(/\s+/g, "");
-  if (!firstLine || firstLine !== normalizedHeading) return raw;
-
-  return lines.slice(1).join("\n").replace(/^\n+/, "").trimStart();
-}
-
-function containsDuplicateInsuranceText(text) {
-  return /重复投保/.test(String(text || ""));
 }
 
 function quoteApiErrorMessage(e, fallback) {
@@ -1546,8 +1526,6 @@ async function submitQuoteMaterialForm() {
       throw new Error(result?.message || "资料提交失败");
     }
     resetQuoteMaterialForm();
-    await maybePromptDuplicateQuoteConfirm(result);
-    scheduleQuoteFollowup(result);
   } catch (e) {
     ElNotification.error({
       title: "资料提交失败",
@@ -1557,43 +1535,6 @@ async function submitQuoteMaterialForm() {
   } finally {
     quoteMaterialFormSubmitting.value = false;
   }
-}
-
-function duplicateQuotePromptInfoFromAiData(aiData, fallbackText = "", source = "message") {
-  void aiData;
-  void fallbackText;
-  void source;
-  // Platform quote prompts are now handled server-side: the raw prompt text is
-  // written to chat when needed, then quote continues/adjusts automatically.
-  // Keep this as an explicit no-op so stale history or delayed responses cannot
-  // reopen old "continue quote / modify period" modals.
-  return null;
-}
-
-function duplicateQuotePromptInfoFromMessage(message) {
-  void message;
-  return null;
-}
-
-async function promptDuplicateQuoteConfirmInfo(info, { force = false } = {}) {
-  void info;
-  void force;
-  return false;
-}
-
-async function maybePromptDuplicateQuoteConfirm(result, options = {}) {
-  void result;
-  void options;
-  return false;
-}
-
-function latestVisibleDuplicateQuotePromptInfo() {
-  return null;
-}
-
-async function maybePromptLatestDuplicateQuoteConfirm() {
-  if (sendingSafe.value || uploadBusy.value || loadingHistorySafe.value) return false;
-  return promptDuplicateQuoteConfirmInfo(latestVisibleDuplicateQuotePromptInfo());
 }
 
 function displayMessageContent(message) {
@@ -1658,7 +1599,6 @@ function shouldRenderChatMessage(message) {
   if (messageIntent === "fallback" || resultStatus === "invalid_command") {
     return !!displayMessageContent(message);
   }
-  if (duplicateQuotePromptInfoFromMessage(message)) return false;
   if (message?.metadata?.error) return true;
   if (String(message?.metadata?.status || "").toLowerCase() === "error") return true;
   if (VISIBLE_ASSISTANT_RESULT_STATUSES.has(resultStatus)) return true;
@@ -1830,16 +1770,6 @@ function accountNoticeText(row) {
   return sanitizeChatDisplayText(row?.last_error) || "";
 }
 
-function inspectionNoticeTag(row) {
-  const notice = row?.inspection_notice && typeof row.inspection_notice === "object" ? row.inspection_notice : {};
-  const level = String(notice.level || "").toLowerCase();
-  const type = String(notice.type || "").toLowerCase();
-  if (level === "danger" || type.includes("failed")) return "danger";
-  if (level === "warning") return "warning";
-  if (type.includes("challenge") || type.includes("manual") || type.includes("expired")) return "warning";
-  return "info";
-}
-
 function loginPreservedSessionNotice(data = {}) {
   const account = data?.account && typeof data.account === "object" ? data.account : {};
   const notice = account?.inspection_notice && typeof account.inspection_notice === "object" ? account.inspection_notice : {};
@@ -1852,18 +1782,6 @@ function loginPreservedSessionNotice(data = {}) {
     || (accountStatus === "degraded" && sessionStatus === "degraded");
   if (!preserved) return "";
   return sanitizeChatDisplayText(notice.message || account.last_error) || "新登录未完成，已保留原有可用会话，可继续报价";
-}
-
-function quotaStatusText(status) {
-  const s0 = String(status || "").toLowerCase();
-  const map = {
-    unknown: "未知",
-    available: "可用",
-    warning: "预警",
-    full: "已满",
-    reset: "已重置",
-  };
-  return map[s0] || status || "未知";
 }
 
 function quotaStatusTag(status) {
@@ -2039,15 +1957,6 @@ function quoteResultCard(message) {
   return null;
 }
 
-function isPiccProposalResult(message) {
-  const result = quoteResultPayload(message);
-  const card = result?.result_card || result?.resultCard || {};
-  const style = String(card?.style || "").trim();
-  const platformCode = String(result?.platform_code || result?.platformCode || card?.platform_code || "").trim().toUpperCase();
-  const platformName = String(result?.platform_name || result?.platformName || card?.platform_name || "").trim();
-  return style === "picc_proposal_table" || platformCode === "PICC" || ["人保", "中国人保", "PICC"].includes(platformName);
-}
-
 function shouldShowInlineQuoteCard(message) {
   const card = quoteResultCard(message);
   if (!card || quoteResultImage(message)) return false;
@@ -2060,16 +1969,7 @@ function quoteCoverageItems(message) {
 }
 
 function quoteCoverageName(name) {
-  const text = String(name || "").trim();
-  const map = {
-    "机动车车上人员责任保险（司机）": "车上人员责任险(司机)",
-    "机动车车上人员责任保险（乘客）": "车上人员责任险(乘客)",
-    "车上人员责任险（司机）": "车上人员责任险(司机)",
-    "车上人员责任险（乘客）": "车上人员责任险(乘客)",
-    "附加医保外医疗费用责任险（机动车第三者责任保险）": "医保外医疗费用责任险(三者)",
-    "医保外医疗费用责任险（第三者责任险）": "医保外医疗费用责任险(三者)",
-  };
-  return map[text] || text;
+  return String(name || "").trim();
 }
 
 function moneyText(value) {
@@ -2099,7 +1999,6 @@ function quoteJointSalesAmountText(card = {}) {
 }
 
 async function handleRecallImage(message, img) {
-  markQuoteActivity();
   const storageKey = imageStorageKey(img);
   if (!storageKey || !currentSessionIdSafe.value) return;
 
@@ -2197,36 +2096,6 @@ watch(
   { flush: "post" }
 );
 
-watch(
-  () => {
-    const timeline = Array.isArray(messages.value) ? messages.value : [];
-    const last = timeline[timeline.length - 1];
-    return `${currentSessionIdSafe.value}:${last?.id || ""}:${last?.metadata?.data?.result_status || ""}`;
-  },
-  () => {
-    void maybePromptLatestDuplicateQuoteConfirm();
-  },
-  { flush: "post" }
-);
-
-watch(
-  () => loadingHistorySafe.value,
-  (next, prev) => {
-    if (prev && !next) {
-      void maybePromptLatestDuplicateQuoteConfirm();
-    }
-  },
-  { flush: "post" }
-);
-
-watch(
-  () => pendingDuplicateConfirm.value,
-  () => {
-    void maybePromptLatestDuplicateQuoteConfirm();
-  },
-  { flush: "post" }
-);
-
 async function handleChatScroll() {
   const el = chatBodyRef.value;
   if (!el) return;
@@ -2287,7 +2156,6 @@ async function handleSelectHistorySession(item) {
   if (sid !== currentSessionIdSafe.value) {
     await switchSession(sid);
   }
-  await maybePromptLatestDuplicateQuoteConfirm();
   forceStickToBottom();
 }
 
@@ -2297,9 +2165,6 @@ async function syncAssistantConversation({ force = false } = {}) {
   const shouldReloadHistory = force || chatStickToBottom.value;
   const syncResult = await syncCurrentSession({ reloadHistory: shouldReloadHistory, force });
   const historyReloaded = !!syncResult?.historyReloaded;
-  if (shouldReloadHistory && historyReloaded) {
-    await maybePromptLatestDuplicateQuoteConfirm();
-  }
   if (shouldReloadHistory && historyReloaded) {
     await nextTick();
     forceStickToBottom();
@@ -2436,20 +2301,6 @@ function looksLikeProfessionalPiccQuoteCommand(text) {
   ].includes(compact);
 }
 
-function looksLikeDuplicateDialogCommand(text) {
-  const compact = String(text || "").replace(/\s+/g, "");
-  return [
-    "继续报价",
-    "确认继续报价",
-    "继续重复报价",
-    "确认重复报价",
-    "中止重复报价",
-    "停止重复报价",
-    "取消重复报价",
-    "不继续报价",
-  ].includes(compact);
-}
-
 function looksLikeQuoteAdjustmentCommand(text) {
   const compact = String(text || "").replace(/\s+/g, "");
   if (!compact || compact.length > 80) return false;
@@ -2473,7 +2324,6 @@ function looksLikeQuoteAdjustmentCommand(text) {
 function canSubmitWhileSending(text) {
   const t = String(text || "").trim();
   if (!t) return false;
-  if (looksLikeDuplicateDialogCommand(t)) return true;
   if (looksLikeQuoteAdjustmentCommand(t)) return true;
   if (looksLikeQuoteCommand(t)) return isStrictQuoteCommand(t);
   // Let unknown text reach the rule engine so it can return the visible
@@ -2505,65 +2355,6 @@ function looksLikeImageContextHint(text) {
   return /^(这是|这个是|这张是|图片是|照片是|材料是)/.test(compact) || slotWords.includes(compact);
 }
 
-function clearQuoteFollowupTimer() {
-  if (!quoteFollowupTimer) return;
-  clearTimeout(quoteFollowupTimer);
-  quoteFollowupTimer = null;
-}
-
-function markQuoteActivity() {
-  quoteActivitySeq += 1;
-}
-
-function quoteFlowLooksCompleted(result) {
-  const body = result?.data || {};
-  const data = body?.data || {};
-  const payload = data?.payload || {};
-  const task = payload?.quote_task || {};
-  return (
-    String(body?.intent || "").toLowerCase() === "quote" &&
-    String(data?.result_status || "").toLowerCase() === "success" &&
-    String(task?.status || "").toLowerCase() === "success"
-  );
-}
-
-function quoteFlowShouldScheduleFollowup(result = null) {
-  void result;
-  return false;
-}
-
-function scheduleQuoteFollowup(result = null) {
-  if (!quoteFlowShouldScheduleFollowup(result)) {
-    clearQuoteFollowupTimer();
-    return;
-  }
-  clearQuoteFollowupTimer();
-  const scheduledSeq = quoteActivitySeq;
-  quoteFollowupTimer = setTimeout(async () => {
-    quoteFollowupTimer = null;
-    if (scheduledSeq !== quoteActivitySeq) return;
-    if (sendingSafe.value || uploadBusy.value) {
-      scheduleQuoteFollowup();
-      return;
-    }
-    try {
-      await sendMessage("查看当前材料状态", {
-        useStream: true,
-        silentErrors: true,
-        appendUserMessage: false,
-        processHintText: "正在检查当前报价材料状态...",
-        pageContext: {
-          module: "quote_assistant_workbench",
-          page: "AiAssistantWorkbench",
-          order_id: orderIdSafe.value || undefined,
-          auto_followup: true,
-          suppress_user_message: true,
-        },
-      });
-    } catch {}
-  }, QUOTE_FOLLOWUP_DELAY_MS);
-}
-
 function quoteCommandHandledByBackend(result) {
   const body = result?.data || {};
   const data = body?.data || {};
@@ -2593,6 +2384,17 @@ function queueQuoteAfterImage(text) {
   return true;
 }
 
+function latestImageCollectMatchesQueued(queued = pendingQuoteAfterImage.value) {
+  const queuedAt = Number(queued?.queued_at || 0);
+  const latestCollect = latestSuccessfulImageCollect;
+  return !!(
+    queued?.text &&
+    latestCollect?.result &&
+    Number(latestCollect.at || 0) >= queuedAt &&
+    (!latestCollect.session_id || latestCollect.session_id === (currentSessionIdSafe.value || ""))
+  );
+}
+
 async function flushQueuedQuoteAfterImage(imageResult = null) {
   const queued = pendingQuoteAfterImage.value;
   if (!queued?.text) return null;
@@ -2620,13 +2422,10 @@ async function flushQueuedQuoteAfterImage(imageResult = null) {
       auto_queued_after_image_collect: true,
     },
   });
-  await maybePromptDuplicateQuoteConfirm(result);
-  scheduleQuoteFollowup(result);
   return result;
 }
 
 async function handleSend() {
-  markQuoteActivity();
   const text = String(inputText.value || "").trim();
   if (!text) {
     ElMessage.warning("请输入内容，或直接拖入图片");
@@ -2634,6 +2433,10 @@ async function handleSend() {
   }
   if (inputQuoteDenied.value) {
     ElMessage.warning("当前账号只能查看助手信息，不能发起报价或上传报价材料");
+    return;
+  }
+  if (sendingSafe.value && !currentSessionIdSafe.value) {
+    ElMessage.info("首条消息仍在创建会话，请稍候再发送");
     return;
   }
   if (looksLikeImageContextHint(text)) {
@@ -2669,7 +2472,6 @@ async function handleSend() {
   chatStickToBottom.value = true;
   const isQuoteMaterialFormCommand = looksLikeQuoteMaterialFormCommand(text);
   const updatesQuoteFlow =
-    looksLikeDuplicateDialogCommand(text) ||
     looksLikeQuoteAdjustmentCommand(text) ||
     (looksLikeQuoteCommand(text) && isStrictQuoteCommand(text));
   const result = await sendMessage(text, {
@@ -2690,14 +2492,11 @@ async function handleSend() {
   if (await maybeOpenQuoteMaterialForm(result)) {
     return;
   }
-  await maybePromptDuplicateQuoteConfirm(result);
-  scheduleQuoteFollowup(result);
 }
 
 async function reloadHistory() {
   if (!currentSessionIdSafe.value) return;
   await loadHistory(currentSessionIdSafe.value);
-  await maybePromptLatestDuplicateQuoteConfirm();
 }
 
 function handleNewSessionButtonClick() {
@@ -2714,6 +2513,7 @@ function handleNewSessionButtonClick() {
 
 async function createNewSessionLocalSafe() {
   try {
+    await initialSessionReady;
     if (uploadBusy.value) {
       ElMessage.info("图片仍在上传或识别，请完成后再新建会话");
       return;
@@ -2768,7 +2568,6 @@ function focusInput() {
 }
 
 function applyQuickPrompt(text) {
-  markQuoteActivity();
   inputText.value = String(text || "");
   focusInput();
 }
@@ -2997,9 +2796,12 @@ function mergeUploadedMetaIntoLocalImageMessage(localMessageId, uploadedImages) 
 }
 
 async function uploadAndSendImages(files, hintText = "") {
-  markQuoteActivity();
   if (!canUseQuoteFlow.value) {
     ElMessage.warning("当前账号只能查看助手信息，不能上传报价材料");
+    return;
+  }
+  if (sendingSafe.value && !currentSessionIdSafe.value) {
+    ElMessage.info("首条消息仍在创建会话，请稍候再上传图片");
     return;
   }
   const imageFiles = files.filter((f) => isLikelyImageFile(f));
@@ -3143,7 +2945,6 @@ async function uploadAndSendImages(files, hintText = "") {
     if (batchResult && batchResult.ok === false && !quoteCommandHandledByBackend(batchResult)) {
       throw new Error(batchResult.message || "图片已上传，但后台识别归位失败");
     }
-    await maybePromptDuplicateQuoteConfirm(batchResult);
     batchProcessOk = true;
     latestSuccessfulImageCollect = {
       session_id: currentSessionIdSafe.value || "",
@@ -3164,7 +2965,9 @@ async function uploadAndSendImages(files, hintText = "") {
       uploadReady.reject(e);
     }
     const isProcessError = stage === "process";
-    const queuedQuoteText = isProcessError ? String(pendingQuoteAfterImage.value?.text || "").trim() : "";
+    const noOtherUploadBatch = activeUploadBatchCount.value <= 1;
+    const shouldCancelQueuedQuote = isProcessError || (noOtherUploadBatch && !latestImageCollectMatchesQueued());
+    const queuedQuoteText = shouldCancelQueuedQuote ? String(pendingQuoteAfterImage.value?.text || "").trim() : "";
     if (queuedQuoteText) {
       pendingQuoteAfterImage.value = null;
     }
@@ -3182,12 +2985,7 @@ async function uploadAndSendImages(files, hintText = "") {
     activeUploadBatchCount.value = Math.max(0, activeUploadBatchCount.value - 1);
     if (activeUploadBatchCount.value === 0 && pendingQuoteAfterImage.value) {
       const latestCollect = latestSuccessfulImageCollect;
-      const queuedAt = Number(pendingQuoteAfterImage.value?.queued_at || 0);
-      const latestMatchesCurrentSession = !!(
-        latestCollect?.result &&
-        Number(latestCollect.at || 0) >= queuedAt &&
-        (!latestCollect.session_id || latestCollect.session_id === (currentSessionIdSafe.value || ""))
-      );
+      const latestMatchesCurrentSession = latestImageCollectMatchesQueued();
       if ((batchHadUploadedImages && batchProcessOk) || latestMatchesCurrentSession) {
         await flushQueuedQuoteAfterImage(batchProcessOk ? batchResult : latestCollect.result);
       }
@@ -3761,38 +3559,6 @@ async function openDefaultConfigDialog() {
   await loadDefaultConfigs();
 }
 
-async function openProductDefaultConfigFromAccountManager(row = null) {
-  if (!isSuperAdmin.value) {
-    ElMessage.warning("只有超级账号可以维护默认参数配置");
-    return;
-  }
-  if (!quotePlatforms.value.length) await loadQuotePlatforms();
-  const piccPlatform = quotePlatforms.value.find((x) => String(x.platform_code || "").toUpperCase() === "PICC");
-  const firstPlatform = quotePlatforms.value[0] || {};
-  const platformCode =
-    row?.platform_code || accountFilters.value.platform_code || piccPlatform?.platform_code || firstPlatform.platform_code || "";
-  if (!platformCode) {
-    ElMessage.warning("请先维护报价平台");
-    return;
-  }
-  const typeName = fixedQuoteAccountTypeSet.has(String(row?.account_type_name || "").trim())
-    ? String(row.account_type_name).trim()
-    : "油车-旧";
-  defaultConfigFilters.value.platform_code = platformCode;
-  defaultConfigFilters.value.account_type_name = typeName;
-  defaultConfigDialogVisible.value = true;
-  await loadDefaultConfigTypes(platformCode);
-  await loadDefaultConfigs();
-  const existed = defaultConfigs.value.find(
-    (item) => item?.platform_code === platformCode && String(item?.account_type_name || "") === typeName
-  );
-  await openDefaultConfigForm(existed || null);
-  if (!existed) {
-    defaultConfigForm.value.account_type_name = typeName;
-    applyDefaultProductTemplate();
-  }
-}
-
 function resetDefaultConfigForm(row = null) {
   const firstPlatform = quotePlatforms.value[0] || {};
   const platformCode = row?.platform_code || defaultConfigFilters.value.platform_code || firstPlatform.platform_code || "";
@@ -3999,11 +3765,16 @@ defineExpose({
 });
 
 onMounted(async () => {
-  await ensureInit({ loadLatestSession: !paneMode.value || Number(props.paneIndex || 1) === 1 });
+  try {
+    await ensureInit({ loadLatestSession: !paneMode.value || Number(props.paneIndex || 1) === 1 });
+  } finally {
+    // A newly mounted pane is asked by its parent to create a fresh session.
+    // Do not let that request race with ensureInit resetting the pane view.
+    settleInitialSessionReady();
+  }
   await loadPlatformSchemas();
   void checkPlatformAccountHealth({ force: true });
   forceStickToBottom();
-  void maybePromptLatestDuplicateQuoteConfirm();
   if (typeof window !== "undefined") {
     window.addEventListener("focus", handleAssistantWindowFocus);
     assistantSyncTimer = window.setInterval(() => {
@@ -4017,7 +3788,6 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   abortActiveRequests();
-  clearQuoteFollowupTimer();
   if (typeof window !== "undefined") {
     window.removeEventListener("focus", handleAssistantWindowFocus);
     if (assistantSyncTimer) {

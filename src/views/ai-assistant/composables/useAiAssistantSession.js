@@ -119,7 +119,6 @@ function normalizeHistoryPage(resp) {
     items: normalizeHistoryItems(resp),
     next_cursor: data?.next_cursor || "",
     has_more: !!data?.has_more,
-    pending_duplicate_confirm: sanitizeHistoryMetadata(data?.pending_duplicate_confirm || null),
   };
 }
 
@@ -190,10 +189,6 @@ function imageMergeKeys(image) {
   if (tail) add("url_tail", tail);
   add("hash", imageHashToken(url));
   return keys;
-}
-
-function imageMergeKey(image) {
-  return Array.from(imageMergeKeys(image))[0] || "";
 }
 
 function imagesShareIdentity(left, right) {
@@ -336,16 +331,9 @@ function messageAssistantSemanticKind(message) {
     return `platform_dialog:${String(dialog.subtype || dialog.type || "notice").toLowerCase()}`;
   }
 
-  const quoteCaseStatus = String(payload?.quote_case?.status || "").toLowerCase();
-  const quoteTaskStatus = String(payload?.quote_task?.status || "").toLowerCase();
   if (resultStatus === "need_more_info") return "quote_need_more_info";
   if (resultStatus === "failed") return "quote_failed";
-  if (resultStatus === "not_ready") {
-    if (quoteCaseStatus === "waiting_duplicate_confirm" || quoteTaskStatus === "waiting_duplicate_confirm") {
-      return "duplicate_quote_waiting";
-    }
-    return "quote_not_ready";
-  }
+  if (resultStatus === "not_ready") return "quote_not_ready";
   return resultStatus || String(meta.intent || data.intent || "assistant").toLowerCase() || "assistant";
 }
 
@@ -782,7 +770,6 @@ export function useAiAssistantSession() {
   const sessionsHasMore = ref(false);
   const historyNextCursor = ref("");
   const historyHasMore = ref(false);
-  const pendingDuplicateConfirm = ref(null);
   const loadedHistoryFingerprints = new Map();
 
   // SSE 中止控制
@@ -813,7 +800,6 @@ export function useAiAssistantSession() {
     historyHasMore.value = false;
     messages.value = [];
     processHint.value = "";
-    pendingDuplicateConfirm.value = null;
   }
 
   function findSessionSummary(sessionId) {
@@ -935,7 +921,6 @@ export function useAiAssistantSession() {
         : mergeHistoryWithLocalImages(page.items, currentMessages);
       historyNextCursor.value = page.next_cursor;
       historyHasMore.value = page.has_more;
-      pendingDuplicateConfirm.value = page.pending_duplicate_confirm || null;
       rememberLoadedHistoryFingerprint(sid);
     } catch (e) {
       if (isNotFoundError(e)) {
@@ -952,7 +937,6 @@ export function useAiAssistantSession() {
         messages.value = [];
         historyNextCursor.value = "";
         historyHasMore.value = false;
-        pendingDuplicateConfirm.value = null;
       }
     } finally {
       if (showLoading) {
@@ -980,9 +964,6 @@ export function useAiAssistantSession() {
       }
       historyNextCursor.value = page.next_cursor;
       historyHasMore.value = page.has_more;
-      if (page.pending_duplicate_confirm) {
-        pendingDuplicateConfirm.value = page.pending_duplicate_confirm;
-      }
       return older.length > 0 || page.has_more;
     } catch (e) {
       ElNotification.error({
@@ -1030,7 +1011,6 @@ export function useAiAssistantSession() {
     historyHasMore.value = false;
     messages.value = [];
     processHint.value = "";
-    pendingDuplicateConfirm.value = null;
     try {
       const resp = await createAiSession();
       const data = resp?.data?.data ?? resp?.data ?? {};
@@ -1039,7 +1019,6 @@ export function useAiAssistantSession() {
       historyNextCursor.value = "";
       historyHasMore.value = false;
       messages.value = [];
-      pendingDuplicateConfirm.value = null;
       await refreshSessions();
       return { ok: true, session_id: sid };
     } catch (e) {
@@ -1047,7 +1026,6 @@ export function useAiAssistantSession() {
       historyNextCursor.value = "";
       historyHasMore.value = false;
       messages.value = [];
-      pendingDuplicateConfirm.value = null;
       ElNotification.error({
         title: "新建会话失败",
         message: normalizeErrMsg(e, "新建会话失败"),
@@ -1433,7 +1411,6 @@ export function useAiAssistantSession() {
     currentSessionTitle,
     messages,
     processHint,
-    pendingDuplicateConfirm,
     sessionsNextCursor,
     sessionsHasMore,
     historyNextCursor,

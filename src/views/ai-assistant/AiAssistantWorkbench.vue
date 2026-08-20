@@ -56,6 +56,7 @@
         :class="{ active: pane.key === activePaneKey }"
         @pointerdown.capture="activatePane(pane.key)"
         @focusin.capture="activatePane(pane.key)"
+        @dragenter.capture="activatePane(pane.key)"
       >
         <AiAssistantChatPane
           :ref="(el) => setPaneRef(pane.key, el)"
