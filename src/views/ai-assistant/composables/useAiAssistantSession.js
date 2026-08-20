@@ -696,6 +696,132 @@ function isQuoteAssistantResponse(data) {
   );
 }
 
+function extractQuoteFailureSummary(data, { replyText = "" } = {}) {
+  if (!data || typeof data !== "object") return null;
+  const intent = String(data?.intent || data?.data?.intent || "").toLowerCase();
+  if (intent && !intent.startsWith("quote")) return null;
+
+  const inner = data?.data && typeof data.data === "object" ? data.data : {};
+  const payload = inner.payload && typeof inner.payload === "object" ? inner.payload : {};
+  const silent = data?.silent === true || inner.silent === true || payload.ui_visible === false;
+  const failureCode = String(inner.failure_code || payload.failure_code || "").trim();
+  const resultStatus = String(inner.result_status || "").toLowerCase();
+
+  if (hasQuoteResultFromData(data) && resultStatus === "success") return null;
+  if (silent && !failureCode) return null;
+
+  const failLike =
+    !!failureCode ||
+    resultStatus === "failed" ||
+    resultStatus === "need_more_info" ||
+    (resultStatus === "not_ready" && !!failureCode) ||
+    payload.preflight_blocked === true ||
+    payload.material_changed === true ||
+    payload.result_materialization_failed === true;
+  if (!failLike) return null;
+
+  const reason = String(
+    inner.failure_reason ||
+      payload.failure_reason ||
+      inner.message ||
+      replyText ||
+      data.reply ||
+      ""
+  ).trim();
+  if (!reason && !failureCode) return null;
+
+  const nextAction = String(inner.next_action || payload.next_action || "").trim();
+  const quoteCase = payload.quote_case && typeof payload.quote_case === "object" ? payload.quote_case : {};
+  const platformAccount =
+    payload.platform_account && typeof payload.platform_account === "object" ? payload.platform_account : {};
+  const platformName = String(
+    quoteCase.platform_name ||
+      payload.platform_name ||
+      platformAccount.platform_name ||
+      ""
+  ).trim();
+  const platformCode = String(
+    quoteCase.platform_code ||
+      payload.platform_code ||
+      platformAccount.platform_code ||
+      ""
+  ).trim().toUpperCase();
+
+  let requoteText = "";
+  const actions = Array.isArray(data.actions) ? data.actions : [];
+  for (const action of actions) {
+    const label = String(action?.label || "").trim();
+    if (/报价$/.test(label) && !/材料|状态|配置|账号/.test(label)) {
+      requoteText = label;
+      break;
+    }
+  }
+  if (!requoteText && platformName) requoteText = `${platformName}报价`;
+  if (!requoteText) requoteText = "人保报价";
+
+  const shortReason = reason
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .find((line) => !line.startsWith("下一步：")) || reason;
+
+  return {
+    failure_code: failureCode || resultStatus || "failed",
+    reason: shortReason.slice(0, 180),
+    next_action: nextAction,
+    platform_name: platformName,
+    platform_code: platformCode,
+    requote_text: requoteText,
+    at: new Date().toISOString(),
+  };
+}
+
+function extractQuoteFailureSummaryFromMessage(message) {
+  if (!message || typeof message !== "object") return null;
+  if (String(message.role || "").toLowerCase() !== "assistant") return null;
+  const meta = message.metadata || {};
+  const data = {
+    intent: meta.intent || "",
+    reply: message.content || "",
+    actions: Array.isArray(meta.actions) ? meta.actions : [],
+    silent: meta.silent === true,
+    data: meta.data || null,
+  };
+  const summary = extractQuoteFailureSummary(data, { replyText: message.content || "" });
+  if (!summary) return null;
+  if (message.created_at) summary.at = String(message.created_at);
+  return summary;
+}
+
+function syncLastQuoteFailureFromMessages(messageList, lastQuoteFailureRef) {
+  const rows = Array.isArray(messageList) ? messageList : [];
+  for (let i = rows.length - 1; i >= 0; i -= 1) {
+    const summary = extractQuoteFailureSummaryFromMessage(rows[i]);
+    if (summary) {
+      lastQuoteFailureRef.value = summary;
+      return summary;
+    }
+    const meta = rows[i]?.metadata || {};
+    const status = String(meta.data?.result_status || "").toLowerCase();
+    if (status === "success" && (meta.data?.payload?.quote_result || meta.data?.quote_result)) {
+      lastQuoteFailureRef.value = null;
+      return null;
+    }
+  }
+  lastQuoteFailureRef.value = null;
+  return null;
+}
+
+function rememberQuoteOutcome(data, lastQuoteFailureRef) {
+  if (!data || typeof data !== "object") return;
+  if (hasQuoteResultFromData(data) && String(data?.data?.result_status || "").toLowerCase() === "success") {
+    lastQuoteFailureRef.value = null;
+    return;
+  }
+  const summary = extractQuoteFailureSummary(data);
+  if (summary) lastQuoteFailureRef.value = summary;
+}
+
 function shouldAppendAssistantResponse(data) {
   if (!data || typeof data !== "object") return false;
   if (data.ok === false || data.error) return true;
@@ -704,6 +830,11 @@ function shouldAppendAssistantResponse(data) {
   const silent = data?.silent === true || data?.data?.silent === true;
   const hidden = data?.ui_visible === false || data?.data?.ui_visible === false || payload?.ui_visible === false;
   const resultStatus = String(data?.data?.result_status || "").toLowerCase();
+  const failureCode = String(
+    data?.data?.failure_code || payload?.failure_code || ""
+  ).trim();
+  // Classified quote failures must always surface, even if a silent flag leaked through.
+  if (failureCode) return true;
   if (hasQuoteResultFromData(data)) return true;
   if (VISIBLE_ASSISTANT_RESULT_STATUSES.has(resultStatus)) return true;
   if (intent === "fallback" || resultStatus === "invalid_command") {
@@ -766,6 +897,7 @@ export function useAiAssistantSession() {
   const currentSessionId = ref("");
   const messages = ref([]);
   const processHint = ref("");
+  const lastQuoteFailure = ref(null);
   const sessionsNextCursor = ref("");
   const sessionsHasMore = ref(false);
   const historyNextCursor = ref("");
@@ -800,6 +932,15 @@ export function useAiAssistantSession() {
     historyHasMore.value = false;
     messages.value = [];
     processHint.value = "";
+    lastQuoteFailure.value = null;
+  }
+
+  function clearLastQuoteFailure() {
+    lastQuoteFailure.value = null;
+  }
+
+  function refreshLastQuoteFailureFromMessages() {
+    syncLastQuoteFailureFromMessages(messages.value, lastQuoteFailure);
   }
 
   function findSessionSummary(sessionId) {
@@ -897,6 +1038,7 @@ export function useAiAssistantSession() {
     const sid = String(sessionId || currentSessionId.value || "").trim();
     if (!sid) {
       messages.value = [];
+      lastQuoteFailure.value = null;
       return;
     }
 
@@ -922,6 +1064,7 @@ export function useAiAssistantSession() {
       historyNextCursor.value = page.next_cursor;
       historyHasMore.value = page.has_more;
       rememberLoadedHistoryFingerprint(sid);
+      refreshLastQuoteFailureFromMessages();
     } catch (e) {
       if (isNotFoundError(e)) {
         resetCurrentSessionView();
@@ -935,6 +1078,7 @@ export function useAiAssistantSession() {
           duration: 4000,
         });
         messages.value = [];
+        lastQuoteFailure.value = null;
         historyNextCursor.value = "";
         historyHasMore.value = false;
       }
@@ -961,6 +1105,7 @@ export function useAiAssistantSession() {
       const older = page.items.filter((m) => !existing.has(String(m.id || "")));
       if (older.length) {
         messages.value = [...older, ...messages.value];
+        refreshLastQuoteFailureFromMessages();
       }
       historyNextCursor.value = page.next_cursor;
       historyHasMore.value = page.has_more;
@@ -1011,6 +1156,7 @@ export function useAiAssistantSession() {
     historyHasMore.value = false;
     messages.value = [];
     processHint.value = "";
+    lastQuoteFailure.value = null;
     try {
       const resp = await createAiSession();
       const data = resp?.data?.data ?? resp?.data ?? {};
@@ -1209,6 +1355,7 @@ export function useAiAssistantSession() {
         }
 
         if (data.session_id) currentSessionId.value = data.session_id;
+        rememberQuoteOutcome(data, lastQuoteFailure);
         if (!data.ok) {
           ElNotification.warning({
             title: "报价助手返回异常",
@@ -1312,6 +1459,7 @@ export function useAiAssistantSession() {
                 ...makeAssistantResponseMessage(data),
               });
             }
+            rememberQuoteOutcome(data, lastQuoteFailure);
             return;
           }
 
@@ -1341,6 +1489,7 @@ export function useAiAssistantSession() {
       });
       schedulePostSendSync();
       const streamData = normalizeChatPayload(streamResp);
+      rememberQuoteOutcome(streamData, lastQuoteFailure);
       return { ok: streamData.ok !== false && !isBusinessFailed(streamData), data: streamData };
     } catch (e) {
       if (isAbortLikeError(e)) {
@@ -1411,6 +1560,7 @@ export function useAiAssistantSession() {
     currentSessionTitle,
     messages,
     processHint,
+    lastQuoteFailure,
     sessionsNextCursor,
     sessionsHasMore,
     historyNextCursor,
@@ -1426,5 +1576,6 @@ export function useAiAssistantSession() {
     removeSession,
     sendMessage,
     abortActiveRequests,
+    clearLastQuoteFailure,
   };
 }

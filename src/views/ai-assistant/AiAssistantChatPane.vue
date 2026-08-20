@@ -347,6 +347,30 @@
       </div>
 
       <div class="chat-input-wrap">
+        <div
+          v-if="lastQuoteFailureBanner"
+          class="last-quote-failure"
+          role="status"
+          aria-live="polite"
+        >
+          <div class="last-quote-failure-main">
+            <strong>上次失败</strong>
+            <span class="last-quote-failure-reason">{{ lastQuoteFailureBanner.reason }}</span>
+            <em v-if="lastQuoteFailureBanner.timeText" class="last-quote-failure-time">{{ lastQuoteFailureBanner.timeText }}</em>
+          </div>
+          <div class="last-quote-failure-actions">
+            <el-button
+              size="small"
+              type="primary"
+              plain
+              :disabled="sendingSafe || uploadBusy"
+              @click="handleRetryLastQuoteFailure"
+            >
+              {{ lastQuoteFailureBanner.retryLabel }}
+            </el-button>
+            <el-button size="small" text @click="clearLastQuoteFailureBanner">关闭</el-button>
+          </div>
+        </div>
         <div v-if="workbenchStatusText" class="workbench-status" :class="{ busy: workbenchBusy }" role="status" aria-live="polite">
           <span class="workbench-status-dot"></span>
           <span>{{ workbenchStatusText }}</span>
@@ -1046,6 +1070,8 @@ const currentSessionId = sessionApi.currentSessionId ?? ref("");
 const currentSessionTitle = sessionApi.currentSessionTitle ?? ref("新会话");
 const messages = sessionApi.messages ?? ref([]);
 const processHint = sessionApi.processHint ?? ref("");
+const lastQuoteFailure = sessionApi.lastQuoteFailure ?? ref(null);
+const clearLastQuoteFailure = sessionApi.clearLastQuoteFailure ?? (() => {});
 const sessionsHasMore = sessionApi.sessionsHasMore ?? ref(false);
 const historyHasMore = sessionApi.historyHasMore ?? ref(false);
 const quoteImagePreviewVisible = ref(false);
@@ -1164,6 +1190,43 @@ const VISIBLE_ASSISTANT_RESULT_STATUSES = new Set([
 ]);
 const messagesSafe = computed(() => (Array.isArray(messages.value) ? messages.value.filter(shouldRenderChatMessage) : []));
 const processHintSafe = computed(() => String(processHint.value || ""));
+
+function formatLastQuoteFailureClock(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const dt = new Date(raw);
+  if (Number.isNaN(dt.getTime())) return "";
+  const hh = String(dt.getHours()).padStart(2, "0");
+  const mm = String(dt.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+const lastQuoteFailureBanner = computed(() => {
+  const row = lastQuoteFailure.value;
+  if (!row || typeof row !== "object") return null;
+  const reason = sanitizeChatDisplayText(row.reason || row.failure_code || "");
+  if (!reason) return null;
+  const retryLabel = String(row.requote_text || "").trim() || "重新报价";
+  return {
+    reason,
+    timeText: formatLastQuoteFailureClock(row.at),
+    retryLabel: sanitizeChatDisplayText(retryLabel),
+    requoteText: String(row.requote_text || "人保报价").trim() || "人保报价",
+    nextAction: sanitizeChatDisplayText(row.next_action || ""),
+  };
+});
+
+function clearLastQuoteFailureBanner() {
+  clearLastQuoteFailure();
+}
+
+async function handleRetryLastQuoteFailure() {
+  const banner = lastQuoteFailureBanner.value;
+  if (!banner?.requoteText) return;
+  inputText.value = banner.requoteText;
+  await handleSend();
+}
+
 const isSuperAdmin = computed(() => String(sessionStore.roleName || "").trim() === ROLE.SUPER_ADMIN);
 const canManageQuoteAccounts = computed(() => isSuperAdmin.value);
 const canUseQuoteFlow = computed(() => !!String(sessionStore.roleName || "").trim());
@@ -1440,6 +1503,7 @@ function quoteMaterialSubmitLabel(field) {
     commercial_start_date: "商业起保日期",
     compulsory_start_date: "交强起保日期",
     vehicle_model: "车型名称",
+    car_name: "销售车型",
   };
   return labelMap[key] || String(field?.label || key).replace(/（选填）$/, "").trim();
 }
@@ -1540,6 +1604,7 @@ async function submitQuoteMaterialForm() {
 function displayMessageContent(message) {
   const role = String(message?.role || "").toLowerCase();
   const text = String(message?.content || "").trim();
+  let base = "";
   if (text) {
     if (role === "user" && messageImages(message).length) {
       if (
@@ -1551,20 +1616,32 @@ function displayMessageContent(message) {
         return "";
       }
     }
-    return sanitizeChatDisplayText(text);
+    base = sanitizeChatDisplayText(text);
+  } else {
+    const metaText = String(message?.metadata?.data?.message || "").trim();
+    if (!metaText) return "";
+    if (role !== "assistant") return "";
+    if (isSilentAssistantMessage(message)) return "";
+    if (!isQuoteAssistantMessage(message)) return "";
+    base = sanitizeChatDisplayText(metaText);
   }
-
-  const metaText = String(message?.metadata?.data?.message || "").trim();
-  if (!metaText) return "";
-  if (role !== "assistant") return "";
-  if (isSilentAssistantMessage(message)) return "";
-  if (!isQuoteAssistantMessage(message)) return "";
-  return sanitizeChatDisplayText(metaText);
+  if (role !== "assistant" || !base) return base;
+  const data = message?.metadata?.data || {};
+  const payload = data.payload || {};
+  const failureCode = String(data.failure_code || payload.failure_code || "").trim();
+  if (!failureCode) return base;
+  const nextAction = String(data.next_action || payload.next_action || "").trim();
+  if (!nextAction) return base;
+  if (base.includes(nextAction)) return base;
+  return `${base}\n下一步：${sanitizeChatDisplayText(nextAction)}`;
 }
 
 function isSilentAssistantMessage(message) {
   const meta = message?.metadata || {};
   const data = meta.data || {};
+  const payload = data.payload || {};
+  const failureCode = String(data.failure_code || payload.failure_code || "").trim();
+  if (failureCode) return false;
   const intent = String(meta.intent || data.intent || "").toLowerCase();
   if (String(meta.silent || "").toLowerCase() === "true") return true;
   if (String(data.silent || "").toLowerCase() === "true") return true;
@@ -5137,6 +5214,51 @@ onBeforeUnmount(() => {
   color: rgba(31, 42, 68, 0.82);
   font-size: 12px;
   line-height: 1.5;
+}
+
+.last-quote-failure {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(245, 108, 108, 0.22);
+  background: rgba(245, 108, 108, 0.06);
+  color: rgba(92, 38, 38, 0.92);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.last-quote-failure-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 8px;
+  min-width: 0;
+}
+
+.last-quote-failure-main strong {
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.last-quote-failure-reason {
+  min-width: 0;
+  word-break: break-word;
+}
+
+.last-quote-failure-time {
+  flex-shrink: 0;
+  font-style: normal;
+  color: rgba(92, 38, 38, 0.55);
+}
+
+.last-quote-failure-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .workbench-status.busy {
