@@ -299,6 +299,30 @@ function messageQuoteResultPayload(message) {
   return result;
 }
 
+function truthyFlag(value) {
+  if (value === true) return true;
+  const text = String(value ?? "").trim().toLowerCase();
+  return text === "true" || text === "1" || text === "yes";
+}
+
+function quoteResultImageUrlFromResult(result) {
+  const image = result?.result_image || result?.resultImage || null;
+  if (typeof image === "string") return image.trim();
+  if (!image || typeof image !== "object") return "";
+  return String(image.url || image.image_url || image.preview_url || image.remote_url || "").trim();
+}
+
+function messageHasPendingQuoteResultImage(message) {
+  const result = messageQuoteResultPayload(message);
+  if (!result || typeof result !== "object") return false;
+  if (quoteResultImageUrlFromResult(result)) return false;
+  return truthyFlag(result.result_image_pending) || truthyFlag(result.resultImagePending);
+}
+
+function messagesHavePendingQuoteResultImages(messageList) {
+  return Array.isArray(messageList) && messageList.some(messageHasPendingQuoteResultImage);
+}
+
 function messagePlatformAutoNotice(message) {
   const payload = message?.metadata?.data?.payload || {};
   const notice = payload?.platform_auto_notice;
@@ -662,6 +686,10 @@ const VISIBLE_ASSISTANT_RESULT_STATUSES = new Set([
   "failed",
 ]);
 
+const QUOTE_RESULT_IMAGE_POLL_INITIAL_DELAY_MS = 700;
+const QUOTE_RESULT_IMAGE_POLL_DELAY_MS = 1000;
+const QUOTE_RESULT_IMAGE_POLL_MAX_MS = 30000;
+
 function quoteResultPayloadFromData(data) {
   const payload = data?.data?.payload || {};
   const result =
@@ -907,6 +935,10 @@ export function useAiAssistantSession() {
   // SSE 中止控制
   let currentAbort = null;
   const activeAbortControllers = new Set();
+  let pendingQuoteImagePollTimer = null;
+  let pendingQuoteImagePollStartedAt = 0;
+  let pendingQuoteImagePollSessionId = "";
+  let pendingQuoteImagePollRunning = false;
 
   function abortActiveRequests() {
     for (const controller of activeAbortControllers) {
@@ -926,7 +958,78 @@ export function useAiAssistantSession() {
     currentAbort = null;
   }
 
+  function currentMessagesHavePendingQuoteResultImage() {
+    return messagesHavePendingQuoteResultImages(messages.value);
+  }
+
+  function clearPendingQuoteImagePoll({ resetWindow = true } = {}) {
+    if (pendingQuoteImagePollTimer) {
+      clearTimeout(pendingQuoteImagePollTimer);
+    }
+    pendingQuoteImagePollTimer = null;
+    pendingQuoteImagePollRunning = false;
+    if (resetWindow) {
+      pendingQuoteImagePollStartedAt = 0;
+      pendingQuoteImagePollSessionId = "";
+    }
+  }
+
+  function maybeSchedulePendingQuoteImagePoll({ initial = false, resetWindow = false } = {}) {
+    const sid = String(currentSessionId.value || "").trim();
+    if (!sid || !currentMessagesHavePendingQuoteResultImage()) {
+      clearPendingQuoteImagePoll();
+      return;
+    }
+
+    const now = Date.now();
+    if (resetWindow || pendingQuoteImagePollSessionId !== sid || !pendingQuoteImagePollStartedAt) {
+      pendingQuoteImagePollSessionId = sid;
+      pendingQuoteImagePollStartedAt = now;
+    }
+    if (now - pendingQuoteImagePollStartedAt >= QUOTE_RESULT_IMAGE_POLL_MAX_MS) {
+      clearPendingQuoteImagePoll();
+      return;
+    }
+    if (pendingQuoteImagePollTimer || pendingQuoteImagePollRunning) return;
+
+    const delay = initial ? QUOTE_RESULT_IMAGE_POLL_INITIAL_DELAY_MS : QUOTE_RESULT_IMAGE_POLL_DELAY_MS;
+    pendingQuoteImagePollTimer = setTimeout(() => {
+      pendingQuoteImagePollTimer = null;
+      void pollPendingQuoteImages();
+    }, delay);
+  }
+
+  async function pollPendingQuoteImages() {
+    const sid = pendingQuoteImagePollSessionId || String(currentSessionId.value || "").trim();
+    if (!sid || sid !== String(currentSessionId.value || "").trim() || !currentMessagesHavePendingQuoteResultImage()) {
+      clearPendingQuoteImagePoll();
+      return;
+    }
+    if (Date.now() - pendingQuoteImagePollStartedAt >= QUOTE_RESULT_IMAGE_POLL_MAX_MS) {
+      clearPendingQuoteImagePoll();
+      return;
+    }
+
+    pendingQuoteImagePollRunning = true;
+    try {
+      await loadHistory(sid, {
+        showLoading: false,
+        preserveCurrentTimeline: true,
+      });
+    } catch {
+      // loadHistory already handles visible errors when needed; this poll is best-effort.
+    } finally {
+      pendingQuoteImagePollRunning = false;
+      if (String(currentSessionId.value || "").trim() === sid && currentMessagesHavePendingQuoteResultImage()) {
+        maybeSchedulePendingQuoteImagePoll();
+      } else {
+        clearPendingQuoteImagePoll();
+      }
+    }
+  }
+
   function resetCurrentSessionView() {
+    clearPendingQuoteImagePoll();
     currentSessionId.value = "";
     historyNextCursor.value = "";
     historyHasMore.value = false;
@@ -1025,7 +1128,8 @@ export function useAiAssistantSession() {
       return { historyReloaded: false };
     }
     if (reloadHistory && !sending.value && !loadingHistory.value && !loadingMoreHistory.value) {
-      if (!force && !sessionHistoryMayHaveChanged(currentSessionId.value)) {
+      const hasPendingQuoteImage = currentMessagesHavePendingQuoteResultImage();
+      if (!force && !hasPendingQuoteImage && !sessionHistoryMayHaveChanged(currentSessionId.value)) {
         return { historyReloaded: false };
       }
       await loadHistory(currentSessionId.value, { showLoading: false, preserveCurrentTimeline: true });
@@ -1065,6 +1169,11 @@ export function useAiAssistantSession() {
       historyHasMore.value = page.has_more;
       rememberLoadedHistoryFingerprint(sid);
       refreshLastQuoteFailureFromMessages();
+      if (currentMessagesHavePendingQuoteResultImage()) {
+        maybeSchedulePendingQuoteImagePoll({ initial: true });
+      } else {
+        clearPendingQuoteImagePoll();
+      }
     } catch (e) {
       if (isNotFoundError(e)) {
         resetCurrentSessionView();
@@ -1195,6 +1304,10 @@ export function useAiAssistantSession() {
         }
       } catch {
         // keep the chat fast; background sync is best-effort
+      } finally {
+        if (currentMessagesHavePendingQuoteResultImage()) {
+          maybeSchedulePendingQuoteImagePoll({ initial: true, resetWindow: true });
+        }
       }
     })();
   }
