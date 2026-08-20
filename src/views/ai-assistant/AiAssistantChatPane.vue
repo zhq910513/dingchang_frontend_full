@@ -1919,12 +1919,16 @@ function canRecallImage(message, img) {
 function messageImages(message) {
   const meta = message?.metadata || {};
   const resultImage = quoteResultImage(message);
+  const pendingQuoteImage = quoteResultImagePending(message)
+    ? [{ kind: "quote_result", slot_key: "related", placeholder: true, placeholder_id: `quote_result_${message?.id || "pending"}` }]
+    : null;
   const candidates = [
     meta.images,
     meta.page_context?.images,
     meta.page_context?.uploaded_images,
     meta.data?.payload?.attached_images,
     resultImage ? [resultImage] : null,
+    pendingQuoteImage,
   ];
   const out = [];
   const seen = new Set();
@@ -2013,6 +2017,13 @@ function quoteResultImage(message) {
   return null;
 }
 
+function quoteResultImagePending(message) {
+  const result = quoteResultPayload(message);
+  if (!result || typeof result !== "object") return false;
+  if (quoteResultImage(message)) return false;
+  return result.result_image_pending === true || String(result.result_image_pending || "").toLowerCase() === "true";
+}
+
 function openQuoteImagePreview(message, img) {
   const url = imageUrl(img);
   if (!url) return;
@@ -2036,6 +2047,7 @@ function quoteResultCard(message) {
 
 function shouldShowInlineQuoteCard(message) {
   const card = quoteResultCard(message);
+  if (quoteResultImagePending(message)) return false;
   if (!card || quoteResultImage(message)) return false;
   return true;
 }
