@@ -1402,6 +1402,77 @@ function sanitizeChatDisplayText(text) {
   return sanitizeQuoteUserText(text);
 }
 
+function compactChatDisplayText(text) {
+  return sanitizeChatDisplayText(text).replace(/\s+/g, "");
+}
+
+function appendUniqueChatBlock(base, extra) {
+  const safeExtra = sanitizeChatDisplayText(extra);
+  if (!safeExtra) return base;
+  if (!base) return safeExtra;
+  const baseCompact = compactChatDisplayText(base);
+  const extraCompact = compactChatDisplayText(safeExtra);
+  if (extraCompact && baseCompact.includes(extraCompact)) return base;
+  return `${base}\n\n${safeExtra}`;
+}
+
+function messageTraceIdForDisplay(message) {
+  const meta = message?.metadata || {};
+  const data = meta.data || {};
+  const payload = data.payload || {};
+  const result = quoteResultPayload(message);
+  return String(
+    meta.trace_id ||
+    data.trace_id ||
+    payload.trace_id ||
+    payload.quote_task?.trace_id ||
+    result?.trace_id ||
+    ""
+  ).trim();
+}
+
+function independentAutoNoticePayload(message) {
+  const payload = message?.metadata?.data?.payload || {};
+  const notice = payload.platform_auto_notice;
+  return notice && typeof notice === "object" ? notice : null;
+}
+
+function noticeHasIndependentChatMessage(notice, traceId, sourceMessageId) {
+  const noticeType = String(notice?.type || "").trim().toLowerCase();
+  const noticeText = compactChatDisplayText(notice?.message || "");
+  if (!noticeText) return false;
+  const list = Array.isArray(messages.value) ? messages.value : [];
+  return list.some((row) => {
+    if (String(row?.id || "") === String(sourceMessageId || "")) return false;
+    const rowNotice = independentAutoNoticePayload(row);
+    if (!rowNotice) return false;
+    const rowTraceId = messageTraceIdForDisplay(row);
+    if (traceId && rowTraceId && rowTraceId !== traceId) return false;
+    const rowType = String(rowNotice.type || "").trim().toLowerCase();
+    if (noticeType && rowType && rowType !== noticeType) return false;
+    return compactChatDisplayText(rowNotice.message || row?.content || "") === noticeText;
+  });
+}
+
+function quoteResultAutoNoticeText(message) {
+  const result = quoteResultPayload(message);
+  const notices = Array.isArray(result?.platform_auto_notices) ? result.platform_auto_notices : [];
+  if (!notices.length) return "";
+  const traceId = messageTraceIdForDisplay(message);
+  const seen = new Set();
+  const lines = [];
+  for (const item of notices.slice(0, 3)) {
+    const notice = item && typeof item === "object" ? item : {};
+    const text = sanitizeChatDisplayText(notice.message || "");
+    const key = compactChatDisplayText(text);
+    if (!key || seen.has(key)) continue;
+    if (noticeHasIndependentChatMessage(notice, traceId, message?.id)) continue;
+    seen.add(key);
+    lines.push(text);
+  }
+  return lines.join("\n\n");
+}
+
 function quoteApiErrorMessage(e, fallback) {
   return sanitizeChatDisplayText(getApiErrorMessage(e, fallback, { withRequest: false })) || fallback;
 }
@@ -1604,6 +1675,7 @@ async function submitQuoteMaterialForm() {
 function displayMessageContent(message) {
   const role = String(message?.role || "").toLowerCase();
   const text = String(message?.content || "").trim();
+  const quoteNoticeText = role === "assistant" ? quoteResultAutoNoticeText(message) : "";
   let base = "";
   if (text) {
     if (role === "user" && messageImages(message).length) {
@@ -1619,11 +1691,14 @@ function displayMessageContent(message) {
     base = sanitizeChatDisplayText(text);
   } else {
     const metaText = String(message?.metadata?.data?.message || "").trim();
-    if (!metaText) return "";
+    if (!metaText && !quoteNoticeText) return "";
     if (role !== "assistant") return "";
     if (isSilentAssistantMessage(message)) return "";
     if (!isQuoteAssistantMessage(message)) return "";
-    base = sanitizeChatDisplayText(metaText);
+    base = appendUniqueChatBlock(sanitizeChatDisplayText(metaText), quoteNoticeText);
+  }
+  if (role === "assistant" && quoteNoticeText) {
+    base = appendUniqueChatBlock(base, quoteNoticeText);
   }
   if (role !== "assistant" || !base) return base;
   const data = message?.metadata?.data || {};
