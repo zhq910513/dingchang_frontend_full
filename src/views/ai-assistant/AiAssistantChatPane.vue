@@ -293,8 +293,8 @@
                   <div class="quote-link-line">承保条件改善</div>
                   <div class="quote-claim-line">
                     <span>理赔信息</span>
-                    <span><i class="quote-badge quote-badge-bi">商</i>{{ quoteResultCard(m).claim_business_count ?? 0 }}</span>
-                    <span><i class="quote-badge quote-badge-ci">交</i>{{ quoteResultCard(m).claim_compulsory_count ?? 0 }}</span>
+                    <span><i class="quote-badge quote-badge-bi">商</i>{{ quoteResultCard(m).claim_business_count ?? "-" }}</span>
+                    <span><i class="quote-badge quote-badge-ci">交</i>{{ quoteResultCard(m).claim_compulsory_count ?? "-" }}</span>
                     <span class="quote-claim-query">理赔查询</span>
                   </div>
                   <div class="quote-risk-line">
@@ -1980,7 +1980,10 @@ function quoteResultPayload(message) {
     message?.metadata?.quote_result ||
     message?.metadata?.quoteResult ||
     {};
-  return result && typeof result === "object" ? result : {};
+  if (!result || typeof result !== "object" || result.quote_result_unavailable === true) {
+    return {};
+  }
+  return result;
 }
 
 function quoteResultImage(message) {
@@ -2033,18 +2036,6 @@ function quoteResultCard(message) {
   const result = quoteResultPayload(message);
   const card = result?.result_card || result?.resultCard || {};
   if (card && typeof card === "object" && Object.keys(card).length) return card;
-  if (result?.premium_total || result?.price_items?.length) {
-    const priceItems = Array.isArray(result.price_items) ? result.price_items : [];
-    const findAmount = (name) => priceItems.find((x) => String(x?.name || "").includes(name))?.amount || "";
-    return {
-      title: "报价结果",
-      total_premium: result.premium_total,
-      commercial_premium: findAmount("商业"),
-      compulsory_premium: findAmount("交强"),
-      vehicle_tax: findAmount("车船"),
-      coverage_items: [],
-    };
-  }
   return null;
 }
 
@@ -2082,7 +2073,7 @@ function quoteCoverageName(name) {
 }
 
 function moneyText(value) {
-  if (value === null || value === undefined || value === "") return "0.00";
+  if (value === null || value === undefined || value === "") return "-";
   const n = Number(String(value).replace(/,/g, ""));
   if (!Number.isFinite(n)) return String(value);
   return n.toFixed(2);

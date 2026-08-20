@@ -298,7 +298,10 @@ function messageQuoteResultPayload(message) {
     meta?.quote_result ||
     meta?.quoteResult ||
     null;
-  return result && typeof result === "object" ? result : null;
+  if (!result || typeof result !== "object" || result.quote_result_unavailable === true) {
+    return null;
+  }
+  return result;
 }
 
 function messagePlatformAutoNotice(message) {
