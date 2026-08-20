@@ -1402,14 +1402,21 @@ function sanitizeChatDisplayText(text) {
   return sanitizeQuoteUserText(text);
 }
 
+const QUOTE_MODEL_RESOLUTION_DETAIL_RE = /^\s*(选定车型|匹配方式)\s*[:：]/;
+
 function stripQuoteModelResolutionDetails(text) {
   const safe = sanitizeChatDisplayText(text);
   if (!safe) return "";
   return safe
-    .split(/[；;]/)
-    .map((part) => part.trim())
-    .filter((part) => !/^(选定车型|匹配方式)\s*[:：]/.test(part))
-    .join("；")
+    .split(/\n+/)
+    .map((line) => line
+      .split(/[；;]/)
+      .map((part) => part.trim())
+      .filter((part) => part && !QUOTE_MODEL_RESOLUTION_DETAIL_RE.test(part))
+      .join("；")
+      .trim())
+    .filter(Boolean)
+    .join("\n")
     .trim();
 }
 
