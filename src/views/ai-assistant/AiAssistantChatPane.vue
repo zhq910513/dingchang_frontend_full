@@ -960,7 +960,7 @@ const defaultProductSeatCoverageByType = {
   "新能源车-新": "5",
   "新能源车-旧": "1",
 };
-const booleanDefaultConfigFieldNames = new Set(["共享主险限额"]);
+const booleanDefaultConfigFieldNames = new Set(["共享主险限额", "送修码启用"]);
 const zeroAllowedDefaultConfigFieldNames = new Set(["途家安顺保费"]);
 const booleanDefaultConfigTrueTexts = new Set(["true", "1", "yes", "y", "是", "勾选", "选中", "启用", "开启"]);
 const booleanDefaultConfigFalseTexts = new Set(["false", "0", "no", "n", "否", "不勾选", "未勾选", "停用", "关闭"]);
@@ -976,6 +976,14 @@ function defaultProductConfigTemplateForType(typeName) {
     { field_name: "车上人员责任险（乘客）", field_value: seatCoverage },
     { field_name: "共享主险限额", field_value: "勾选" },
     { field_name: "医保外医疗费用责任险（第三者责任险）", field_value: "300" },
+    { field_name: "附加外部电网故障损失险", field_value: "" },
+    { field_name: "操作机构代码", field_value: "36040213" },
+    { field_name: "操作配置ID", field_value: "QT360402131762390540324" },
+    { field_name: "送修码启用", field_value: "勾选" },
+    { field_name: "送修码", field_value: "3604731000027" },
+    { field_name: "送修码名称", field_value: "濂溪区金鑫汽车修理厂" },
+    { field_name: "业务性质代码", field_value: "2" },
+    { field_name: "业务性质名称", field_value: "专业代理业务" },
   ];
 }
 
@@ -1046,6 +1054,30 @@ function productTemplateValueLooksUntouched(fieldName, fieldValue) {
     }
     return String(tpl.field_value ?? "").trim() === value;
   });
+}
+
+function withMissingDefaultProductTemplateFields(fields, typeName) {
+  const template = defaultProductConfigTemplateForType(typeName);
+  const meaningful = (Array.isArray(fields) ? fields : []).filter((item) =>
+    String(item?.field_name || "").trim()
+  );
+  const byName = new Set(meaningful.map((item) => String(item.field_name || "").trim()).filter(Boolean));
+  for (const tpl of template) {
+    const key = String(tpl.field_name || "").trim();
+    if (!key || byName.has(key)) continue;
+    meaningful.push({ ...tpl });
+    byName.add(key);
+  }
+  const orderMap = new Map(template.map((item, idx) => [String(item.field_name || "").trim(), idx]));
+  meaningful.sort((a, b) => {
+    const ak = String(a?.field_name || "").trim();
+    const bk = String(b?.field_name || "").trim();
+    const ao = orderMap.has(ak) ? orderMap.get(ak) : Number.MAX_SAFE_INTEGER;
+    const bo = orderMap.has(bk) ? orderMap.get(bk) : Number.MAX_SAFE_INTEGER;
+    if (ao !== bo) return ao - bo;
+    return 0;
+  });
+  return meaningful.length ? meaningful : [{ field_name: "", field_value: "" }];
 }
 
 const quoteQuickPrompts = [
@@ -3758,9 +3790,9 @@ function resetDefaultConfigForm(row = null) {
     fields: configValuesToFields(row?.default_values || {}),
   };
   if (accountTypeName && isPiccDefaultConfigPlatform()) {
-    if (!row) {
-      defaultConfigForm.value.fields = defaultProductConfigTemplateForType(accountTypeName);
-    }
+    defaultConfigForm.value.fields = row
+      ? withMissingDefaultProductTemplateFields(defaultConfigForm.value.fields, accountTypeName)
+      : defaultProductConfigTemplateForType(accountTypeName);
   }
 }
 
