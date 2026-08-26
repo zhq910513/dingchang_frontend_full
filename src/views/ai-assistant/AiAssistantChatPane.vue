@@ -2182,7 +2182,9 @@ function shouldShowInlineQuoteCard(message) {
 
 function quoteCoverageItems(message) {
   const card = quoteResultCard(message);
-  return Array.isArray(card?.coverage_items) ? card.coverage_items : [];
+  if (Array.isArray(card?.coverage_items) && card.coverage_items.length) return card.coverage_items;
+  if (Array.isArray(card?.proposal_coverage_items)) return card.proposal_coverage_items;
+  return [];
 }
 
 function quoteCoverageName(name) {

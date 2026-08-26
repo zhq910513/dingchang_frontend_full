@@ -83,8 +83,7 @@ export function sanitizeQuoteUserText(text, fallback = "") {
     .replace(/error_msg\s*[:=]\s*[^，。；\n]+/gi, "")
     .replace(/status\s*[:=：]\s*[-\w.]+/gi, "")
     .replace(/body\s*[:=：]\s*.+/gi, "返回内容异常")
-    .replace(/token|authorization|cookie|session|trace|stack|payload|debug/gi, "")
-    .replace(/\b[A-Za-z][A-Za-z0-9_./:-]{2,}\b/g, "")
+    .replace(/\b(?:token|authorization|cookie|session|trace|stack|payload|debug)\b/gi, "")
     .trim();
 
   protectedValues.forEach((value, index) => {

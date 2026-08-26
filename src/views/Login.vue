@@ -146,13 +146,16 @@ function buildLoginStateFromResponse(resp) {
 async function redirectAfterLogin(roleName) {
   const redirect = route.query.redirect;
   const redirectPath = typeof redirect === "string" ? redirect : "";
+  const targetPath = redirectPath && isAllowedPath(roleName, redirectPath)
+    ? redirectPath
+    : defaultHomeByRole(roleName);
 
-  if (redirectPath && isAllowedPath(roleName, redirectPath)) {
-    await router.replace(redirectPath);
+  if (typeof window !== "undefined" && typeof window.location?.replace === "function") {
+    window.location.replace(targetPath);
     return;
   }
 
-  await router.replace(defaultHomeByRole(roleName));
+  await router.replace(targetPath);
 }
 
 onMounted(async () => {
