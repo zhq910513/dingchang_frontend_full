@@ -1771,10 +1771,10 @@ function isSilentAssistantMessage(message) {
   const failureCode = String(data.failure_code || payload.failure_code || "").trim();
   if (failureCode) return false;
   const intent = String(meta.intent || data.intent || "").toLowerCase();
-  if (String(meta.silent || "").toLowerCase() === "true") return true;
-  if (String(data.silent || "").toLowerCase() === "true") return true;
   if (String(meta.ui_visible || "").toLowerCase() === "false") return true;
   if (String(data.ui_visible || "").toLowerCase() === "false") return true;
+  if (String(payload.ui_visible || "").toLowerCase() === "false") return true;
+  if (payload?.quote_notice_already_visible === true || data?.quote_notice_already_visible === true || meta?.quote_notice_already_visible === true) return true;
   if (intent === "quote_config_override") return true;
   return intent === "quote_image_collect";
 }
@@ -1794,26 +1794,27 @@ function isQuoteAssistantMessage(message) {
 
 function shouldRenderChatMessage(message) {
   const role = String(message?.role || "").toLowerCase();
+  const renderedContent = displayMessageContent(message);
+  const renderedImages = messageImages(message);
   if (role !== "assistant") {
-    return !!displayMessageContent(message) || messageImages(message).length > 0;
+    return !!renderedContent || renderedImages.length > 0;
   }
 
   const messageIntent = String(message?.metadata?.intent || message?.metadata?.data?.intent || "").toLowerCase();
   const resultStatus = messageResultStatus(message);
   if (quoteResultCard(message) || quoteResultImage(message)) return true;
   if (messageIntent === "fallback" || resultStatus === "invalid_command") {
-    return !!displayMessageContent(message);
+    return !!renderedContent;
   }
   if (message?.metadata?.error) return true;
   if (String(message?.metadata?.status || "").toLowerCase() === "error") return true;
   if (VISIBLE_ASSISTANT_RESULT_STATUSES.has(resultStatus)) return true;
   if (isSilentAssistantMessage(message)) return false;
-  if (isQuoteAssistantMessage(message) && resultStatus === "success" && displayMessageContent(message)) return true;
+  if (isQuoteAssistantMessage(message)) {
+    return !!renderedContent || renderedImages.length > 0;
+  }
 
-  // 报价链路中的图片归位、材料状态、普通 success 只作为后台状态，不进入聊天气泡。
-  if (isQuoteAssistantMessage(message)) return false;
-
-  return !!displayMessageContent(message) || messageImages(message).length > 0;
+  return !!renderedContent || renderedImages.length > 0;
 }
 
 function shouldShowMessageActions(message) {
