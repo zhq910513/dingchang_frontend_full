@@ -266,7 +266,7 @@
                       class="quote-coverage-row"
                     >
                       <span>{{ quoteCoverageName(item.name) }}</span>
-                      <span>{{ amountText(item.amount) }}</span>
+                      <span>{{ quoteCoverageAmountText(item) }}</span>
                       <span>{{ moneyText(item.premium) }}</span>
                     </div>
                   </div>
@@ -2190,6 +2190,12 @@ function quoteCoverageItems(message) {
 
 function quoteCoverageName(name) {
   return String(name || "").trim();
+}
+
+function quoteCoverageAmountText(item) {
+  const amountTextValue = String(item?.amount_text || "").trim();
+  if (amountTextValue) return amountTextValue;
+  return amountText(item?.amount);
 }
 
 function moneyText(value) {

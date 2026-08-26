@@ -793,15 +793,58 @@ function extractQuoteFailureSummary(data, { replyText = "" } = {}) {
     .filter(Boolean)
     .find((line) => !line.startsWith("下一步：")) || reason;
 
-  return {
+  const summary = {
     failure_code: failureCode || resultStatus || "failed",
     reason: shortReason.slice(0, 180),
     next_action: nextAction,
     platform_name: platformName,
     platform_code: platformCode,
     requote_text: requoteText,
+    trace_id: String(data?.trace_id || data?.data?.trace_id || "").trim(),
     at: new Date().toISOString(),
   };
+  summary.signature = quoteFailureSignature(summary);
+  return summary;
+}
+
+function quoteFailureSignature(summary) {
+  if (!summary || typeof summary !== "object") return "";
+  return JSON.stringify({
+    trace_id: String(summary.trace_id || "").trim(),
+    failure_code: String(summary.failure_code || "").trim(),
+    reason: String(summary.reason || "").trim(),
+    next_action: String(summary.next_action || "").trim(),
+    requote_text: String(summary.requote_text || "").trim(),
+  });
+}
+
+function quoteFailureDismissalKey(sessionId) {
+  const sid = String(sessionId || "").trim();
+  return sid ? `ai-assistant:last-quote-failure-dismissed:${sid}` : "";
+}
+
+function readQuoteFailureDismissal(sessionId) {
+  const key = quoteFailureDismissalKey(sessionId);
+  if (!key || typeof window === "undefined" || !window.sessionStorage) return "";
+  try {
+    return window.sessionStorage.getItem(key) || "";
+  } catch {
+    return "";
+  }
+}
+
+function writeQuoteFailureDismissal(sessionId, signature) {
+  const key = quoteFailureDismissalKey(sessionId);
+  if (!key || typeof window === "undefined" || !window.sessionStorage) return;
+  try {
+    if (signature) {
+      window.sessionStorage.setItem(key, signature);
+    } else {
+      window.sessionStorage.removeItem(key);
+    }
+  } catch {
+    // Session storage is best-effort only.
+  }
 }
 
 function extractQuoteFailureSummaryFromMessage(message) {
@@ -814,6 +857,7 @@ function extractQuoteFailureSummaryFromMessage(message) {
     actions: Array.isArray(meta.actions) ? meta.actions : [],
     silent: meta.silent === true,
     data: meta.data || null,
+    trace_id: meta.trace_id || meta.data?.trace_id || "",
   };
   const summary = extractQuoteFailureSummary(data, { replyText: message.content || "" });
   if (!summary) return null;
@@ -821,11 +865,16 @@ function extractQuoteFailureSummaryFromMessage(message) {
   return summary;
 }
 
-function syncLastQuoteFailureFromMessages(messageList, lastQuoteFailureRef) {
+function syncLastQuoteFailureFromMessages(messageList, lastQuoteFailureRef, sessionId = "") {
+  const dismissedSignature = readQuoteFailureDismissal(sessionId);
   const rows = Array.isArray(messageList) ? messageList : [];
   for (let i = rows.length - 1; i >= 0; i -= 1) {
     const summary = extractQuoteFailureSummaryFromMessage(rows[i]);
     if (summary) {
+      if (summary.signature && dismissedSignature && summary.signature === dismissedSignature) {
+        lastQuoteFailureRef.value = null;
+        return null;
+      }
       lastQuoteFailureRef.value = summary;
       return summary;
     }
@@ -840,14 +889,17 @@ function syncLastQuoteFailureFromMessages(messageList, lastQuoteFailureRef) {
   return null;
 }
 
-function rememberQuoteOutcome(data, lastQuoteFailureRef) {
+function rememberQuoteOutcome(data, lastQuoteFailureRef, sessionId = "") {
   if (!data || typeof data !== "object") return;
   if (hasQuoteResultFromData(data) && String(data?.data?.result_status || "").toLowerCase() === "success") {
     lastQuoteFailureRef.value = null;
     return;
   }
   const summary = extractQuoteFailureSummary(data);
-  if (summary) lastQuoteFailureRef.value = summary;
+  if (!summary) return;
+  const resolvedSessionId = String(sessionId || data?.session_id || data?.data?.session_id || "").trim();
+  if (summary.signature && readQuoteFailureDismissal(resolvedSessionId) === summary.signature) return;
+  lastQuoteFailureRef.value = summary;
 }
 
 function shouldAppendAssistantResponse(data) {
@@ -1039,11 +1091,14 @@ export function useAiAssistantSession() {
   }
 
   function clearLastQuoteFailure() {
+    if (lastQuoteFailure.value?.signature) {
+      writeQuoteFailureDismissal(currentSessionId.value, lastQuoteFailure.value.signature);
+    }
     lastQuoteFailure.value = null;
   }
 
   function refreshLastQuoteFailureFromMessages() {
-    syncLastQuoteFailureFromMessages(messages.value, lastQuoteFailure);
+    syncLastQuoteFailureFromMessages(messages.value, lastQuoteFailure, currentSessionId.value);
   }
 
   function findSessionSummary(sessionId) {
@@ -1468,7 +1523,7 @@ export function useAiAssistantSession() {
         }
 
         if (data.session_id) currentSessionId.value = data.session_id;
-        rememberQuoteOutcome(data, lastQuoteFailure);
+        rememberQuoteOutcome(data, lastQuoteFailure, currentSessionId.value);
         if (!data.ok) {
           ElNotification.warning({
             title: "报价助手返回异常",
@@ -1572,7 +1627,7 @@ export function useAiAssistantSession() {
                 ...makeAssistantResponseMessage(data),
               });
             }
-            rememberQuoteOutcome(data, lastQuoteFailure);
+            rememberQuoteOutcome(data, lastQuoteFailure, currentSessionId.value);
             return;
           }
 
@@ -1602,7 +1657,7 @@ export function useAiAssistantSession() {
       });
       schedulePostSendSync();
       const streamData = normalizeChatPayload(streamResp);
-      rememberQuoteOutcome(streamData, lastQuoteFailure);
+      rememberQuoteOutcome(streamData, lastQuoteFailure, currentSessionId.value);
       return { ok: streamData.ok !== false && !isBusinessFailed(streamData), data: streamData };
     } catch (e) {
       if (isAbortLikeError(e)) {
