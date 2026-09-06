@@ -820,6 +820,82 @@
             clearable
           />
         </el-form-item>
+        <div v-if="quoteMaterialSelectedExtraFields.length || quoteMaterialExtraFieldOptions.length" class="quote-material-extra-section">
+          <div v-if="quoteMaterialSelectedExtraFields.length" class="quote-material-extra-list">
+            <el-form-item
+              v-for="field in quoteMaterialSelectedExtraFields"
+              :key="field.key"
+              :label="quoteMaterialFieldLabel(field)"
+              :required="quoteMaterialFieldRequired(field)"
+            >
+              <div class="quote-material-extra-row">
+                <el-select
+                  v-if="field.type === 'select'"
+                  v-model="quoteMaterialFormValues[field.key]"
+                  filterable
+                  placeholder="请选择"
+                  style="width: 100%"
+                >
+                  <el-option
+                    v-for="opt in quoteMaterialFieldOptions(field)"
+                    :key="opt.value"
+                    :label="opt.label"
+                    :value="opt.value"
+                  />
+                </el-select>
+                <el-date-picker
+                  v-else-if="field.type === 'date'"
+                  v-model="quoteMaterialFormValues[field.key]"
+                  type="date"
+                  value-format="YYYY-MM-DD"
+                  placeholder="请选择日期"
+                  style="width: 100%"
+                />
+                <el-input
+                  v-else
+                  v-model="quoteMaterialFormValues[field.key]"
+                  :placeholder="field.placeholder || `请输入${field.label || field.key}`"
+                  maxlength="128"
+                  clearable
+                />
+                <el-button
+                  size="small"
+                  plain
+                  type="danger"
+                  :icon="Delete"
+                  @click="handleRemoveQuoteMaterialExtraField(field.key)"
+                >
+                  移除
+                </el-button>
+              </div>
+            </el-form-item>
+          </div>
+          <div class="quote-material-extra-toolbar">
+            <el-select
+              v-model="quoteMaterialExtraFieldDraft"
+              filterable
+              clearable
+              placeholder="选择要添加的非核心字段"
+              class="quote-material-extra-select"
+            >
+              <el-option
+                v-for="field in quoteMaterialExtraFieldOptions"
+                :key="field.key"
+                :label="quoteMaterialFieldLabel(field)"
+                :value="field.key"
+              />
+            </el-select>
+            <el-button
+              type="primary"
+              plain
+              :icon="Plus"
+              :disabled="!quoteMaterialExtraFieldDraft || !quoteMaterialExtraFieldOptions.length"
+              @click="handleAddQuoteMaterialExtraField"
+            >
+              添加字段
+            </el-button>
+          </div>
+        </div>
       </el-form>
       <template #footer>
         <el-button @click="quoteMaterialFormVisible = false">取消</el-button>
@@ -834,7 +910,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { ElMessage, ElMessageBox, ElNotification } from "element-plus";
-import { Loading } from "@element-plus/icons-vue";
+import { Delete, Loading, Plus } from "@element-plus/icons-vue";
 import {
   createAiPlatformAccount,
   createAiPlatformDefaultConfig,
@@ -1113,6 +1189,8 @@ const quoteMaterialFormVisible = ref(false);
 const quoteMaterialFormSubmitting = ref(false);
 const quoteMaterialForm = ref(null);
 const quoteMaterialFormValues = ref({});
+const quoteMaterialExtraFieldKeys = ref([]);
+const quoteMaterialExtraFieldDraft = ref("");
 const historyPopoverVisible = ref(false);
 const paneMode = computed(() => !!props.paneMode);
 const multiOpenEnabled = computed(() => !!props.multiOpenEnabled);
@@ -1129,15 +1207,68 @@ const quoteMaterialFormDescription = computed(() => String(quoteMaterialForm.val
 const quoteMaterialFormFields = computed(() => (
   Array.isArray(quoteMaterialForm.value?.fields) ? quoteMaterialForm.value.fields : []
 ));
+const quoteMaterialOptionalFields = computed(() => (
+  Array.isArray(quoteMaterialForm.value?.optional_fields) ? quoteMaterialForm.value.optional_fields : []
+));
+const quoteMaterialSelectedExtraFieldKeys = computed(() => {
+  const keys = [];
+  const seen = new Set();
+  const selected = Array.isArray(quoteMaterialExtraFieldKeys.value) ? quoteMaterialExtraFieldKeys.value : [];
+  for (const raw of selected) {
+    const key = String(raw || "").trim();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    keys.push(key);
+  }
+  for (const field of quoteMaterialOptionalFields.value) {
+    const key = String(field?.key || "").trim();
+    if (!key || seen.has(key)) continue;
+    if (String(field?.value ?? "").trim()) {
+      seen.add(key);
+      keys.push(key);
+    }
+  }
+  return keys;
+});
+const quoteMaterialSelectedExtraFields = computed(() => {
+  const keySet = new Set(quoteMaterialSelectedExtraFieldKeys.value);
+  return quoteMaterialOptionalFields.value.filter((field) => keySet.has(String(field?.key || "").trim()));
+});
+const quoteMaterialExtraFieldOptions = computed(() => {
+  const selected = new Set(quoteMaterialSelectedExtraFieldKeys.value);
+  return quoteMaterialOptionalFields.value.filter((field) => {
+    const key = String(field?.key || "").trim();
+    return key && !selected.has(key);
+  });
+});
 const quoteMaterialMissingTexts = computed(() => (
   Array.isArray(quoteMaterialForm.value?.missing_texts) ? quoteMaterialForm.value.missing_texts.filter(Boolean) : []
 ));
+const quoteMaterialSubmissionFields = computed(() => {
+  const seen = new Set();
+  const fields = [];
+  for (const field of quoteMaterialFormFields.value) {
+    const key = String(field?.key || "").trim();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    fields.push(field);
+  }
+  for (const field of quoteMaterialSelectedExtraFields.value) {
+    const key = String(field?.key || "").trim();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    fields.push(field);
+  }
+  return fields;
+});
 
 function resetQuoteMaterialForm() {
   quoteMaterialFormVisible.value = false;
   quoteMaterialFormSubmitting.value = false;
   quoteMaterialForm.value = null;
   quoteMaterialFormValues.value = {};
+  quoteMaterialExtraFieldKeys.value = [];
+  quoteMaterialExtraFieldDraft.value = "";
 }
 
 const ensureInit = sessionApi.ensureInit ?? (async () => {});
@@ -1541,16 +1672,43 @@ function openQuoteMaterialForm(form) {
   const safeForm = form && typeof form === "object" ? form : null;
   if (!safeForm) return false;
   const fields = Array.isArray(safeForm.fields) ? safeForm.fields : [];
+  const optionalFields = Array.isArray(safeForm.optional_fields) ? safeForm.optional_fields : [];
   quoteMaterialForm.value = {
     ...safeForm,
     fields,
+    optional_fields: optionalFields,
   };
+  const optionalFieldMap = new Map();
+  for (const field of optionalFields) {
+    const key = String(field?.key || "").trim();
+    if (!key) continue;
+    optionalFieldMap.set(key, field);
+  }
+  const selectedExtraKeys = new Set(
+    Array.isArray(safeForm.selected_extra_field_keys)
+      ? safeForm.selected_extra_field_keys.map((item) => String(item || "").trim()).filter(Boolean)
+      : []
+  );
+  for (const field of optionalFields) {
+    const key = String(field?.key || "").trim();
+    if (key && String(field?.value ?? "").trim()) {
+      selectedExtraKeys.add(key);
+    }
+  }
   const values = {};
   for (const field of fields) {
     const key = String(field?.key || "").trim();
     if (!key) continue;
     values[key] = String(field?.value ?? "");
   }
+  const extraKeys = [];
+  for (const key of selectedExtraKeys) {
+    if (!optionalFieldMap.has(key)) continue;
+    extraKeys.push(key);
+    values[key] = String(optionalFieldMap.get(key)?.value ?? "");
+  }
+  quoteMaterialExtraFieldKeys.value = extraKeys;
+  quoteMaterialExtraFieldDraft.value = "";
   if (!values.account_type_name && safeForm.account_type_name) {
     values.account_type_name = String(safeForm.account_type_name || "");
   }
@@ -1637,7 +1795,7 @@ function quoteMaterialSubmissionText() {
   const lines = [prefix || "手工资料"];
   if (platformName || platformCode) lines.push(`平台：${platformName || platformCode}`);
 
-  const fields = quoteMaterialFormFields.value;
+  const fields = quoteMaterialSubmissionFields.value;
   const emittedKeys = new Set();
   const accountType = quoteMaterialSelectedAccountType();
   if (accountType) {
@@ -1658,7 +1816,7 @@ function quoteMaterialSubmissionText() {
 
 function quoteMaterialSubmissionValues() {
   const values = {};
-  for (const field of quoteMaterialFormFields.value) {
+  for (const field of quoteMaterialSubmissionFields.value) {
     const key = String(field?.key || "").trim();
     if (!key) continue;
     const value = String(quoteMaterialFormValues.value[key] ?? "").trim();
@@ -1669,6 +1827,39 @@ function quoteMaterialSubmissionValues() {
   return values;
 }
 
+function handleAddQuoteMaterialExtraField() {
+  const key = String(quoteMaterialExtraFieldDraft.value || "").trim();
+  if (!key) {
+    ElMessage.warning("请选择要添加的字段");
+    return;
+  }
+  if (quoteMaterialExtraFieldKeys.value.some((item) => String(item || "").trim() === key)) {
+    quoteMaterialExtraFieldDraft.value = "";
+    return;
+  }
+  const field = quoteMaterialExtraFieldOptions.value.find((item) => String(item?.key || "").trim() === key);
+  if (!field) {
+    ElMessage.warning("该字段已在表单中");
+    quoteMaterialExtraFieldDraft.value = "";
+    return;
+  }
+  quoteMaterialExtraFieldKeys.value = [...quoteMaterialExtraFieldKeys.value, key];
+  if (quoteMaterialFormValues.value[key] === undefined || quoteMaterialFormValues.value[key] === null) {
+    quoteMaterialFormValues.value[key] = String(field.value ?? "");
+  }
+  quoteMaterialExtraFieldDraft.value = "";
+}
+
+function handleRemoveQuoteMaterialExtraField(key) {
+  const normalizedKey = String(key || "").trim();
+  if (!normalizedKey) return;
+  quoteMaterialExtraFieldKeys.value = quoteMaterialExtraFieldKeys.value.filter((item) => String(item || "").trim() !== normalizedKey);
+  delete quoteMaterialFormValues.value[normalizedKey];
+  if (String(quoteMaterialExtraFieldDraft.value || "").trim() === normalizedKey) {
+    quoteMaterialExtraFieldDraft.value = "";
+  }
+}
+
 async function submitQuoteMaterialForm() {
   const missing = quoteMaterialMissingRequiredLabels();
   if (missing.length) {
@@ -1677,7 +1868,7 @@ async function submitQuoteMaterialForm() {
   }
   const openedSessionId = String(quoteMaterialForm.value?.session_id || "").trim();
   if (openedSessionId && currentSessionIdSafe.value && openedSessionId !== currentSessionIdSafe.value) {
-    ElMessage.warning("这份表单属于另一个会话，请在当前会话重新输入“手工”或“补资料”");
+    ElMessage.warning("这份表单属于另一个会话，请在当前会话重新输入“手工”、“补资料”或“改资料”");
     resetQuoteMaterialForm();
     return;
   }
@@ -2441,6 +2632,8 @@ function looksLikeQuoteMaterialFormCommand(text) {
     "补材料",
     "补充材料",
     "补全材料",
+    "改资料",
+    "修改资料",
     "缺什么",
     "缺少什么",
   ].includes(compact);
@@ -4103,9 +4296,49 @@ onBeforeUnmount(() => {
   color: #374151;
 }
 
+.quote-material-extra-section {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.quote-material-extra-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.quote-material-extra-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quote-material-extra-row > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.quote-material-extra-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.quote-material-extra-select {
+  flex: 1;
+  min-width: 0;
+}
+
 @media (max-width: 720px) {
   .quote-material-form {
     grid-template-columns: 1fr;
+  }
+  .quote-material-extra-toolbar {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 
