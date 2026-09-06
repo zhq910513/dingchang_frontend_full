@@ -1220,14 +1220,6 @@ const quoteMaterialSelectedExtraFieldKeys = computed(() => {
     seen.add(key);
     keys.push(key);
   }
-  for (const field of quoteMaterialOptionalFields.value) {
-    const key = String(field?.key || "").trim();
-    if (!key || seen.has(key)) continue;
-    if (String(field?.value ?? "").trim()) {
-      seen.add(key);
-      keys.push(key);
-    }
-  }
   return keys;
 });
 const quoteMaterialSelectedExtraFields = computed(() => {
@@ -1895,6 +1887,7 @@ async function submitQuoteMaterialForm() {
         quote_material_form_session_id: quoteMaterialForm.value?.session_id || currentSessionIdSafe.value || undefined,
         quote_material_form_case_id: quoteMaterialForm.value?.quote_case_id || undefined,
         quote_material_form_values: formValues,
+        quote_material_form_selected_extra_field_keys: quoteMaterialSelectedExtraFieldKeys.value,
         display_user_content: displayText,
       },
     });
