@@ -1,4 +1,22 @@
 const jointSalesFieldNames = new Set(["途顺家安", "途顺家安组合保险", "途家安顺保费", "途家安顺", "途家安顺非车保费"]);
+const jointSalesCanonicalName = "途顺家安组合保险";
+const jointSalesNamePriority = [jointSalesCanonicalName, "途顺家安", "途家安顺保费", "途家安顺", "途家安顺非车保费"];
+
+export function canonicalizeDefaultConfigJointSales(values = {}, deleted = []) {
+  const source = values && typeof values === "object" ? values : {};
+  const preferred = jointSalesNamePriority.find((name) => Object.hasOwn(source, name));
+  const defaultValues = {};
+  for (const [name, value] of Object.entries(source)) {
+    if (jointSalesFieldNames.has(name)) {
+      if (!Object.hasOwn(defaultValues, jointSalesCanonicalName)) defaultValues[jointSalesCanonicalName] = source[preferred];
+    } else {
+      defaultValues[name] = value;
+    }
+  }
+  const deletedNames = [...new Set((deleted || []).map((name) => jointSalesFieldNames.has(name) ? jointSalesCanonicalName : name))]
+    .filter((name) => !Object.hasOwn(defaultValues, name));
+  return { default_values: defaultValues, deleted_default_fields: deletedNames };
+}
 
 export function shouldAddDefaultTemplateField(name, currentNames, initialNames, deletedNames) {
   if (currentNames.has(name) || initialNames.has(name) || deletedNames.has(name)) return false;

@@ -929,7 +929,7 @@ import {
   uploadAiAssistantImage,
 } from "../../api/aiAssistant";
 import { ROLE } from "../../constants";
-import { defaultConfigPayloadMatchesSaved, shouldAddDefaultTemplateField } from "./defaultConfigFields.mjs";
+import { canonicalizeDefaultConfigJointSales, defaultConfigPayloadMatchesSaved, shouldAddDefaultTemplateField } from "./defaultConfigFields.mjs";
 import { useSessionStore } from "../../store/session";
 import { getApiErrorMessage } from "../../utils/errorMessage";
 import { useAiAssistantSession } from "./composables/useAiAssistantSession";
@@ -1047,7 +1047,7 @@ const booleanDefaultConfigFalseTexts = new Set(["false", "0", "no", "n", "否", 
 function defaultProductConfigTemplateForType(typeName) {
   const seatCoverage = defaultProductSeatCoverageByType[String(typeName || "").trim()] || "2";
   return [
-    { field_name: "途顺家安", field_value: "398" },
+    { field_name: "途顺家安组合保险", field_value: "398" },
     { field_name: "交强", field_value: "20" },
     { field_name: "机动车损失保险", field_value: "" },
     { field_name: "第三者责任险", field_value: "300" },
@@ -3994,21 +3994,20 @@ async function openDefaultConfigDialog() {
 }
 
 function resetDefaultConfigForm(row = null) {
+  const canonical = canonicalizeDefaultConfigJointSales(row?.default_values, row?.deleted_default_fields);
   const firstPlatform = quotePlatforms.value[0] || {};
   const platformCode = row?.platform_code || defaultConfigFilters.value.platform_code || firstPlatform.platform_code || "";
   const platform = quotePlatforms.value.find((x) => x.platform_code === platformCode) || firstPlatform;
   const accountTypeName = row?.account_type_name || defaultConfigFilters.value.account_type_name || "";
   editingDefaultConfig.value = row || null;
-  defaultConfigOriginalFieldNames.value = Object.keys(row?.default_values || {}).map((key) => String(key || "").trim()).filter(Boolean);
-  defaultConfigDeletedFields.value = Array.isArray(row?.deleted_default_fields)
-    ? row.deleted_default_fields.map((key) => String(key || "").trim()).filter(Boolean)
-    : [];
+  defaultConfigOriginalFieldNames.value = Object.keys(canonical.default_values).map((key) => String(key || "").trim()).filter(Boolean);
+  defaultConfigDeletedFields.value = canonical.deleted_default_fields;
   defaultConfigForm.value = {
     platform_code: platformCode,
     platform_name: row?.platform_name || platform.platform_name || "",
     account_type_name: accountTypeName,
     enabled: row ? !!row.enabled : true,
-    fields: configValuesToFields(row?.default_values || {}),
+    fields: configValuesToFields(canonical.default_values),
   };
   if (accountTypeName && isPiccDefaultConfigPlatform()) {
     if (!row) {
@@ -4123,12 +4122,13 @@ function defaultConfigFormPayload() {
     if (!currentNames.has(originalName)) deletedNames.add(originalName);
   }
   for (const currentName of currentNames) deletedNames.delete(currentName);
+  const canonical = canonicalizeDefaultConfigJointSales(defaultValues, [...deletedNames]);
   return {
     platform_code: defaultConfigForm.value.platform_code,
     platform_name: defaultConfigForm.value.platform_name || platform?.platform_name || "",
     account_type_name: defaultConfigForm.value.account_type_name,
-    default_values: defaultValues,
-    deleted_default_fields: [...deletedNames],
+    default_values: canonical.default_values,
+    deleted_default_fields: canonical.deleted_default_fields,
     enabled: !!defaultConfigForm.value.enabled,
   };
 }
