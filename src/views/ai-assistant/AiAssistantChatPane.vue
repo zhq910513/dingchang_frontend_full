@@ -283,7 +283,7 @@
                     <strong>{{ moneyText(quoteResultCard(m).joint_sales_premium) }}</strong>
                   </div>
                   <div v-if="quoteJointSalesAmountText(quoteResultCard(m))" class="quote-section-line thin muted">
-                    <span>途家安顺保额</span>
+                    <span>途顺家安组合保险保额</span>
                     <strong>{{ quoteJointSalesAmountText(quoteResultCard(m)) }}</strong>
                   </div>
                   <div class="quote-section-line thin">
@@ -699,7 +699,7 @@
           </div>
           <div class="default-template-tip">
             人保真实报价会按账号类型读取投保产品字段。取值优先级：会话中临时调整 > 此处配置值 > 系统兜底默认值。
-            数值字段只能填正数；途家安顺保费允许填 0。
+            数值字段只能填正数；途顺家安允许填 0。
           </div>
           <div class="default-field-list">
             <div v-for="(field, idx) in defaultConfigForm.fields" :key="idx" class="default-field-row">
@@ -929,6 +929,7 @@ import {
   uploadAiAssistantImage,
 } from "../../api/aiAssistant";
 import { ROLE } from "../../constants";
+import { defaultConfigPayloadMatchesSaved, shouldAddDefaultTemplateField } from "./defaultConfigFields.mjs";
 import { useSessionStore } from "../../store/session";
 import { getApiErrorMessage } from "../../utils/errorMessage";
 import { useAiAssistantSession } from "./composables/useAiAssistantSession";
@@ -1039,14 +1040,14 @@ const defaultProductSeatCoverageByType = {
   "新能源车-旧": "1",
 };
 const booleanDefaultConfigFieldNames = new Set(["共享主险限额", "送修码启用"]);
-const zeroAllowedDefaultConfigFieldNames = new Set(["途家安顺保费"]);
+const zeroAllowedDefaultConfigFieldNames = new Set(["途顺家安", "途顺家安组合保险", "途家安顺保费"]);
 const booleanDefaultConfigTrueTexts = new Set(["true", "1", "yes", "y", "是", "勾选", "选中", "启用", "开启"]);
 const booleanDefaultConfigFalseTexts = new Set(["false", "0", "no", "n", "否", "不勾选", "未勾选", "停用", "关闭"]);
 
 function defaultProductConfigTemplateForType(typeName) {
   const seatCoverage = defaultProductSeatCoverageByType[String(typeName || "").trim()] || "2";
   return [
-    { field_name: "途家安顺保费", field_value: "398" },
+    { field_name: "途顺家安", field_value: "398" },
     { field_name: "交强", field_value: "20" },
     { field_name: "机动车损失保险", field_value: "" },
     { field_name: "第三者责任险", field_value: "300" },
@@ -2397,6 +2398,7 @@ function amountText(value) {
 
 function quoteJointSalesLabel(card = {}) {
   const label = String(card?.joint_sales_label || "").trim();
+  if (label.includes("途家安顺")) return "途顺家安";
   return label || "联合销售";
 }
 
@@ -3954,25 +3956,6 @@ async function loadDefaultConfigs() {
   }
 }
 
-function defaultConfigPayloadMatchesSaved(config, payload) {
-  if (!config || !payload) return false;
-  if (String(config.platform_code || "").trim().toUpperCase() !== String(payload.platform_code || "").trim().toUpperCase()) {
-    return false;
-  }
-  if (String(config.account_type_name || "").trim() !== String(payload.account_type_name || "").trim()) return false;
-  if (!!config.enabled !== !!payload.enabled) return false;
-  const expected = payload.default_values && typeof payload.default_values === "object" ? payload.default_values : {};
-  const actual = config.default_values && typeof config.default_values === "object" ? config.default_values : {};
-  for (const [key, value] of Object.entries(expected)) {
-    if (String(actual[key] ?? "") !== String(value ?? "")) return false;
-  }
-  const expectedDeleted = new Set((payload.deleted_default_fields || []).map((item) => String(item || "").trim()).filter(Boolean));
-  const actualDeleted = new Set((config.deleted_default_fields || []).map((item) => String(item || "").trim()).filter(Boolean));
-  if (expectedDeleted.size !== actualDeleted.size) return false;
-  for (const key of expectedDeleted) if (!actualDeleted.has(key)) return false;
-  return true;
-}
-
 function defaultConfigMatchesCurrentFilters(config) {
   const platformCode = String(defaultConfigFilters.value.platform_code || "").trim().toUpperCase();
   const accountTypeName = String(defaultConfigFilters.value.account_type_name || "").trim();
@@ -4030,6 +4013,7 @@ function resetDefaultConfigForm(row = null) {
   if (accountTypeName && isPiccDefaultConfigPlatform()) {
     if (!row) {
       defaultConfigForm.value.fields = defaultProductConfigTemplateForType(accountTypeName);
+      defaultConfigOriginalFieldNames.value = defaultConfigForm.value.fields.map((field) => field.field_name);
     }
   }
 }
@@ -4091,6 +4075,7 @@ function applyDefaultProductTemplate(options = {}) {
       }
       continue;
     }
+    if (!shouldAddDefaultTemplateField(key, new Set(byName.keys()), new Set(defaultConfigOriginalFieldNames.value), new Set(defaultConfigDeletedFields.value))) continue;
     meaningful.push({ ...tpl });
     byName.set(key, tpl);
     added += 1;
@@ -4105,6 +4090,9 @@ function applyDefaultProductTemplate(options = {}) {
     return 0;
   });
   defaultConfigForm.value.fields = meaningful.length ? meaningful : [{ field_name: "", field_value: "" }];
+  if (!editingDefaultConfig.value?.id) {
+    defaultConfigOriginalFieldNames.value = [...new Set([...defaultConfigOriginalFieldNames.value, ...template.map((item) => item.field_name)])];
+  }
   if (silent) {
     return;
   }
@@ -4182,21 +4170,15 @@ async function submitDefaultConfigForm() {
       successMessage = "默认参数已新增";
     }
     const data = resp?.data?.data ?? resp?.data ?? {};
-    let savedConfig = data?.config;
-    // Older deployed backends return only { item }. Re-read the list and
-    // verify the committed values so mixed-version deployments remain safe.
-    if (!savedConfig || typeof savedConfig !== "object") {
-      // An older backend returns only { item }. Verify against an unfiltered
-      // read because the edit itself may have changed platform/account type
-      // and therefore moved the row out of the currently selected filters.
-      const verifyResp = await listAiPlatformDefaultConfigs({});
-      const verifyData = verifyResp?.data?.data ?? verifyResp?.data ?? {};
-      const refreshed = Array.isArray(verifyData.items) ? verifyData.items : [];
-      const savedId = Number(data?.item || editingDefaultConfig.value?.id || 0);
-      savedConfig = (refreshed || []).find((item) => Number(item?.id || 0) === savedId) || null;
-      if (!defaultConfigPayloadMatchesSaved(savedConfig, payload)) {
-        throw new Error("保存接口已返回成功，但页面重新读取的数据未匹配提交内容");
-      }
+    // Verify the committed row from a fresh unfiltered read for both old and
+    // new backend responses; an edit can move it out of the current filter.
+    const verifyResp = await listAiPlatformDefaultConfigs({});
+    const verifyData = verifyResp?.data?.data ?? verifyResp?.data ?? {};
+    const refreshed = Array.isArray(verifyData.items) ? verifyData.items : [];
+    const savedId = Number(data?.config?.id || data?.item || editingDefaultConfig.value?.id || 0);
+    const savedConfig = refreshed.find((item) => Number(item?.id || 0) === savedId) || null;
+    if (!defaultConfigPayloadMatchesSaved(savedConfig, payload)) {
+      throw new Error("保存接口已返回成功，但页面重新读取的数据未匹配提交内容");
     }
     applySavedDefaultConfig(savedConfig);
     defaultConfigFormVisible.value = false;
