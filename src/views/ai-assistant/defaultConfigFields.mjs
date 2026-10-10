@@ -1,6 +1,7 @@
 const jointSalesFieldNames = new Set(["途顺家安", "途顺家安组合保险", "途家安顺保费", "途家安顺", "途家安顺非车保费"]);
 const jointSalesCanonicalName = "途顺家安组合保险";
 const jointSalesNamePriority = [jointSalesCanonicalName, "途顺家安", "途家安顺保费", "途家安顺", "途家安顺非车保费"];
+const systemManagedDefaultConfigFieldNames = new Set(["操作配置ID", "业务性质代码", "业务性质名称"]);
 
 export function canonicalizeDefaultConfigJointSales(values = {}, deleted = []) {
   const source = values && typeof values === "object" ? values : {};
@@ -16,6 +17,30 @@ export function canonicalizeDefaultConfigJointSales(values = {}, deleted = []) {
   const deletedNames = [...new Set((deleted || []).map((name) => jointSalesFieldNames.has(name) ? jointSalesCanonicalName : name))]
     .filter((name) => !Object.hasOwn(defaultValues, name));
   return { default_values: defaultValues, deleted_default_fields: deletedNames };
+}
+
+export function omitSystemManagedDefaultConfigFields(values = {}, deleted = []) {
+  const editableValues = {};
+  for (const [name, value] of Object.entries(values && typeof values === "object" ? values : {})) {
+    if (!systemManagedDefaultConfigFieldNames.has(String(name || "").trim())) editableValues[name] = value;
+  }
+  const editableDeleted = [...new Set((deleted || []).map((name) => String(name || "").trim()).filter(Boolean))]
+    .filter((name) => !systemManagedDefaultConfigFieldNames.has(name));
+  return { default_values: editableValues, deleted_default_fields: editableDeleted };
+}
+
+export function availableDefaultConfigFieldNames(allowedNames = [], fields = [], rowIndex = -1) {
+  const allowed = [...new Set((allowedNames || []).map((name) => String(name || "").trim()).filter(Boolean))];
+  const rows = Array.isArray(fields) ? fields : [];
+  const current = rowIndex >= 0 ? String(rows[rowIndex]?.field_name || "").trim() : "";
+  const selectedElsewhere = new Set(
+    rows
+      .map((field, index) => index === rowIndex ? "" : String(field?.field_name || "").trim())
+      .filter(Boolean),
+  );
+  const available = allowed.filter((name) => name === current || !selectedElsewhere.has(name));
+  if (current && !available.includes(current)) available.unshift(current);
+  return available;
 }
 
 export function shouldAddDefaultTemplateField(name, currentNames, initialNames, deletedNames) {

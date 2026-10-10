@@ -691,10 +691,10 @@
             </el-select>
           </el-form-item>
           <div class="default-field-head">
-            <span>字段名需与平台原始表单字段一致</span>
+            <span>字段名由所选平台固定提供，已添加的字段不会重复显示</span>
             <div class="default-field-actions">
               <el-button size="small" plain @click="applyDefaultProductTemplate">投保产品字段模板</el-button>
-              <el-button size="small" @click="addDefaultConfigField">添加字段</el-button>
+              <el-button size="small" :disabled="!defaultConfigCanAddField" @click="addDefaultConfigField">新增字段</el-button>
             </div>
           </div>
           <div class="default-template-tip">
@@ -703,12 +703,21 @@
           </div>
           <div class="default-field-list">
             <div v-for="(field, idx) in defaultConfigForm.fields" :key="idx" class="default-field-row">
-              <el-input
+              <el-select
                 v-model="field.field_name"
-                placeholder="字段名，例如 是否过户"
-                maxlength="128"
+                filterable
+                placeholder="请选择字段"
+                style="width: 100%"
                 @change="normalizeDefaultConfigFieldValue(field)"
-              />
+              >
+                <el-option
+                  v-for="name in defaultConfigFieldOptionsForRow(idx)"
+                  :key="name"
+                  :label="defaultConfigFieldOptionLabel(name)"
+                  :value="name"
+                  :disabled="!defaultConfigAllowedFieldNameSet.has(name)"
+                />
+              </el-select>
               <el-select
                 v-if="isBooleanDefaultConfigField(field.field_name)"
                 v-model="field.field_value"
@@ -929,7 +938,13 @@ import {
   uploadAiAssistantImage,
 } from "../../api/aiAssistant";
 import { ROLE } from "../../constants";
-import { canonicalizeDefaultConfigJointSales, defaultConfigPayloadMatchesSaved, shouldAddDefaultTemplateField } from "./defaultConfigFields.mjs";
+import {
+  availableDefaultConfigFieldNames,
+  canonicalizeDefaultConfigJointSales,
+  defaultConfigPayloadMatchesSaved,
+  omitSystemManagedDefaultConfigFields,
+  shouldAddDefaultTemplateField,
+} from "./defaultConfigFields.mjs";
 import { useSessionStore } from "../../store/session";
 import { getApiErrorMessage } from "../../utils/errorMessage";
 import { useAiAssistantSession } from "./composables/useAiAssistantSession";
@@ -1057,12 +1072,9 @@ function defaultProductConfigTemplateForType(typeName) {
     { field_name: "医保外医疗费用责任险（第三者责任险）", field_value: "300" },
     { field_name: "附加外部电网故障损失险", field_value: "" },
     { field_name: "操作机构代码", field_value: "36040213" },
-    { field_name: "操作配置ID", field_value: "QT360402131762390540324" },
     { field_name: "送修码启用", field_value: "勾选" },
     { field_name: "送修码", field_value: "3604731000027" },
     { field_name: "送修码名称", field_value: "濂溪区金鑫汽车修理厂" },
-    { field_name: "业务性质代码", field_value: "2" },
-    { field_name: "业务性质名称", field_value: "专业代理业务" },
   ];
 }
 
@@ -1119,6 +1131,39 @@ function isPiccDefaultConfigPlatform() {
   const code = String(defaultConfigForm.value.platform_code || "").trim().toUpperCase();
   const name = String(defaultConfigForm.value.platform_name || "").trim();
   return code === "PICC" || name.includes("人保");
+}
+
+function defaultConfigFieldTemplateForSelection() {
+  // Each platform owns a fixed field catalog. PICC is the only platform with
+  // a developed quote flow today; add the small platform-specific variations
+  // here as the remaining quote adapters are enabled.
+  if (isPiccDefaultConfigPlatform()) {
+    return defaultProductConfigTemplateForType(defaultConfigForm.value.account_type_name);
+  }
+  return [];
+}
+
+const defaultConfigAllowedFieldNames = computed(() => (
+  defaultConfigFieldTemplateForSelection().map((field) => String(field?.field_name || "").trim()).filter(Boolean)
+));
+const defaultConfigAllowedFieldNameSet = computed(() => new Set(defaultConfigAllowedFieldNames.value));
+const defaultConfigCanAddField = computed(() => {
+  if (!defaultConfigForm.value.platform_code || !fixedQuoteAccountTypeSet.has(defaultConfigForm.value.account_type_name)) return false;
+  const fields = Array.isArray(defaultConfigForm.value.fields) ? defaultConfigForm.value.fields : [];
+  if (fields.some((field) => !String(field?.field_name || "").trim())) return false;
+  return availableDefaultConfigFieldNames(defaultConfigAllowedFieldNames.value, fields).length > 0;
+});
+
+function defaultConfigFieldOptionsForRow(index) {
+  return availableDefaultConfigFieldNames(
+    defaultConfigAllowedFieldNames.value,
+    defaultConfigForm.value.fields,
+    index,
+  );
+}
+
+function defaultConfigFieldOptionLabel(name) {
+  return defaultConfigAllowedFieldNameSet.value.has(name) ? name : `${name}（历史字段）`;
 }
 
 function productTemplateValueLooksUntouched(fieldName, fieldValue) {
@@ -3910,7 +3955,8 @@ function firstNonPositiveDefaultValue(values = {}) {
 }
 
 function summarizeDefaultValues(values = {}) {
-  const entries = Object.entries(values && typeof values === "object" ? values : {});
+  const editable = omitSystemManagedDefaultConfigFields(values, []);
+  const entries = Object.entries(editable.default_values);
   if (!entries.length) return "-";
   return entries
     .slice(0, 4)
@@ -3995,19 +4041,20 @@ async function openDefaultConfigDialog() {
 
 function resetDefaultConfigForm(row = null) {
   const canonical = canonicalizeDefaultConfigJointSales(row?.default_values, row?.deleted_default_fields);
+  const editable = omitSystemManagedDefaultConfigFields(canonical.default_values, canonical.deleted_default_fields);
   const firstPlatform = quotePlatforms.value[0] || {};
   const platformCode = row?.platform_code || defaultConfigFilters.value.platform_code || firstPlatform.platform_code || "";
   const platform = quotePlatforms.value.find((x) => x.platform_code === platformCode) || firstPlatform;
   const accountTypeName = row?.account_type_name || defaultConfigFilters.value.account_type_name || "";
   editingDefaultConfig.value = row || null;
-  defaultConfigOriginalFieldNames.value = Object.keys(canonical.default_values).map((key) => String(key || "").trim()).filter(Boolean);
-  defaultConfigDeletedFields.value = canonical.deleted_default_fields;
+  defaultConfigOriginalFieldNames.value = Object.keys(editable.default_values).map((key) => String(key || "").trim()).filter(Boolean);
+  defaultConfigDeletedFields.value = editable.deleted_default_fields;
   defaultConfigForm.value = {
     platform_code: platformCode,
     platform_name: row?.platform_name || platform.platform_name || "",
     account_type_name: accountTypeName,
     enabled: row ? !!row.enabled : true,
-    fields: configValuesToFields(canonical.default_values),
+    fields: configValuesToFields(editable.default_values),
   };
   if (accountTypeName && isPiccDefaultConfigPlatform()) {
     if (!row) {
@@ -4042,6 +4089,18 @@ function handleDefaultConfigAccountTypeChange() {
 }
 
 function addDefaultConfigField() {
+  if (!defaultConfigForm.value.platform_code || !fixedQuoteAccountTypeSet.has(defaultConfigForm.value.account_type_name)) {
+    ElMessage.warning("请先选择平台和适用类型");
+    return;
+  }
+  if (defaultConfigForm.value.fields.some((field) => !String(field?.field_name || "").trim())) {
+    ElMessage.info("请先选择当前空白行的字段");
+    return;
+  }
+  if (!availableDefaultConfigFieldNames(defaultConfigAllowedFieldNames.value, defaultConfigForm.value.fields).length) {
+    ElMessage.info("当前平台的可选字段已全部添加");
+    return;
+  }
   defaultConfigForm.value.fields.push({ field_name: "", field_value: "" });
 }
 
@@ -4123,12 +4182,13 @@ function defaultConfigFormPayload() {
   }
   for (const currentName of currentNames) deletedNames.delete(currentName);
   const canonical = canonicalizeDefaultConfigJointSales(defaultValues, [...deletedNames]);
+  const editable = omitSystemManagedDefaultConfigFields(canonical.default_values, canonical.deleted_default_fields);
   return {
     platform_code: defaultConfigForm.value.platform_code,
     platform_name: defaultConfigForm.value.platform_name || platform?.platform_name || "",
     account_type_name: defaultConfigForm.value.account_type_name,
-    default_values: canonical.default_values,
-    deleted_default_fields: canonical.deleted_default_fields,
+    default_values: editable.default_values,
+    deleted_default_fields: editable.deleted_default_fields,
     enabled: !!defaultConfigForm.value.enabled,
   };
 }
