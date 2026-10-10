@@ -1005,6 +1005,8 @@ const defaultConfigForm = ref({
   enabled: true,
   fields: [{ field_name: "", field_value: "" }],
 });
+const defaultConfigOriginalFieldNames = ref([]);
+const defaultConfigDeletedFields = ref([]);
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const QUOTE_IMAGE_UPLOAD_CONCURRENCY = 4;
 const QUOTE_IMAGE_COMPRESS_MIN_BYTES = 2.5 * 1024 * 1024;
@@ -1130,30 +1132,6 @@ function productTemplateValueLooksUntouched(fieldName, fieldValue) {
     }
     return String(tpl.field_value ?? "").trim() === value;
   });
-}
-
-function withMissingDefaultProductTemplateFields(fields, typeName) {
-  const template = defaultProductConfigTemplateForType(typeName);
-  const meaningful = (Array.isArray(fields) ? fields : []).filter((item) =>
-    String(item?.field_name || "").trim()
-  );
-  const byName = new Set(meaningful.map((item) => String(item.field_name || "").trim()).filter(Boolean));
-  for (const tpl of template) {
-    const key = String(tpl.field_name || "").trim();
-    if (!key || byName.has(key)) continue;
-    meaningful.push({ ...tpl });
-    byName.add(key);
-  }
-  const orderMap = new Map(template.map((item, idx) => [String(item.field_name || "").trim(), idx]));
-  meaningful.sort((a, b) => {
-    const ak = String(a?.field_name || "").trim();
-    const bk = String(b?.field_name || "").trim();
-    const ao = orderMap.has(ak) ? orderMap.get(ak) : Number.MAX_SAFE_INTEGER;
-    const bo = orderMap.has(bk) ? orderMap.get(bk) : Number.MAX_SAFE_INTEGER;
-    if (ao !== bo) return ao - bo;
-    return 0;
-  });
-  return meaningful.length ? meaningful : [{ field_name: "", field_value: "" }];
 }
 
 const quoteQuickPrompts = [
@@ -3977,6 +3955,10 @@ function resetDefaultConfigForm(row = null) {
   const platform = quotePlatforms.value.find((x) => x.platform_code === platformCode) || firstPlatform;
   const accountTypeName = row?.account_type_name || defaultConfigFilters.value.account_type_name || "";
   editingDefaultConfig.value = row || null;
+  defaultConfigOriginalFieldNames.value = Object.keys(row?.default_values || {}).map((key) => String(key || "").trim()).filter(Boolean);
+  defaultConfigDeletedFields.value = Array.isArray(row?.deleted_default_fields)
+    ? row.deleted_default_fields.map((key) => String(key || "").trim()).filter(Boolean)
+    : [];
   defaultConfigForm.value = {
     platform_code: platformCode,
     platform_name: row?.platform_name || platform.platform_name || "",
@@ -3985,9 +3967,9 @@ function resetDefaultConfigForm(row = null) {
     fields: configValuesToFields(row?.default_values || {}),
   };
   if (accountTypeName && isPiccDefaultConfigPlatform()) {
-    defaultConfigForm.value.fields = row
-      ? withMissingDefaultProductTemplateFields(defaultConfigForm.value.fields, accountTypeName)
-      : defaultProductConfigTemplateForType(accountTypeName);
+    if (!row) {
+      defaultConfigForm.value.fields = defaultProductConfigTemplateForType(accountTypeName);
+    }
   }
 }
 
@@ -4085,11 +4067,22 @@ function removeDefaultConfigField(index) {
 
 function defaultConfigFormPayload() {
   const platform = selectedDefaultConfigPlatform.value;
+  const currentNames = new Set(
+    (Array.isArray(defaultConfigForm.value.fields) ? defaultConfigForm.value.fields : [])
+      .map((item) => String(item?.field_name || "").trim())
+      .filter(Boolean)
+  );
+  const deletedNames = new Set(defaultConfigDeletedFields.value);
+  for (const originalName of defaultConfigOriginalFieldNames.value) {
+    if (!currentNames.has(originalName)) deletedNames.add(originalName);
+  }
+  for (const currentName of currentNames) deletedNames.delete(currentName);
   return {
     platform_code: defaultConfigForm.value.platform_code,
     platform_name: defaultConfigForm.value.platform_name || platform?.platform_name || "",
     account_type_name: defaultConfigForm.value.account_type_name,
     default_values: configFieldsToValues(defaultConfigForm.value.fields),
+    deleted_default_fields: [...deletedNames],
     enabled: !!defaultConfigForm.value.enabled,
   };
 }
@@ -4104,7 +4097,7 @@ async function submitDefaultConfigForm() {
     ElMessage.warning("请选择适用账号类型：油车-新、油车-旧、新能源车-新、新能源车-旧");
     return;
   }
-  if (!Object.keys(payload.default_values).length) {
+  if (!Object.keys(payload.default_values).length && !payload.deleted_default_fields.length) {
     ElMessage.warning("请至少添加一个默认参数字段");
     return;
   }

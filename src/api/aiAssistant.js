@@ -145,11 +145,15 @@ function normalizePlatformDefaultConfigPayload(payload = {}) {
     payload.default_values && typeof payload.default_values === "object" && !Array.isArray(payload.default_values)
       ? payload.default_values
       : {};
+  const deletedDefaultFields = Array.isArray(payload.deleted_default_fields)
+    ? payload.deleted_default_fields.map((name) => String(name || "").trim()).filter(Boolean)
+    : [];
   return cleanUndefined({
     platform_code: payload.platform_code ? String(payload.platform_code).trim() : undefined,
     platform_name: payload.platform_name ? String(payload.platform_name).trim() : undefined,
     account_type_name: payload.account_type_name ? String(payload.account_type_name).trim() : "",
     default_values: defaultValues,
+    deleted_default_fields: deletedDefaultFields,
     enabled: payload.enabled !== undefined ? !!payload.enabled : true,
   });
 }
