@@ -37,6 +37,9 @@ test("fixed field choices exclude fields selected by other rows", () => {
   ];
   assert.deepEqual(availableDefaultConfigFieldNames(allowed, fields, 0), ["交强", "机动车损失保险"]);
   assert.deepEqual(availableDefaultConfigFieldNames(allowed, fields, 2), ["机动车损失保险"]);
+  assert.deepEqual(availableDefaultConfigFieldNames(allowed, [{ field_name: "交强" }, { field_name: "" }], 1), ["机动车损失保险", "第三者责任险"]);
+  assert.deepEqual(availableDefaultConfigFieldNames(allowed, [{ field_name: "交强" }, { field_name: "第三者责任险" }]), ["机动车损失保险"]);
+  assert.deepEqual(availableDefaultConfigFieldNames([], [{ field_name: "" }], 0), []);
   assert.deepEqual(
     availableDefaultConfigFieldNames(allowed, [{ field_name: "历史字段" }], 0),
     ["历史字段", ...allowed],

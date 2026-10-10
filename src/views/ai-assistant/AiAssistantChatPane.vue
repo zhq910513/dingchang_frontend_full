@@ -691,12 +691,12 @@
             </el-select>
           </el-form-item>
           <div class="default-field-head">
-            <span>{{ editingDefaultConfig?.id ? "字段名由所选平台固定提供，已添加的字段不会重复显示" : "字段名需与平台原始表单字段一致" }}</span>
+            <span>字段名由所选平台固定提供，已添加的字段不会重复显示</span>
             <div class="default-field-actions">
               <el-button size="small" plain @click="applyDefaultProductTemplate">投保产品字段模板</el-button>
               <el-button
                 size="small"
-                :disabled="!!editingDefaultConfig?.id && !defaultConfigCanAddField"
+                :disabled="!defaultConfigCanAddField"
                 @click="addDefaultConfigField"
               >新增字段</el-button>
             </div>
@@ -705,10 +705,12 @@
             人保真实报价会按账号类型读取投保产品字段。取值优先级：会话中临时调整 > 此处配置值 > 系统兜底默认值。
             数值字段只能填正数；途顺家安允许填 0。
           </div>
+          <div v-if="defaultConfigForm.platform_code && !defaultConfigAllowedFieldNames.length" class="default-template-tip">
+            当前平台暂无固定字段清单，不能新增配置字段。
+          </div>
           <div class="default-field-list">
             <div v-for="(field, idx) in defaultConfigForm.fields" :key="idx" class="default-field-row">
               <el-select
-                v-if="editingDefaultConfig?.id"
                 v-model="field.field_name"
                 filterable
                 placeholder="请选择字段"
@@ -723,13 +725,6 @@
                   :disabled="!defaultConfigAllowedFieldNameSet.has(name)"
                 />
               </el-select>
-              <el-input
-                v-else
-                v-model="field.field_name"
-                placeholder="字段名，例如 是否过户"
-                maxlength="128"
-                @change="normalizeDefaultConfigFieldValue(field)"
-              />
               <el-select
                 v-if="isBooleanDefaultConfigField(field.field_name)"
                 v-model="field.field_value"
@@ -4089,6 +4084,8 @@ async function handleDefaultConfigPlatformChange(code) {
   defaultConfigForm.value.account_type_name = "";
   if (!editingDefaultConfig.value?.id) {
     defaultConfigForm.value.fields = [{ field_name: "", field_value: "" }];
+    defaultConfigOriginalFieldNames.value = [];
+    defaultConfigDeletedFields.value = [];
   }
   await loadDefaultConfigTypes(code);
 }
@@ -4101,10 +4098,6 @@ function handleDefaultConfigAccountTypeChange() {
 }
 
 function addDefaultConfigField() {
-  if (!editingDefaultConfig.value?.id) {
-    defaultConfigForm.value.fields.push({ field_name: "", field_value: "" });
-    return;
-  }
   if (!defaultConfigForm.value.platform_code || !fixedQuoteAccountTypeSet.has(defaultConfigForm.value.account_type_name)) {
     ElMessage.warning("请先选择平台和适用类型");
     return;
@@ -4125,7 +4118,7 @@ function applyDefaultProductTemplate(options = {}) {
   const refreshDefaultValues = !!options.refreshDefaultValues;
   if (!isPiccDefaultConfigPlatform()) {
     if (!silent) {
-      ElMessage.info("当前仅内置人保投保产品字段模板，其他平台可手动添加字段");
+      ElMessage.info("当前平台暂无固定字段清单，不能套用投保产品字段模板");
     }
     return;
   }
