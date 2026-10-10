@@ -1961,9 +1961,6 @@ async function submitQuoteMaterialForm() {
         display_user_content: displayText,
       },
     });
-    if (result?.ok === false && !result?.aborted) {
-      throw new Error(result?.message || "资料提交失败");
-    }
     const resultPayload = quoteMaterialSubmissionPayload(result);
     if (resultPayload.quote_material_form_stale === true) {
       ElNotification.warning({
@@ -1974,10 +1971,18 @@ async function submitQuoteMaterialForm() {
       return;
     }
     if (resultPayload.material_saved !== true) {
-      throw new Error("服务器未确认资料已保存，请保留当前表单后重试");
+      throw new Error(result?.message || "服务器未确认资料已保存，请保留当前表单后重试");
     }
-    await syncCurrentSession({ reloadHistory: true, force: true });
     resetQuoteMaterialForm();
+    try {
+      await syncCurrentSession({ reloadHistory: true, force: true });
+    } catch {
+      ElNotification.warning({
+        title: "资料已保存",
+        message: "会话记录暂未同步，请刷新页面查看报价结果",
+        duration: 4500,
+      });
+    }
   } catch (e) {
     ElNotification.error({
       title: "资料提交失败",

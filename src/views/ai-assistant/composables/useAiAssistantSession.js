@@ -12,6 +12,7 @@ import {
 import { parseAiCommand } from "../utils/commandParser";
 import { redactQuoteSensitiveText, sanitizeQuoteUserText } from "../utils/sensitiveRedaction";
 import { getApiErrorMessage } from "../../../utils/errorMessage";
+import { normalizeChatPayload } from "./chatPayload.mjs";
 
 function normalizeErrMsg(e, fallback = "操作失败，请稍后重试") {
   return sanitizeQuoteUserText(getApiErrorMessage(e, fallback, { withRequest: false }), fallback);
@@ -649,31 +650,6 @@ function mergeHistoryWithCurrentTimeline(historyItems, currentMessages) {
     merged.push(item);
   }
   return dedupeTimelineImageMessages(merged);
-}
-
-function normalizeChatPayload(respOrBody) {
-  const body = respOrBody && respOrBody.data !== undefined ? respOrBody.data : respOrBody;
-  if (body && typeof body === "object") {
-    if (
-      Object.prototype.hasOwnProperty.call(body, "reply") ||
-      Object.prototype.hasOwnProperty.call(body, "session_id") ||
-      Object.prototype.hasOwnProperty.call(body, "intent")
-    ) {
-      return body;
-    }
-
-    const nested = body.data;
-    if (
-      nested &&
-      typeof nested === "object" &&
-      (Object.prototype.hasOwnProperty.call(nested, "reply") ||
-        Object.prototype.hasOwnProperty.call(nested, "session_id") ||
-        Object.prototype.hasOwnProperty.call(nested, "intent"))
-    ) {
-      return nested;
-    }
-  }
-  return {};
 }
 
 function isBusinessFailed(data) {
