@@ -1790,11 +1790,17 @@ function quoteMaterialSubmissionValues() {
     const key = String(field?.key || "").trim();
     if (!key) continue;
     const value = String(quoteMaterialFormValues.value[key] ?? "").trim();
-    if (value) values[key] = value;
+    values[key] = value;
   }
   const accountType = quoteMaterialSelectedAccountType();
   if (accountType) values.account_type_name = accountType;
   return values;
+}
+
+function quoteMaterialSubmissionPayload(result) {
+  const response = result?.data && typeof result.data === "object" ? result.data : {};
+  const data = response?.data && typeof response.data === "object" ? response.data : {};
+  return data?.payload && typeof data.payload === "object" ? data.payload : {};
 }
 
 function handleAddQuoteMaterialExtraField() {
@@ -1865,6 +1871,7 @@ async function submitQuoteMaterialForm() {
         quote_material_form_session_id: quoteMaterialForm.value?.session_id || currentSessionIdSafe.value || undefined,
         quote_material_form_case_id: quoteMaterialForm.value?.quote_case_id || undefined,
         quote_material_form_values: formValues,
+        quote_material_form_submitted_field_keys: Object.keys(formValues),
         quote_material_form_selected_extra_field_keys: quoteMaterialSelectedExtraFieldKeys.value,
         display_user_content: displayText,
       },
@@ -1872,6 +1879,19 @@ async function submitQuoteMaterialForm() {
     if (result?.ok === false && !result?.aborted) {
       throw new Error(result?.message || "资料提交失败");
     }
+    const resultPayload = quoteMaterialSubmissionPayload(result);
+    if (resultPayload.quote_material_form_stale === true) {
+      ElNotification.warning({
+        title: "资料未保存",
+        message: String(result?.data?.reply || result?.data?.data?.message || "资料表单已过期，请重新打开最新表单"),
+        duration: 5000,
+      });
+      return;
+    }
+    if (resultPayload.material_saved !== true) {
+      throw new Error("服务器未确认资料已保存，请保留当前表单后重试");
+    }
+    await syncCurrentSession({ reloadHistory: true, force: true });
     resetQuoteMaterialForm();
   } catch (e) {
     ElNotification.error({
@@ -3932,6 +3952,26 @@ async function loadDefaultConfigs() {
   }
 }
 
+function defaultConfigMatchesCurrentFilters(config) {
+  const platformCode = String(defaultConfigFilters.value.platform_code || "").trim().toUpperCase();
+  const accountTypeName = String(defaultConfigFilters.value.account_type_name || "").trim();
+  if (platformCode && String(config?.platform_code || "").trim().toUpperCase() !== platformCode) return false;
+  if (accountTypeName && String(config?.account_type_name || "").trim() !== accountTypeName) return false;
+  return true;
+}
+
+function applySavedDefaultConfig(config) {
+  const saved = config && typeof config === "object" ? config : null;
+  const savedId = Number(saved?.id || 0);
+  if (!saved || savedId <= 0 || !saved.platform_code) {
+    throw new Error("服务器未返回保存后的默认参数配置");
+  }
+  const remaining = defaultConfigs.value.filter((item) => Number(item?.id || 0) !== savedId);
+  defaultConfigs.value = defaultConfigMatchesCurrentFilters(saved) ? [saved, ...remaining] : remaining;
+  resetDefaultConfigForm(saved);
+  return saved;
+}
+
 async function handleDefaultConfigFilterPlatformChange(code) {
   defaultConfigFilters.value.account_type_name = "";
   await loadDefaultConfigTypes(code);
@@ -4114,15 +4154,19 @@ async function submitDefaultConfigForm() {
 
   savingDefaultConfig.value = true;
   try {
+    let resp;
+    let successMessage;
     if (editingDefaultConfig.value?.id) {
-      await updateAiPlatformDefaultConfig(editingDefaultConfig.value.id, payload);
-      ElMessage.success("默认参数已更新");
+      resp = await updateAiPlatformDefaultConfig(editingDefaultConfig.value.id, payload);
+      successMessage = "默认参数已更新";
     } else {
-      await createAiPlatformDefaultConfig(payload);
-      ElMessage.success("默认参数已新增");
+      resp = await createAiPlatformDefaultConfig(payload);
+      successMessage = "默认参数已新增";
     }
+    const data = resp?.data?.data ?? resp?.data ?? {};
+    applySavedDefaultConfig(data?.config);
     defaultConfigFormVisible.value = false;
-    await loadDefaultConfigs();
+    ElMessage.success(successMessage);
   } catch (e) {
     ElNotification.error({
       title: "默认参数保存失败",
@@ -4147,8 +4191,8 @@ async function handleDeleteDefaultConfig(row) {
   }
   try {
     await deleteAiPlatformDefaultConfig(row.id);
+    defaultConfigs.value = defaultConfigs.value.filter((item) => Number(item?.id || 0) !== Number(row.id));
     ElMessage.success("默认参数已删除");
-    await loadDefaultConfigs();
   } catch (e) {
     ElNotification.error({
       title: "默认参数删除失败",
