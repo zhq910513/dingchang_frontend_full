@@ -4128,11 +4128,8 @@ function removeDefaultConfigField(index) {
 
 function defaultConfigFormPayload() {
   const platform = selectedDefaultConfigPlatform.value;
-  const currentNames = new Set(
-    (Array.isArray(defaultConfigForm.value.fields) ? defaultConfigForm.value.fields : [])
-      .map((item) => String(item?.field_name || "").trim())
-      .filter(Boolean)
-  );
+  const defaultValues = configFieldsToValues(defaultConfigForm.value.fields);
+  const currentNames = new Set(Object.keys(defaultValues));
   const deletedNames = new Set(defaultConfigDeletedFields.value);
   for (const originalName of defaultConfigOriginalFieldNames.value) {
     if (!currentNames.has(originalName)) deletedNames.add(originalName);
@@ -4142,7 +4139,7 @@ function defaultConfigFormPayload() {
     platform_code: defaultConfigForm.value.platform_code,
     platform_name: defaultConfigForm.value.platform_name || platform?.platform_name || "",
     account_type_name: defaultConfigForm.value.account_type_name,
-    default_values: configFieldsToValues(defaultConfigForm.value.fields),
+    default_values: defaultValues,
     deleted_default_fields: [...deletedNames],
     enabled: !!defaultConfigForm.value.enabled,
   };
@@ -4189,7 +4186,12 @@ async function submitDefaultConfigForm() {
     // Older deployed backends return only { item }. Re-read the list and
     // verify the committed values so mixed-version deployments remain safe.
     if (!savedConfig || typeof savedConfig !== "object") {
-      const refreshed = await loadDefaultConfigs();
+      // An older backend returns only { item }. Verify against an unfiltered
+      // read because the edit itself may have changed platform/account type
+      // and therefore moved the row out of the currently selected filters.
+      const verifyResp = await listAiPlatformDefaultConfigs({});
+      const verifyData = verifyResp?.data?.data ?? verifyResp?.data ?? {};
+      const refreshed = Array.isArray(verifyData.items) ? verifyData.items : [];
       const savedId = Number(data?.item || editingDefaultConfig.value?.id || 0);
       savedConfig = (refreshed || []).find((item) => Number(item?.id || 0) === savedId) || null;
       if (!defaultConfigPayloadMatchesSaved(savedConfig, payload)) {
