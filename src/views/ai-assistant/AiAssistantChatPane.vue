@@ -691,10 +691,14 @@
             </el-select>
           </el-form-item>
           <div class="default-field-head">
-            <span>字段名由所选平台固定提供，已添加的字段不会重复显示</span>
+            <span>{{ editingDefaultConfig?.id ? "字段名由所选平台固定提供，已添加的字段不会重复显示" : "字段名需与平台原始表单字段一致" }}</span>
             <div class="default-field-actions">
               <el-button size="small" plain @click="applyDefaultProductTemplate">投保产品字段模板</el-button>
-              <el-button size="small" :disabled="!defaultConfigCanAddField" @click="addDefaultConfigField">新增字段</el-button>
+              <el-button
+                size="small"
+                :disabled="!!editingDefaultConfig?.id && !defaultConfigCanAddField"
+                @click="addDefaultConfigField"
+              >新增字段</el-button>
             </div>
           </div>
           <div class="default-template-tip">
@@ -704,6 +708,7 @@
           <div class="default-field-list">
             <div v-for="(field, idx) in defaultConfigForm.fields" :key="idx" class="default-field-row">
               <el-select
+                v-if="editingDefaultConfig?.id"
                 v-model="field.field_name"
                 filterable
                 placeholder="请选择字段"
@@ -718,6 +723,13 @@
                   :disabled="!defaultConfigAllowedFieldNameSet.has(name)"
                 />
               </el-select>
+              <el-input
+                v-else
+                v-model="field.field_name"
+                placeholder="字段名，例如 是否过户"
+                maxlength="128"
+                @change="normalizeDefaultConfigFieldValue(field)"
+              />
               <el-select
                 v-if="isBooleanDefaultConfigField(field.field_name)"
                 v-model="field.field_value"
@@ -4089,6 +4101,10 @@ function handleDefaultConfigAccountTypeChange() {
 }
 
 function addDefaultConfigField() {
+  if (!editingDefaultConfig.value?.id) {
+    defaultConfigForm.value.fields.push({ field_name: "", field_value: "" });
+    return;
+  }
   if (!defaultConfigForm.value.platform_code || !fixedQuoteAccountTypeSet.has(defaultConfigForm.value.account_type_name)) {
     ElMessage.warning("请先选择平台和适用类型");
     return;
