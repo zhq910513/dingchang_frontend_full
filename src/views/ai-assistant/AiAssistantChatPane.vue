@@ -831,6 +831,7 @@
           <el-input
             v-else
             v-model="quoteMaterialFormValues[field.key]"
+            @update:model-value="handleQuoteMaterialFieldChange(field.key, $event)"
             :placeholder="field.placeholder || `请输入${field.label || field.key}`"
             maxlength="128"
             clearable
@@ -870,6 +871,7 @@
                 <el-input
                   v-else
                   v-model="quoteMaterialFormValues[field.key]"
+                  @update:model-value="handleQuoteMaterialFieldChange(field.key, $event)"
                   :placeholder="field.placeholder || `请输入${field.label || field.key}`"
                   maxlength="128"
                   clearable
@@ -1222,6 +1224,8 @@ const quoteMaterialForm = ref(null);
 const quoteMaterialFormValues = ref({});
 const quoteMaterialExtraFieldKeys = ref([]);
 const quoteMaterialExtraFieldDraft = ref("");
+const quoteMaterialRemovedExtraFieldKeys = ref([]);
+const quoteMaterialAutoClearedSalesModel = ref(false);
 const historyPopoverVisible = ref(false);
 const paneMode = computed(() => !!props.paneMode);
 const multiOpenEnabled = computed(() => !!props.multiOpenEnabled);
@@ -1292,6 +1296,8 @@ function resetQuoteMaterialForm() {
   quoteMaterialFormValues.value = {};
   quoteMaterialExtraFieldKeys.value = [];
   quoteMaterialExtraFieldDraft.value = "";
+  quoteMaterialRemovedExtraFieldKeys.value = [];
+  quoteMaterialAutoClearedSalesModel.value = false;
 }
 
 const ensureInit = sessionApi.ensureInit ?? (async () => {});
@@ -1732,6 +1738,8 @@ function openQuoteMaterialForm(form) {
   }
   quoteMaterialExtraFieldKeys.value = extraKeys;
   quoteMaterialExtraFieldDraft.value = "";
+  quoteMaterialRemovedExtraFieldKeys.value = [];
+  quoteMaterialAutoClearedSalesModel.value = false;
   if (!values.account_type_name && safeForm.account_type_name) {
     values.account_type_name = String(safeForm.account_type_name || "");
   }
@@ -1856,6 +1864,27 @@ function quoteMaterialSubmissionPayload(result) {
   return data?.payload && typeof data.payload === "object" ? data.payload : {};
 }
 
+function handleQuoteMaterialFieldChange(key, value) {
+  if (key === "car_name") {
+    quoteMaterialAutoClearedSalesModel.value = false;
+    return;
+  }
+  if (key !== "vehicle_model") return;
+  const allFields = [...quoteMaterialFormFields.value, ...quoteMaterialOptionalFields.value];
+  const originalModel = String(allFields.find((field) => field.key === "vehicle_model")?.value ?? "").trim();
+  const originalSalesModel = String(allFields.find((field) => field.key === "car_name")?.value ?? "").trim();
+  const currentSalesModel = String(quoteMaterialFormValues.value.car_name ?? "").trim();
+  if (String(value ?? "").trim() === originalModel) {
+    if (quoteMaterialAutoClearedSalesModel.value && !currentSalesModel) {
+      quoteMaterialFormValues.value.car_name = originalSalesModel;
+    }
+    quoteMaterialAutoClearedSalesModel.value = false;
+  } else if (originalSalesModel && currentSalesModel === originalSalesModel) {
+    quoteMaterialFormValues.value.car_name = "";
+    quoteMaterialAutoClearedSalesModel.value = true;
+  }
+}
+
 function handleAddQuoteMaterialExtraField() {
   const key = String(quoteMaterialExtraFieldDraft.value || "").trim();
   if (!key) {
@@ -1873,6 +1902,7 @@ function handleAddQuoteMaterialExtraField() {
     return;
   }
   quoteMaterialExtraFieldKeys.value = [...quoteMaterialExtraFieldKeys.value, key];
+  quoteMaterialRemovedExtraFieldKeys.value = quoteMaterialRemovedExtraFieldKeys.value.filter((item) => item !== key);
   if (quoteMaterialFormValues.value[key] === undefined || quoteMaterialFormValues.value[key] === null) {
     quoteMaterialFormValues.value[key] = String(field.value ?? "");
   }
@@ -1883,7 +1913,9 @@ function handleRemoveQuoteMaterialExtraField(key) {
   const normalizedKey = String(key || "").trim();
   if (!normalizedKey) return;
   quoteMaterialExtraFieldKeys.value = quoteMaterialExtraFieldKeys.value.filter((item) => String(item || "").trim() !== normalizedKey);
+  quoteMaterialRemovedExtraFieldKeys.value = [...new Set([...quoteMaterialRemovedExtraFieldKeys.value, normalizedKey])];
   delete quoteMaterialFormValues.value[normalizedKey];
+  if (normalizedKey === "car_name") quoteMaterialAutoClearedSalesModel.value = false;
   if (String(quoteMaterialExtraFieldDraft.value || "").trim() === normalizedKey) {
     quoteMaterialExtraFieldDraft.value = "";
   }
@@ -1924,7 +1956,7 @@ async function submitQuoteMaterialForm() {
         quote_material_form_session_id: quoteMaterialForm.value?.session_id || currentSessionIdSafe.value || undefined,
         quote_material_form_case_id: quoteMaterialForm.value?.quote_case_id || undefined,
         quote_material_form_values: formValues,
-        quote_material_form_submitted_field_keys: Object.keys(formValues),
+        quote_material_form_submitted_field_keys: [...new Set([...Object.keys(formValues), ...quoteMaterialRemovedExtraFieldKeys.value])],
         quote_material_form_selected_extra_field_keys: quoteMaterialSelectedExtraFieldKeys.value,
         display_user_content: displayText,
       },
