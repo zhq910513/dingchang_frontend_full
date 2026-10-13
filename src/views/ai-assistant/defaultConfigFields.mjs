@@ -57,6 +57,16 @@ const systemManagedDefaultConfigFieldNames = new Set([
   "prpCmain.handlerCode",
   "prpCmain.handler1Code",
   "prpCmain.operateCode",
+  "送修码启用",
+  "送修码",
+  "送修码代码",
+  "送修码名称",
+  "送修码机构",
+  "专管代码",
+  "专管名称",
+  "monopolyCode",
+  "monopolyName",
+  "groupCodeValidStatus",
 ]);
 
 export function canonicalizeDefaultConfigJointSales(values = {}, deleted = []) {

@@ -56,7 +56,10 @@ test("system-managed protocol fields are hidden without becoming deletions", () 
     "comCName": "历史机构",
     "agentType": "2",
     "prpCmain.handlerCode": "legacy-handler",
-  }, ["业务性质代码", "机动车损失保险"]), {
+    "送修码": "legacy-repair-code",
+    "monopolyCode": "legacy-monopoly-code",
+    "groupCodeValidStatus": "1",
+  }, ["业务性质代码", "送修码", "机动车损失保险"]), {
     default_values: { "交强": "20" },
     deleted_default_fields: ["机动车损失保险"],
   });

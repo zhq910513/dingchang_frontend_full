@@ -590,16 +590,30 @@
                 >刷新平台数据</el-button>
               </div>
               <el-alert
-                v-if="!accountOperationConfigItems.length"
+                v-if="accountOperationConfigs.last_error"
+                type="warning"
+                :closable="false"
+                :title="accountOperationConfigs.status === 'stale'
+                  ? `最近刷新失败，仍保留上次有效配置：${accountOperationConfigs.last_error}`
+                  : `平台操作配置不可用于报价：${accountOperationConfigs.last_error}`"
+              />
+              <el-alert
+                v-else-if="!accountOperationConfigItems.length"
                 type="warning"
                 :closable="false"
                 title="尚未读取到操作配置，请先完成账号登录后刷新"
               />
               <el-alert
-                v-else-if="accountOperationConfigs.last_error"
+                v-else-if="!selectedAccountOperationConfig.id"
                 type="warning"
                 :closable="false"
-                :title="`最近刷新失败，仍保留上次有效配置：${accountOperationConfigs.last_error}`"
+                title="检测到多条账号操作配置，请先从下拉框选择本次报价使用的配置"
+              />
+              <el-alert
+                v-else-if="selectedAccountOperationConfigMissingFields.length"
+                type="error"
+                :closable="false"
+                :title="`当前账号操作配置不完整，缺少：${selectedAccountOperationConfigMissingFields.join('、')}。请重新登录并刷新平台数据后再报价。`"
               />
               <el-descriptions
                 v-if="selectedAccountOperationConfig.id"
@@ -1099,6 +1113,14 @@ const selectedAccountOperationConfig = computed(() => {
     || accountOperationConfigs.value?.selected
     || {};
 });
+const selectedAccountOperationConfigMissingFields = computed(() => {
+  const item = selectedAccountOperationConfig.value || {};
+  if (!String(item.id || "").trim()) return [];
+  const missing = [];
+  if (!String(item.makecom_code || item.com_code || "").trim()) missing.push("机构码");
+  if (!String(item.business_nature || "").trim()) missing.push("业务性质代码");
+  return missing;
+});
 const defaultConfigDialogVisible = ref(false);
 const defaultConfigFormVisible = ref(false);
 const loadingDefaultConfigs = ref(false);
@@ -1164,9 +1186,6 @@ function defaultProductConfigTemplateForType(typeName) {
     { field_name: "共享主险限额", field_value: "勾选" },
     { field_name: "医保外医疗费用责任险（第三者责任险）", field_value: "300" },
     { field_name: "附加外部电网故障损失险", field_value: "" },
-    { field_name: "送修码启用", field_value: "勾选" },
-    { field_name: "送修码", field_value: "3604731000027" },
-    { field_name: "送修码名称", field_value: "濂溪区金鑫汽车修理厂" },
   ];
 }
 
