@@ -762,7 +762,7 @@
             </div>
           </div>
           <div class="default-template-tip">
-            人保真实报价会按账号类型读取投保产品字段。取值优先级：会话中临时调整 > 此处配置值 > 系统兜底默认值。
+            人保真实报价会按账号类型读取投保产品字段。途顺家安仅在配置存在或会话临时指定时参与报价，临时调整优先于配置值。
             数值字段只能填正数；途顺家安允许填 0。
           </div>
           <div v-if="defaultConfigForm.platform_code && !defaultConfigAllowedFieldNames.length" class="default-template-tip">
