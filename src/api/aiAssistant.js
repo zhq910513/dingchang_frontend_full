@@ -130,6 +130,20 @@ export function loginAiPlatformAccount(accountId) {
   return http.post(`/ai-assistant/platform-accounts/${encodeURIComponent(String(accountId))}/login`);
 }
 
+export function getAiPlatformAccountOperationConfigs(accountId) {
+  return http.get(`/ai-assistant/platform-accounts/${encodeURIComponent(String(accountId))}/operation-configs`);
+}
+
+export function refreshAiPlatformAccountOperationConfigs(accountId) {
+  return http.post(`/ai-assistant/platform-accounts/${encodeURIComponent(String(accountId))}/operation-configs/refresh`);
+}
+
+export function updateAiPlatformAccountOperationConfigSelection(accountId, selectedId) {
+  return http.put(`/ai-assistant/platform-accounts/${encodeURIComponent(String(accountId))}/operation-config-selection`, {
+    selected_id: String(selectedId || "").trim(),
+  });
+}
+
 export function submitAiPlatformAccountLoginChallenge(taskId, payload = {}) {
   return http.post(
     `/ai-assistant/platform-account-login-tasks/${encodeURIComponent(String(taskId))}/challenge`,

@@ -562,6 +562,66 @@
           <el-form-item label="账号归属人">
             <el-input v-model="accountForm.account_owner_name" maxlength="64" placeholder="选填" />
           </el-form-item>
+          <el-form-item
+            v-if="editingAccount?.id && String(accountForm.platform_code || '').toUpperCase() === 'PICC'"
+            label="账号操作配置（平台只读）"
+          >
+            <div class="operation-config-panel" v-loading="loadingOperationConfigs">
+              <div class="operation-config-toolbar">
+                <el-select
+                  v-if="accountOperationConfigItems.length"
+                  v-model="accountOperationConfigs.selected_id"
+                  :disabled="accountOperationConfigItems.length <= 1 || selectingOperationConfig"
+                  placeholder="请选择操作配置"
+                  style="flex: 1"
+                  @change="handleOperationConfigSelection"
+                >
+                  <el-option
+                    v-for="item in accountOperationConfigItems"
+                    :key="item.id"
+                    :label="operationConfigOptionLabel(item)"
+                    :value="item.id"
+                  />
+                </el-select>
+                <el-button
+                  plain
+                  :loading="refreshingOperationConfigs"
+                  @click="refreshAccountOperationConfigs"
+                >刷新平台数据</el-button>
+              </div>
+              <el-alert
+                v-if="!accountOperationConfigItems.length"
+                type="warning"
+                :closable="false"
+                title="尚未读取到操作配置，请先完成账号登录后刷新"
+              />
+              <el-alert
+                v-else-if="accountOperationConfigs.last_error"
+                type="warning"
+                :closable="false"
+                :title="`最近刷新失败，仍保留上次有效配置：${accountOperationConfigs.last_error}`"
+              />
+              <el-descriptions
+                v-if="selectedAccountOperationConfig.id"
+                :column="2"
+                size="small"
+                border
+                class="operation-config-details"
+              >
+                <el-descriptions-item label="配置名称">{{ selectedAccountOperationConfig.name || "-" }}</el-descriptions-item>
+                <el-descriptions-item label="配置ID">{{ selectedAccountOperationConfig.id }}</el-descriptions-item>
+                <el-descriptions-item label="操作机构">{{ selectedAccountOperationConfig.organization_name || "-" }}</el-descriptions-item>
+                <el-descriptions-item label="机构码">{{ selectedAccountOperationConfig.makecom_code || selectedAccountOperationConfig.com_code || "-" }}</el-descriptions-item>
+                <el-descriptions-item label="操作员">{{ operationConfigOperatorText(selectedAccountOperationConfig) }}</el-descriptions-item>
+                <el-descriptions-item label="经办人">{{ operationConfigHandlerText(selectedAccountOperationConfig) }}</el-descriptions-item>
+                <el-descriptions-item label="代理机构">{{ operationConfigAgentText(selectedAccountOperationConfig) }}</el-descriptions-item>
+                <el-descriptions-item label="业务性质">{{ operationConfigBusinessText(selectedAccountOperationConfig) }}</el-descriptions-item>
+              </el-descriptions>
+              <div v-if="accountOperationConfigs.refreshed_at" class="account-form-hint">
+                平台数据更新时间：{{ accountOperationConfigs.refreshed_at }}。除下拉选择外，其余字段均由平台返回，不能手工修改。
+              </div>
+            </div>
+          </el-form-item>
           <el-form-item label="查询额度">
             <div class="account-quota-row">
               <el-input
@@ -935,14 +995,17 @@ import {
   deleteAiPlatformDefaultConfig,
   getAiPlatformAccountHealth,
   getAiPlatformAccount,
+  getAiPlatformAccountOperationConfigs,
   listAiPlatformAccounts,
   listAiPlatformAccountTypes,
   listAiPlatformDefaultConfigs,
   listAiQuotePlatforms,
   loginAiPlatformAccount,
   recallAiSessionImages,
+  refreshAiPlatformAccountOperationConfigs,
   submitAiPlatformAccountLoginChallenge,
   updateAiPlatformAccount,
+  updateAiPlatformAccountOperationConfigSelection,
   updateAiPlatformDefaultConfig,
   uploadAiAssistantImage,
 } from "../../api/aiAssistant";
@@ -1015,6 +1078,27 @@ const accountForm = ref({
   quota_period_type: "day",
   confirm_enabled_edit: false,
 });
+const loadingOperationConfigs = ref(false);
+const refreshingOperationConfigs = ref(false);
+const selectingOperationConfig = ref(false);
+const accountOperationConfigs = ref({
+  supported: true,
+  status: "empty",
+  items: [],
+  selected_id: "",
+  selected: {},
+  refreshed_at: "",
+  last_error: "",
+});
+const accountOperationConfigItems = computed(() => (
+  Array.isArray(accountOperationConfigs.value?.items) ? accountOperationConfigs.value.items : []
+));
+const selectedAccountOperationConfig = computed(() => {
+  const selectedId = String(accountOperationConfigs.value?.selected_id || "").trim();
+  return accountOperationConfigItems.value.find((item) => String(item?.id || "").trim() === selectedId)
+    || accountOperationConfigs.value?.selected
+    || {};
+});
 const defaultConfigDialogVisible = ref(false);
 const defaultConfigFormVisible = ref(false);
 const loadingDefaultConfigs = ref(false);
@@ -1080,7 +1164,6 @@ function defaultProductConfigTemplateForType(typeName) {
     { field_name: "共享主险限额", field_value: "勾选" },
     { field_name: "医保外医疗费用责任险（第三者责任险）", field_value: "300" },
     { field_name: "附加外部电网故障损失险", field_value: "" },
-    { field_name: "操作机构代码", field_value: "36040213" },
     { field_name: "送修码启用", field_value: "勾选" },
     { field_name: "送修码", field_value: "3604731000027" },
     { field_name: "送修码名称", field_value: "濂溪区金鑫汽车修理厂" },
@@ -3728,6 +3811,119 @@ function resetAccountForm(row = null) {
     confirm_enabled_edit: false,
   };
   accountFormSnapshot.value = { ...accountForm.value };
+  applyAccountOperationConfigs(row?.operation_configs);
+}
+
+function applyAccountOperationConfigs(value = {}) {
+  const source = value && typeof value === "object" ? value : {};
+  const items = Array.isArray(source.items) ? source.items : [];
+  const selectedId = String(source.selected_id || "").trim();
+  accountOperationConfigs.value = {
+    supported: source.supported !== false,
+    status: String(source.status || (items.length ? "ready" : "empty")),
+    items,
+    selected_id: selectedId,
+    selected: source.selected && typeof source.selected === "object" ? source.selected : {},
+    refreshed_at: String(source.refreshed_at || ""),
+    last_error: String(source.last_error || ""),
+    last_error_at: String(source.last_error_at || ""),
+  };
+}
+
+function operationConfigOptionLabel(item) {
+  const name = String(item?.name || item?.id || "操作配置").trim();
+  const code = String(item?.makecom_code || item?.com_code || "").trim();
+  return code ? `${name}（${code}）` : name;
+}
+
+function operationConfigPair(name, code) {
+  const cleanName = String(name || "").trim();
+  const cleanCode = String(code || "").trim();
+  if (cleanName && cleanCode) return `${cleanName}（${cleanCode}）`;
+  return cleanName || cleanCode || "-";
+}
+
+function operationConfigOperatorText(item) {
+  return operationConfigPair(item?.operate_name, item?.operate_code);
+}
+
+function operationConfigHandlerText(item) {
+  return operationConfigPair(item?.handler_name || item?.handler1_name, item?.handler_code || item?.handler1_code);
+}
+
+function operationConfigAgentText(item) {
+  return operationConfigPair(item?.agent_name, item?.agent_code);
+}
+
+function operationConfigBusinessText(item) {
+  return operationConfigPair(item?.business_nature_name, item?.business_nature);
+}
+
+async function reloadAccountOperationConfigs(accountId) {
+  const expectedId = Number(accountId || 0);
+  if (!expectedId) return;
+  loadingOperationConfigs.value = true;
+  try {
+    const resp = await getAiPlatformAccountOperationConfigs(expectedId);
+    const data = resp?.data?.data ?? resp?.data ?? {};
+    if (Number(editingAccount.value?.id || 0) === expectedId) {
+      applyAccountOperationConfigs(data.operation_configs);
+    }
+  } finally {
+    loadingOperationConfigs.value = false;
+  }
+}
+
+async function refreshAccountOperationConfigs() {
+  const accountId = Number(editingAccount.value?.id || 0);
+  if (!accountId) return;
+  refreshingOperationConfigs.value = true;
+  try {
+    const resp = await refreshAiPlatformAccountOperationConfigs(accountId);
+    const data = resp?.data?.data ?? resp?.data ?? {};
+    applyAccountOperationConfigs(data.operation_configs);
+    if (accountOperationConfigs.value.last_error) {
+      ElNotification.warning({
+        title: "平台操作配置刷新失败",
+        message: accountOperationConfigs.value.last_error,
+        duration: 5000,
+      });
+    } else {
+      ElMessage.success(`已读取 ${accountOperationConfigItems.value.length} 条平台操作配置`);
+    }
+    await loadPlatformAccounts();
+  } catch (e) {
+    ElNotification.error({
+      title: "操作配置刷新失败",
+      message: quoteApiErrorMessage(e, "操作配置刷新失败"),
+      duration: 5000,
+    });
+  } finally {
+    refreshingOperationConfigs.value = false;
+  }
+}
+
+async function handleOperationConfigSelection(selectedId) {
+  const accountId = Number(editingAccount.value?.id || 0);
+  const cleanId = String(selectedId || "").trim();
+  if (!accountId || !cleanId) return;
+  selectingOperationConfig.value = true;
+  try {
+    const resp = await updateAiPlatformAccountOperationConfigSelection(accountId, cleanId);
+    const data = resp?.data?.data ?? resp?.data ?? {};
+    applyAccountOperationConfigs(data.operation_configs);
+    ElMessage.success("账号操作配置已切换，后续报价将使用该配置");
+    await loadPlatformAccounts();
+  } catch (e) {
+    await reloadAccountOperationConfigs(accountId).catch(() => {});
+    ElNotification.error({
+      title: "操作配置切换失败",
+      message: quoteApiErrorMessage(e, "操作配置切换失败"),
+      duration: 5000,
+    });
+  } finally {
+    selectingOperationConfig.value = false;
+  }
 }
 
 async function openAccountForm(row = null) {
@@ -3759,6 +3955,7 @@ async function hydrateAccountFormDetail(accountId) {
     const account = data?.account && typeof data.account === "object" ? data.account : {};
     if (!accountFormVisible.value || Number(editingAccount.value?.id || 0) !== expectedId) return;
     editingAccount.value = { ...(editingAccount.value || {}), ...account };
+    applyAccountOperationConfigs(account.operation_configs);
     accountForm.value = {
       ...accountForm.value,
       platform_code: hydrateFormField("platform_code", account.platform_code || accountForm.value.platform_code),
@@ -5634,6 +5831,27 @@ onBeforeUnmount(() => {
   margin-bottom: 10px;
   font-size: 12px;
   color: rgba(31, 42, 68, 0.65);
+}
+
+.operation-config-panel {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.operation-config-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.operation-config-details {
+  width: 100%;
+}
+
+.operation-config-panel .account-form-hint {
+  margin-bottom: 0;
 }
 
 .account-notice {
