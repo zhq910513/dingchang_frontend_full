@@ -903,6 +903,16 @@
             style="width: 100%"
           />
           <el-input
+            v-else-if="field.type === 'number'"
+            v-model="quoteMaterialFormValues[field.key]"
+            type="number"
+            inputmode="numeric"
+            :min="field.min ?? 1"
+            :max="field.max ?? 99"
+            :placeholder="field.placeholder || `请输入${field.label || field.key}`"
+            clearable
+          />
+          <el-input
             v-else
             v-model="quoteMaterialFormValues[field.key]"
             @update:model-value="handleQuoteMaterialFieldChange(field.key, $event)"
@@ -941,6 +951,16 @@
                   value-format="YYYY-MM-DD"
                   placeholder="请选择日期"
                   style="width: 100%"
+                />
+                <el-input
+                  v-else-if="field.type === 'number'"
+                  v-model="quoteMaterialFormValues[field.key]"
+                  type="number"
+                  inputmode="numeric"
+                  :min="field.min ?? 1"
+                  :max="field.max ?? 99"
+                  :placeholder="field.placeholder || `请输入${field.label || field.key}`"
+                  clearable
                 />
                 <el-input
                   v-else
@@ -1916,6 +1936,7 @@ function quoteMaterialSubmitLabel(field) {
     compulsory_start_date: "交强起保日期",
     vehicle_model: "车型名称",
     car_name: "销售车型",
+    approved_passenger_count: "核定载客数",
   };
   return labelMap[key] || String(field?.label || key).replace(/（选填）$/, "").trim();
 }
@@ -2024,6 +2045,11 @@ function handleRemoveQuoteMaterialExtraField(key) {
 }
 
 async function submitQuoteMaterialForm() {
+  const passengerCount = String(quoteMaterialFormValues.value.approved_passenger_count ?? "").trim();
+  if (passengerCount && (!/^\d{1,2}$/.test(passengerCount) || Number(passengerCount) < 1 || Number(passengerCount) > 99)) {
+    ElMessage.warning("核定载客数只能填写1-99的正整数");
+    return;
+  }
   const missing = quoteMaterialMissingRequiredLabels();
   if (missing.length) {
     ElMessage.warning(`请先补齐：${missing.slice(0, 5).join("、")}`);
